@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta charset="UTF-8">
+    <meta name="Description" content="ライフゲーム">
+    <title>ライフゲーム</title>
+  </head>
+  <body>
+    <canvas width="1024" height="1024">
+      <script data-name="mainShader,lifeShader" type="x-shader/x-vertex">
+        attribute vec2 position;
+        void main(void) {
+          gl_Position = vec4(position, 0.0, 1.0);
+        }
+      </script>
+      <script data-name="mainShader" type="x-shader/x-fragment">
+        precision mediump float;
+
+        const vec2 iReso = 1.0 / vec2(${canvas.width}, ${canvas.height});
+
+        uniform sampler2D texture;
+
+        void main(void) {
+          gl_FragColor = texture2D(texture, gl_FragCoord.xy * iReso);
+        }
+      </script>
+      <script data-name="lifeShader" type="x-shader/x-fragment">
+        precision mediump float;
+
+        const vec2 iReso = 1.0 / vec2(${canvas.width}, ${canvas.height});
+
+        uniform sampler2D texture;
+
+        vec3 getVal(vec2 pos) {
+          return texture2D(texture, (gl_FragCoord.xy + pos) * iReso).rgb;
+        }
+
+        void main(void) {
+          vec3 count = getVal(vec2(0.0)) * 0.5;
+          count += getVal(vec2(-1.0, -1.0));
+          count += getVal(vec2( 0.0, -1.0));
+          count += getVal(vec2( 1.0, -1.0));
+          count += getVal(vec2(-1.0,  0.0));
+          count += getVal(vec2( 1.0,  0.0));
+          count += getVal(vec2(-1.0,  1.0));
+          count += getVal(vec2( 0.0,  1.0));
+          count += getVal(vec2( 1.0,  1.0));
+          gl_FragColor = vec4(1.0 - floor(abs(count - 3.0)), 1.0);
+        }
+      </script>
+    </canvas>
+    <script src="gls3.js"></script>
+    <script src="gls3-lib.js"></script>
+    <!--<script src="gls3-dev.js"></script>-->
+    <script>
+      'use strict';
+
+      var gls = new Gls('canvas', {context: {alpha: true, depth: false, antialias: false}});
+
+      gls.frame1 = gls.createFramebuffer();
+      gls.frame2 = gls.createFramebuffer();
+
+      gls.geom = gls.createGeometry(['mainShader', 'lifeShader']);
+      gls.geom.addMesh();
+
+      gls.bindFramebuffer(gls.frame1);
+      gls.mainShader.uniform.texture = function () {
+        var imageData = document.createElement('canvas').getContext('2d').createImageData(gls.canvas.width, gls.canvas.height);
+        //var imageData = new ImageData(gls.canvas.width, gls.canvas.height);
+        var d = new Uint32Array(imageData.data.buffer);
+        for (var i = 0; i < d.length; i++) {
+          var v = Math.random() < 0.5 ? 0 : 255;
+          d[i] = v << 0 | v << 8 | v << 16 | 255 << 24;
+        }
+        return gls.createTexture(imageData, gls.NEAREST_REPEAT);
+      }();
+      gls.mainShader.draw(gls.geom);
+
+      !function loop() {
+        requestAnimationFrame(loop);
+
+        gls.bindFramebuffer(gls.frame2);
+        gls.lifeShader.uniform.texture = gls.frame1;
+        gls.lifeShader.draw(gls.geom);
+
+        gls.bindFramebuffer(null);
+        gls.mainShader.uniform.texture = gls.frame2;
+        gls.mainShader.draw(gls.geom);
+
+        var tmp = gls.frame1;
+        gls.frame1 = gls.frame2;
+        gls.frame2 = tmp;
+      }();
+    </script>
+  </body>
+</html>

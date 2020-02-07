@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta charset="UTF-8">
+    <meta name="Description" content="模様生成">
+    <title>模様生成</title>
+    <style>
+body {
+    background: white;
+}
+canvas {
+    border: 1px solid gray;
+}
+input, button, select {
+    font-family: inherit;
+    font-size: inherit;
+}
+input[type="number"] {
+    text-align: right;
+}
+    </style>
+  </head>
+  <body>
+    <label>
+      No.<input id="seedInput" type="number" min="1" max="4294967295" value="1" onclick="ui.update()" onkeyup="ui.update()">
+    </label>
+    <label>サイズ
+      <select id="resoSelect" onchange="ui.update()">
+        <option value="256">小 (256x256)</option>
+        <option value="512" selected>中 (512x512)</option>
+        <option value="1024">大 (1024x1024)</option>
+        <option value="2048">特大 (2048x2048)</option>
+      </select>
+    </label>
+    <button onclick="ui.handlePrevButton(event)">前</button>
+    <button onclick="ui.handleNextButton(event)">次</button>
+    <button onclick="ui.handleSaveButton(event)">保存</button>
+    <br>
+    <canvas id="view" width="512" height="512">
+      WebGL is not supported.
+      <script data-name="mainShader" type="x-shader/x-vertex">
+        attribute float id;
+        void main() {
+            gl_Position = vec4(vec2(mod(id, 2.0), floor(id / 2.0)) * 2.0 - 1.0, 0.0, 1.0);
+        }
+      </script>
+      <script data-name="mainShader" type="x-shader/x-fragment">
+        precision mediump float;
+        const vec3 hue = vec3(0.0, 2.0 / 3.0, 1.0 / 3.0);
+        uniform sampler2D texture;
+        uniform float reso;
+        uniform float rot;
+
+        vec4 hsla(vec4 c) {
+            float s = clamp(c.y, 0.0, 1.0);
+            float l = clamp(c.z, 0.0, 1.0);
+
+            vec2 range = vec2(-1.0, 1.0) * s + 1.0;
+            if (l < 0.5) {
+                range = l * range;
+            } else {
+                range = 1.0 - (l - 1.0) * (range - 2.0);
+            }
+
+            vec3 rgb = clamp(abs(fract(c.x + hue) * 6.0 - 3.0) - 1.0, 0.0, 1.0);
+            return vec4(rgb * (range.y - range.x) + range.x, c.w);
+        }
+
+        float getVal(vec2 p) {
+            p += gl_FragCoord.xy * vec2(1.0, -1.0) / reso;
+            vec2 c = texture2D(texture, p).rg;
+            return c.r + c.g / 256.0;
+        }
+
+        void main() {
+            float vx = getVal(vec2(0.8, 0.0));
+            float vy = getVal(vec2(0.0, 0.2));
+
+            float hue = getVal(vec2(vx, vy)) + rot;
+            float lightness = sin(getVal(vec2(vx + 0.7, vy + 0.3)) * 10.0) / 4.0 + 0.9;
+
+            gl_FragColor = hsla(vec4(hue, 0.65, lightness, 1.0));
+            //gl_FragColor = hsla(vec4(0.7, 0.5, getVal(vec2(0.0)), 1.0));
+        }
+      </script>
+    </canvas>
+    <script src="gls3.js"></script>
+    <!--<script src="gl-matrix-min.js"></script>-->
+    <!--<script src="gls3-lib.js"></script>-->
+    <!--<script src="gls3-dev.js"></script>-->
+    <script>
+'use strict';
+
+function Math_mod(a, b) {
+    var c = a % b;
+    return c < 0 ? c + b : c;
+}
+
+function Math_mean(arr) {
+    var sum = 0;
+    for (var i = 0; i < arr.length; i++) sum += arr[i];
+    return sum / arr.length;
+}
+
+function XorShift32star(seed) {
+    this.y = seed;
+    if (this.y === undefined) this.y = Date.now();
+    this.y = this.y >>> 0;
+    if (this.y === 0) this.y = 0x7d68d45f;
+}
+XorShift32star.prototype.next = function () {
+    this.y ^= this.y << 13;
+    this.y ^= this.y >>> 17;
+    this.y ^= this.y << 15;
+    return ((this.y >>> 0) * 0x92F8B >>> 0) / 0x100000000;
+};
+
+function MyRand(seed) {
+    this.rand = new XorShift32star(seed);
+    this.arr = [];
+    this.counter = 0;
+    this.m = ((seed + 1) % 2) + 1;
+    this.limit = (seed % 9) + 2;
+}
+MyRand.prototype.next = function () {
+    if (this.counter++ < this.limit) {
+        var s = 0;
+        for (var i = 0; i < 6; i++) s += this.rand.next();
+        this.arr[this.counter % this.m] = s - 3;
+    }
+    return this.arr[this.counter % this.m];
+};
+
+function MyNoise(reso, seed) {
+    this.rand = new MyRand(seed);
+    this.arr = new Float32Array(reso * reso);
+    this.min = 0;
+    this.max = 0;
+    this.reso = reso;
+    this.draw(0, 0, 1, 0);
+}
+MyNoise.prototype.getPixel = function (x, y) {
+    var p = Math_mod(Math.floor(x), this.reso) + Math_mod(Math.floor(y), this.reso) * this.reso;
+    return this.arr[p];
+};
+MyNoise.prototype.draw = function (x, y, s, n) {
+    if (s >= this.reso) {
+        var tmp = Math.log(n) / Math.LN2 + 1;
+        var c = Math.pow(2, -tmp >> 1) * this.reso;
+        var d = tmp & 1 && c;
+        var mean = Math_mean([
+            this.getPixel(x - c, y - d),
+            this.getPixel(x + d, y - c),
+            this.getPixel(x - d, y + c),
+            this.getPixel(x + c, y + d),
+        ]);
+        var sigma = Math.sqrt(c * c + d * d);
+        var val = this.rand.next() * sigma + mean;
+        if (this.min > val) this.min = val;
+        if (this.max < val) this.max = val;
+        this.arr[x + y * this.reso] = val;
+        return;
+    }
+    var s2 = s * 2, n4 = n * 4;
+    this.draw(x, y, s2, n4);
+    this.draw(x + s, y + s, s2, n4 + 1);
+    this.draw(x + s, y, s2, n4 + 2);
+    this.draw(x, y + s, s2, n4 + 3);
+};
+MyNoise.prototype.getVal = function (i) {
+    return (this.arr[i] - this.min) / (this.max - this.min);
+};
+
+function Main() {
+    this.gls = new Gls('#view', {context: {alpha: false, depth: false, antialias: false}});
+    this.geom = this.gls.createGeometry(['mainShader'], this.gls.TRIANGLE_STRIP);
+    this.geom.assign(4, null, function (vertices) {
+        for (var i = 0; i < vertices.length; i++) {
+            var attribute = vertices[i];
+            attribute.id[0] = i;
+        }
+    });
+    this.gls.clearColor(1, 1, 1, 1);
+    this.gls.clear(this.gls.COLOR_BUFFER_BIT);
+}
+Main.prototype.draw = function (reso, seed) {
+    var begin = Date.now();
+    this.gls.canvas.width = this.gls.canvas.height = reso;
+    this.gls.viewport(0, 0, reso, reso);
+
+    this.gls.mainShader.uniform.texture = this.createTexture(reso, seed);
+    this.gls.mainShader.uniform.rot = Math_mod(seed * Math.PI, 1);
+    this.gls.mainShader.uniform.reso = reso;
+
+    this.gls.mainShader.draw(this.geom);
+    var end = Date.now();
+    console.log(end - begin + ' ms');
+};
+Main.prototype.createTexture = function (reso, seed) {
+    var imageData = document.createElement('canvas').getContext('2d').createImageData(reso, reso);
+    var noise = new MyNoise(reso, seed);
+    for (var i = 0, l = imageData.data.length / 4; i < l; i++) {
+        var v = noise.getVal(i);
+        imageData.data[i * 4 + 0] = v * 0x100 & 0xFF;
+        imageData.data[i * 4 + 1] = v * 0x10000 & 0xFF;
+    }
+    return this.gls.createTexture(imageData, this.gls.NEAREST_REPEAT);
+};
+
+function Util_download(url, filename, callback) {
+    // http://qiita.com/Evolutor_web/items/162bfcf83695c83f1077
+    // http://qiita.com/tonkotsuboy_com/items/7b36bdfc3a9a0970d23b
+    var ua = window.navigator.userAgent.toLowerCase();
+    if (ua.indexOf('msie') != -1 || ua.indexOf('trident') != -1 || ua.indexOf('edge') != -1) {
+        // http://webkatu.com/a-download-on-ie/
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', url);
+        xhr.responseType = 'blob';
+        xhr.onloadend = function() {
+            if(xhr.status !== 200) return;
+            window.navigator.msSaveBlob(xhr.response, filename);
+            if (callback) { callback(); }
+        };
+        xhr.send();
+    } else {
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        if (callback) { setTimeout(callback, 0); }
+    }
+}
+// http://stackoverflow.com/questions/4998908/convert-data-uri-to-file-then-append-to-formdata
+function Util_dataURItoBlob(dataURI) {
+    var byteString;
+    if (dataURI.split(',')[0].indexOf('base64') >= 0) {
+        byteString = atob(dataURI.split(',')[1]);
+    } else {
+        byteString = unescape(dataURI.split(',')[1]);
+    }
+    var mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+    var ia = new Uint8Array(byteString.length);
+    for (var i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+    }
+    return new Blob([ia], {type: mimeString});
+}
+
+function UI() {
+    this.main = new Main();
+    this.seedInput = document.querySelector('#seedInput');
+    this.resoSelect = document.querySelector('#resoSelect');
+}
+UI.prototype.handlePrevButton = function (event) {
+    var seed = Math.max(parseInt(this.seedInput.value) - 1, this.seedInput.min);
+    this.seedInput.value = seed;
+    this.update();
+};
+UI.prototype.handleNextButton = function (event) {
+    var seed = Math.min(parseInt(this.seedInput.value) + 1, this.seedInput.max);
+    this.seedInput.value = seed;
+    this.update();
+};
+UI.prototype.handleSaveButton = function (event) {
+    var url = URL.createObjectURL(Util_dataURItoBlob(this.main.gls.canvas.toDataURL()));
+        var seed = parseInt(this.seedInput.value);
+        var reso = parseInt(this.resoSelect.value);
+    Util_download(url, seed + '-' + reso + '.png', function () {
+        URL.revokeObjectURL(url);
+    });
+
+};
+UI.prototype.update = function () {
+    if (this.tid !== null) clearTimeout(this.tid);
+    this.tid = setTimeout(function () {
+        this.tid = null;
+        var seed = parseInt(this.seedInput.value);
+        var reso = parseInt(this.resoSelect.value);
+        this.main.draw(reso, seed);
+    }.bind(this), 0);
+};
+
+var ui = new UI();
+ui.update();
+    </script>
+  </body>
+</html>
