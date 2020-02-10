@@ -71,7 +71,7 @@ input[type="number"] {
         float getVal(vec2 p) {
             p += gl_FragCoord.xy * vec2(1.0, -1.0) / reso;
             vec2 c = texture2D(texture, p).rg;
-            return c.r + c.g / 256.0;
+            return c.g + c.r / 256.0;
         }
 
         void main() {
@@ -200,11 +200,11 @@ Main.prototype.draw = function (reso, seed) {
 };
 Main.prototype.createTexture = function (reso, seed) {
     var imageData = document.createElement('canvas').getContext('2d').createImageData(reso, reso);
+    var d = new Uint32Array(imageData.data.buffer);
     var noise = new MyNoise(reso, seed);
-    for (var i = 0, l = imageData.data.length / 4; i < l; i++) {
+    for (var i = 0, l = d.length; i < l; i++) {
         var v = noise.getVal(i);
-        imageData.data[i * 4 + 0] = v * 0x100 & 0xFF;
-        imageData.data[i * 4 + 1] = v * 0x10000 & 0xFF;
+        d[i] = Math.min(Math.max(0, Math.floor(v * 65536)), 65535);
     }
     return this.gls.createTexture(imageData, this.gls.NEAREST_REPEAT);
 };
