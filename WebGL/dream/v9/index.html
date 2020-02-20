@@ -22,7 +22,8 @@ input[type="number"] {
 }
     </style>
   </head>
-  <body>
+  <body onload="ui.update()">
+    <noscript><p>Please enable JavaScript in your browser.</p></noscript>
     <label>
       No.<input id="seedInput" type="number" min="1" max="4294967295" value="1" onclick="ui.update()" onkeyup="ui.update()">
     </label>
@@ -89,8 +90,6 @@ input[type="number"] {
         }
       </script>
     </canvas>
-    <noscript><p>Please enable JavaScript in your browser.</p></noscript>
-    <script nomodule src="nomodule.js"></script>
     <script src="gls3.js"></script>
     <!--<script src="gl-matrix-min.js"></script>-->
     <!--<script src="gls3-lib.js"></script>-->
@@ -102,9 +101,7 @@ function Math_mod(a, b) {
 }
 
 function Math_mean(...arr) {
-  let sum = 0;
-  for (const v of arr) sum += v;
-  return sum / arr.length;
+  return arr.reduce((s, v) => s + v) / arr.length;
 }
 
 class XorShift32star {
@@ -118,23 +115,22 @@ class XorShift32star {
     this.y ^= this.y << 15;
     return ((this.y >>> 0) * 0x92F8B >>> 0) / 0x100000000;
   }
+  irand(min, max) {
+    return Math.floor(this.next() * (max - min + 1) + min);
+  }
 }
 
 class MyRand {
-  constructor(rand) {
-    this.rand = rand;
-    this.arr = [];
-    this.counter = 0;
-    this.m = Math.floor(this.rand.next() * 2) + 1;
-    this.limit = Math.floor(this.rand.next() * 6) + 2;
+  constructor(xos) {
+    this.counter = -1;
+    this.m = xos.irand(1, 2);
+    this.arr = Array(xos.irand(2, 7)).fill().map(() =>
+      Array(6).fill().reduce(s => s + xos.next(), 0) - 3
+    );
   }
   next() {
-    if (this.counter++ < this.limit) {
-      let s = 0;
-      for (const i of Array(6).keys()) s += this.rand.next();
-      this.arr[this.counter % this.m] = s - 3;
-    }
-    return this.arr[this.counter % this.m];
+    if (++this.counter >= this.arr.length) this.counter -= this.m;
+    return this.arr[this.counter];
   }
 }
 
@@ -184,11 +180,9 @@ class Main {
   constructor() {
     this.gls = new Gls('#view', {context: {alpha: false, depth: false, antialias: false}});
     this.geom = this.gls.createGeometry(['mainShader'], this.gls.TRIANGLE_STRIP);
-    this.geom.assign(4, null, function (vertices) {
-      for (const [i, attribute] of vertices.entries()) {
-        attribute.id[0] = i;
-      }
-    });
+    this.geom.assign(4, null, vertices =>
+      vertices.forEach((attribute, i) => attribute.id[0] = i)
+    );
     this.gls.clearColor(1, 1, 1, 1);
     this.gls.clear(this.gls.COLOR_BUFFER_BIT);
   }
@@ -215,39 +209,26 @@ class Main {
     const imageData = document.createElement('canvas').getContext('2d').createImageData(reso, reso);
     const d = new Uint32Array(imageData.data.buffer);
     const noise = new MyNoise(reso, xos);
-    for (const i of d.keys()) {
+    d.forEach((_v, i) => {
       const v = noise.getVal(i);
       d[i] = Math.min(Math.max(0, Math.floor(v * 65536)), 65535);
-    }
+    });
     return this.gls.createTexture(imageData, this.gls.NEAREST_REPEAT);
   }
 }
 
 class Util {
-  static download(url, filename) {
-    return new Promise(function (resolve, reject) {
-      // http://qiita.com/Evolutor_web/items/162bfcf83695c83f1077
-      // http://qiita.com/tonkotsuboy_com/items/7b36bdfc3a9a0970d23b
-      const ua = window.navigator.userAgent.toLowerCase();
-      if (ua.indexOf('msie') !== -1 || ua.indexOf('trident') !== -1 || ua.indexOf('edge') !== -1) {
-        // http://webkatu.com/a-download-on-ie/
-        const xhr = new XMLHttpRequest();
-        xhr.open('GET', url);
-        xhr.responseType = 'blob';
-        xhr.onloadend = function () {
-          if (xhr.status !== 200) return;
-          window.navigator.msSaveBlob(xhr.response, filename);
-          resolve();
-        };
-        xhr.send();
-      } else {
-        document.body.insertAdjacentHTML('beforeend', `<a href="${url}" download="${filename}" hidden></a>`);
-        const a = document.body.lastChild;
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(resolve, 0);
-      }
-    });
+  static saveBlob(blob, filename = blob.name) {
+    if (navigator.msSaveBlob) {
+        navigator.msSaveBlob(blob, filename);
+    } else {
+      const url = URL.createObjectURL(blob);
+      document.body.insertAdjacentHTML('beforeend', `<a href="${url}" download="${filename}" hidden></a>`);
+      const a = document.body.lastChild;
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(URL.revokeObjectURL.bind(URL), 0, url);
+    }
   }
   // http://stackoverflow.com/questions/4998908/convert-data-uri-to-file-then-append-to-formdata
   static dataURItoBlob(dataURI) {
@@ -272,36 +253,40 @@ class UI {
     this.seedInput = document.querySelector('#seedInput');
     this.resoSelect = document.querySelector('#resoSelect');
   }
+  setSeed(seed) {
+    this.seedInput.value = Math.min(Math.max(parseInt(this.seedInput.min), parseInt(seed)), parseInt(this.seedInput.max));
+  }
+  getSeed() {
+    return parseInt(this.seedInput.value);
+  }
+  getReso() {
+    return parseInt(this.resoSelect.value);
+  }
   handlePrevButton(event) {
-    const seed = Math.max(parseInt(this.seedInput.value) - 1, this.seedInput.min);
-    this.seedInput.value = seed;
+    this.setSeed(this.getSeed() - 1);
     this.update();
   }
   handleNextButton(event) {
-    const seed = Math.min(parseInt(this.seedInput.value) + 1, this.seedInput.max);
-    this.seedInput.value = seed;
+    this.setSeed(this.getSeed() + 1);
     this.update();
   }
-  async handleSaveButton(event) {
-    const url = URL.createObjectURL(Util.dataURItoBlob(this.main.gls.canvas.toDataURL()));
-    const seed = parseInt(this.seedInput.value);
-    const reso = parseInt(this.resoSelect.value);
-    await Util.download(url, seed + '-' + reso + '.png');
-    URL.revokeObjectURL(url);
+  handleSaveButton(event) {
+    const blob = Util.dataURItoBlob(this.main.gls.canvas.toDataURL());
+    const seed = this.getSeed();
+    const reso = this.getReso();
+    Util.saveBlob(blob, seed + '-' + reso + '.png');
   }
   update() {
-    if (this.tid !== null) clearTimeout(this.tid);
-    this.tid = setTimeout(function () {
+    if (this.tid != null) clearTimeout(this.tid);
+    this.tid = setTimeout(() => {
       this.tid = null;
-      const seed = parseInt(this.seedInput.value);
-      const reso = parseInt(this.resoSelect.value);
-      this.main.draw(reso, seed);
-    }.bind(this), 0);
+      this.main.draw(this.getReso(), this.getSeed());
+    }, 0);
   }
 }
 
 window.ui = new UI();
-ui.update();
     </script>
+    <script nomodule src="nomodule.js"></script>
   </body>
 </html>
