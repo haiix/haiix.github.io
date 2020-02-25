@@ -22,7 +22,7 @@ input[type="number"] {
 }
     </style>
   </head>
-  <body onload="ui.update()">
+  <body>
     <noscript><p>Please enable JavaScript in your browser.</p></noscript>
     <label>
       No.<input id="seedInput" type="number" min="1" max="4294967295" value="1" onclick="ui.update()" onkeyup="ui.update()">
@@ -286,6 +286,7 @@ class UI {
 }
 
 window.ui = new UI();
+ui.update();
     </script>
     <script nomodule src="nomodule.js"></script>
   </body>
