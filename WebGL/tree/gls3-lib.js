@@ -38,7 +38,7 @@ Geometry.prototype.addMesh = function (mesh) {
     var callback = mesh.shape;
     var size = (uloop ? unum : unum + 1) * (vnum + 1);
     var indexSize = (unum * 2 + 4) * vnum;
-    this.assign(size, indexSize, function (vtx, idx) {
+    this.allocate(size, indexSize, function (vtx, idx) {
         createMesh(vtx, idx, unum, vnum, uloop);
         if (callback) {
             callback = callback.bind(mesh);

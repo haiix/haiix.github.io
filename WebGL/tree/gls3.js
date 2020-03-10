@@ -1,7 +1,7 @@
 var Gls = function () {
 'use strict';
 
-Gls.VERSION = '0.3.23';
+Gls.VERSION = '0.3.24';
 
 var GL = window.WebGLRenderingContext || {};
 
@@ -35,6 +35,7 @@ var Gls_initializers = [];
 function Gls(canvas, param) {
     if (!(this instanceof Gls)) throw new Error('Should call as new Gls()');
     param = Object.create(param || null);
+    param.PI = Math.PI;
     for (var i = 0, l = Gls_initializers.length; i < l; i++) {
         Gls_initializers[i].call(this, canvas, param);
     }
@@ -96,8 +97,6 @@ function fetchAttributeType(src) {
     return attribute;
 }
 function replaceParam(str, param) {
-    param = Object.create(param || null);
-    param.PI = Math.PI;
     return str.replace(/\$\{(.+?)\}/g, function (_, keys) {
         var cur = param, i, key, val, type;
         keys = keys.split('.');
@@ -402,16 +401,16 @@ function Geometry(gl, programs, mode, usage) {
     }
     this.strideSize = offset;
     //this.uniform = Object.create(null);
-    this.assigned = [];
+    this.allocated = [];
     this.buffers = [];
     this.currBufferSize = 0;
     this.currIndexBufferSize = 0;
 }
-Geometry.prototype.assign = function (size, indexSize, callback) {
+Geometry.prototype.allocate = function (size, indexSize, callback) {
     if (this.currBufferSize + size > 65536) {
         Geometry_build.call(this);
     }
-    this.assigned.push({
+    this.allocated.push({
         size: size,
         indexSize: indexSize,
         callback: callback || noop,
@@ -420,11 +419,11 @@ Geometry.prototype.assign = function (size, indexSize, callback) {
     this.currIndexBufferSize += indexSize;
 };
 function Geometry_build() {
-    if (this.assigned.length === 0) return;
+    if (this.allocated.length === 0) return;
     var buffer = new Buffer(this.currBufferSize, this.currIndexBufferSize, this.strideSize);
     var bytes = new Uint8Array(buffer.vertexes);
-    for (var ai = 0, offset = 0, indexOffset = 0; ai < this.assigned.length; ai++) {
-        var a = this.assigned[ai];
+    for (var ai = 0, offset = 0, indexOffset = 0; ai < this.allocated.length; ai++) {
+        var a = this.allocated[ai];
         var vertices = Buffer_fetchVertices.call(buffer, offset, a.size, this.strideSize, this.attribute);
         var indices = Buffer_fetchIndices.call(buffer, indexOffset, a.indexSize);
         a.callback.call(null, vertices, indices);
@@ -437,7 +436,7 @@ function Geometry_build() {
         indexOffset += a.indexSize;
     }
     this.buffers.push(buffer);
-    this.assigned.length = 0;
+    this.allocated.length = 0;
     this.currBufferSize = 0;
     this.currIndexBufferSize = 0;
 }

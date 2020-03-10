@@ -1,7 +1,7 @@
 var Gls = function () {
 'use strict';
 
-Gls.VERSION = '0.3.21';
+Gls.VERSION = '0.3.24';
 
 var GL = window.WebGLRenderingContext || {};
 
@@ -71,7 +71,7 @@ Gls_initializers.push(function (canvas, param) {
         div = document.createElement('div');
         div.innerHTML = this.canvas.innerHTML;
         this.canvas.parentNode.replaceChild(div, this.canvas);
-        throw new Error('WebGL not supported');
+        throw new Error('WebGL is not supported');
     }
     this.gl = gl;
 });
@@ -136,21 +136,24 @@ function FragmentShader(gl, src) {
 }
 //FragmentShader.prototype = Object.create(Shader.prototype);
 
+function compileShader(gl, Shader, src, param) {
+    var attribute;
+    src = removeComment(src);
+    if (Shader === VertexShader) attribute = fetchAttributeType(src);
+    src = replaceParam(src, param);
+    return new Shader(gl, src, attribute);
+}
 Gls_initializers.push(function (canvas, param) {
     param.ushort2 = 'vec2';
     param.ubyte4 = 'vec4';
     function initShaders(gl, Shader, selector) {
-        var elements, shaders, i, element, names, src, attribute, shader, j, name;
+        var elements, shaders, i, element, names, src, shader, j, name;
         elements = gl.canvas.querySelectorAll(selector);
         shaders = Object.create(null);
         for (i = 0; i < elements.length; i++) {
             element = elements[i];
             names = (element.getAttribute('data-name') || '').split(',');
-            src = element.textContent;
-            src = removeComment(src);
-            if (Shader === VertexShader) attribute = fetchAttributeType(src);
-            src = replaceParam(src, param);
-            shader = new Shader(gl, src, attribute);
+            shader = compileShader(gl, Shader, element.textContent, param);
             for (j = 0; j < names.length; j++) {
                 name = names[j];
                 if (shaders[name]) throw new Error('Duplicate shader name: ' + name);
@@ -215,6 +218,12 @@ Gls_initializers.push(function (canvas, param) {
     }
     this._program = program;
 });
+Gls.prototype.createProgram = function (vsSrc, fsSrc, param) {
+    var vs = compileShader(this.gl, VertexShader, vsSrc, param);
+    var fs = compileShader(this.gl, FragmentShader, fsSrc, param);
+    var name = 't_' + Date.now();
+    return new Program(this, name, vs, fs);
+};
 
 ////////////////////////////////////////////////////////////
 // Program/Attribute
@@ -378,8 +387,8 @@ function Buffer_fetchIndices(offset, size) {
 
 function Geometry(gl, programs, mode, usage) {
     this.programs = programs;
-    this.mode = mode || gl.TRIANGLE_STRIP;
-    this.usage = usage || gl.DYNAMIC_DRAW;
+    this.mode = mode != null ? mode : gl.TRIANGLE_STRIP;
+    this.usage = usage != null ? usage : gl.DYNAMIC_DRAW;
     this.attribute = Object.create(null);
     for (var i = 0; i < programs.length; i++) {
         mergeAttribute(this.attribute, programs[i].attribute);
@@ -392,16 +401,16 @@ function Geometry(gl, programs, mode, usage) {
     }
     this.strideSize = offset;
     //this.uniform = Object.create(null);
-    this.assigned = [];
+    this.allocated = [];
     this.buffers = [];
     this.currBufferSize = 0;
     this.currIndexBufferSize = 0;
 }
-Geometry.prototype.assign = function (size, indexSize, callback) {
+Geometry.prototype.allocate = function (size, indexSize, callback) {
     if (this.currBufferSize + size > 65536) {
         Geometry_build.call(this);
     }
-    this.assigned.push({
+    this.allocated.push({
         size: size,
         indexSize: indexSize,
         callback: callback || noop,
@@ -410,11 +419,11 @@ Geometry.prototype.assign = function (size, indexSize, callback) {
     this.currIndexBufferSize += indexSize;
 };
 function Geometry_build() {
-    if (this.assigned.length === 0) return;
+    if (this.allocated.length === 0) return;
     var buffer = new Buffer(this.currBufferSize, this.currIndexBufferSize, this.strideSize);
     var bytes = new Uint8Array(buffer.vertexes);
-    for (var ai = 0, offset = 0, indexOffset = 0; ai < this.assigned.length; ai++) {
-        var a = this.assigned[ai];
+    for (var ai = 0, offset = 0, indexOffset = 0; ai < this.allocated.length; ai++) {
+        var a = this.allocated[ai];
         var vertices = Buffer_fetchVertices.call(buffer, offset, a.size, this.strideSize, this.attribute);
         var indices = Buffer_fetchIndices.call(buffer, indexOffset, a.indexSize);
         a.callback.call(null, vertices, indices);
@@ -427,15 +436,15 @@ function Geometry_build() {
         indexOffset += a.indexSize;
     }
     this.buffers.push(buffer);
-    this.assigned.length = 0;
+    this.allocated.length = 0;
     this.currBufferSize = 0;
     this.currIndexBufferSize = 0;
 }
-Gls.prototype.createGeometry = function (programNames, mode, usage) {
-    var programs = [];
-    for (var i = 0; i < programNames.length; i++) {
-        var programName = programNames[i];
-        programs.push(this._program[programName]);
+Gls.prototype.createGeometry = function (programs, mode, usage) {
+    programs = programs.slice();
+    for (var i = 0; i < programs.length; i++) {
+        var program = programs[i];
+        if (typeof program === 'string') programs[i] = this._program[program];
     }
     return new Geometry(this.gl, programs, mode, usage);
 };

@@ -180,7 +180,7 @@ class Main {
   constructor() {
     this.gls = new Gls('#view', {context: {alpha: false, depth: false, antialias: false}});
     this.geom = this.gls.createGeometry(['mainShader'], this.gls.TRIANGLE_STRIP);
-    this.geom.assign(4, null, vertices =>
+    this.geom.allocate(4, null, vertices =>
       vertices.forEach((attribute, i) => attribute.id[0] = i)
     );
     this.gls.clearColor(1, 1, 1, 1);

@@ -56,6 +56,7 @@ m[100]
         }
       </script>
     </canvas>
+    <script src="gl-matrix-min.js"></script>
     <script src="gls3.js"></script>
     <script src="gls3-lib.js"></script>
     <script src="gls3-dev.js"></script>
