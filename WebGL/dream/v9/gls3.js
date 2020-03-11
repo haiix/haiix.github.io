@@ -1,7 +1,7 @@
 var Gls = function () {
 'use strict';
 
-Gls.VERSION = '0.3.24';
+Gls.VERSION = '0.3.25';
 
 var GL = window.WebGLRenderingContext || {};
 
@@ -62,7 +62,8 @@ Gls_initializers.push(function (canvas, param) {
 
 Gls_initializers.push(function (canvas, param) {
     var gl, div;
-    var ca = Object.create(param.context || null);
+    param.context = Object.create(param.context || null)
+    var ca = param.context;
     if (ca.depth !== true) ca.depth = false;
     if (ca.stencil !== true) ca.stencil = false;
     if (ca.preserveDrawingBuffer !== false) ca.preserveDrawingBuffer = true;
@@ -174,13 +175,13 @@ var Program_initializers = [];
 function Program(gls, name, vs, fs) {
     if (gls.gl !== vs.gl || gls.gl !== fs.gl) throw new Error('Different context');
     this.name = name;
-    this.gls = gls;
+    this._gls = gls;
     for (var i = 0, l = Program_initializers.length; i < l; i++) {
         Program_initializers[i].call(this, vs, fs);
     }
 }
 Program_initializers.push(function (vs, fs) {
-    var gl = this.gls.gl;
+    var gl = this._gls.gl;
     var program = gl.createProgram();
     gl.attachShader(program, vs.shader);
     gl.attachShader(program, fs.shader);
@@ -188,12 +189,12 @@ Program_initializers.push(function (vs, fs) {
     if (!gl.getProgramParameter(program, GL.LINK_STATUS)) {
         throw new Error('Link error: ' + gl.getProgramInfoLog(program));
     }
-    this.program = program;
+    this._program = program;
 });
 Program.prototype.draw = function (geom) {
     Geometry_build.call(geom);
     if (geom.programs.indexOf(this) < 0) throw new Error('Using a program with a different geometry');
-    this.gls.gl.useProgram(this.program);
+    this._gls.gl.useProgram(this._program);
     Program_applyUniforms.call(this);
 
     for (var i = 0; i < geom.buffers.length; i++) {
@@ -201,9 +202,9 @@ Program.prototype.draw = function (geom) {
         Program_createVBO.call(this, geom, buffer);
         Program_bindVBO.call(this, geom, buffer);
         if (geom.buffers[0].indices) {
-            this.gls.gl.drawElements(geom.mode, buffer.indices.length, buffer.type, 0);
+            this._gls.gl.drawElements(geom.mode, buffer.indices.length, buffer.type, 0);
         } else {
-            this.gls.gl.drawArrays(geom.mode, 0, buffer.vertexes.byteLength / geom.strideSize);
+            this._gls.gl.drawArrays(geom.mode, 0, buffer.vertexes.byteLength / geom.strideSize);
         }
     }
 };
@@ -249,15 +250,15 @@ function mergeAttribute(dst, src) {
 }
 
 Program_initializers.push(function (vs) {
-    this.attribute = Object.create(null);
-    mergeAttribute(this.attribute, vs.attribute);
+    this._attribute = Object.create(null);
+    mergeAttribute(this._attribute, vs.attribute);
     Program_fetchAttributeLocations.call(this);
 });
 function Program_fetchAttributeLocations() {
-    var dst = this.attribute, gl = this.gls.gl, l, i, info, name, at;
-    l = gl.getProgramParameter(this.program, GL.ACTIVE_ATTRIBUTES);
+    var dst = this._attribute, gl = this._gls.gl, l, i, info, name, at;
+    l = gl.getProgramParameter(this._program, GL.ACTIVE_ATTRIBUTES);
     for (i = 0; i < l; i++) {
-        info = gl.getActiveAttrib(this.program, i);
+        info = gl.getActiveAttrib(this._program, i);
         name = info.name;
         at = ATTRIBUTE_TYPE[info.type];
         dst[name] = dst[name] || {};
@@ -268,7 +269,7 @@ function Program_fetchAttributeLocations() {
 }
 function Program_createVBO(geom, buffer) {
     if (buffer.vbo) return;
-    var gl = this.gls.gl, curr;
+    var gl = this._gls.gl, curr;
     curr = gl.getParameter(GL.ARRAY_BUFFER_BINDING);
     buffer.vbo = gl.createBuffer();
     gl.bindBuffer(GL.ARRAY_BUFFER, buffer.vbo);
@@ -282,7 +283,7 @@ function Program_createVBO(geom, buffer) {
     gl.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, curr);
 }
 function Program_bindVBO(geom, buffer) {
-    var gl = this.gls.gl, oesvao = this.gls._oesvao;
+    var gl = this._gls.gl, oesvao = this._gls._oesvao;
     if (oesvao) {
         if (buffer.vao[this.name]) {
             oesvao.bindVertexArrayOES(buffer.vao[this.name]);
@@ -293,8 +294,8 @@ function Program_bindVBO(geom, buffer) {
     }
     var attribute = geom.attribute, name, at, st;
     gl.bindBuffer(GL.ARRAY_BUFFER, buffer.vbo);
-    for (name in this.attribute) {
-        at = this.attribute[name];
+    for (name in this._attribute) {
+        at = this._attribute[name];
         st = attribute[name];
         gl.enableVertexAttribArray(at.location);
         gl.vertexAttribPointer(at.location, at.size, at.type, false, geom.strideSize, st.offset);
@@ -309,26 +310,26 @@ Gls_initializers.push(function (canvas) {
 // Program/Uniform
 
 Program_initializers.push(function () {
-    this.uniformFn = Object.create(null);
-    this.uniformSrc = Object.create(null);
-    this.uniform = Object.create(this.uniformSrc);
+    this._uniformFn = Object.create(null);
+    this._uniformSrc = Object.create(null);
+    this.uniform = Object.create(this._uniformSrc);
     Program_fetchUniforms.call(this);
 });
 function Program_fetchUniforms() {
-    var gls = this.gls, gl = gls.gl, i, l, info, name, type, location;
-    l = gl.getProgramParameter(this.program, GL.ACTIVE_UNIFORMS);
+    var gls = this._gls, gl = gls.gl, i, l, info, name, type, location;
+    l = gl.getProgramParameter(this._program, GL.ACTIVE_UNIFORMS);
     for (i = 0; i < l; i++) {
-        info = gl.getActiveUniform(this.program, i);
+        info = gl.getActiveUniform(this._program, i);
         name = info.name;
         type = ATTRIBUTE_TYPE[info.type];
-        location = gl.getUniformLocation(this.program, name);
+        location = gl.getUniformLocation(this._program, name);
         if (type.isMatrix) {
-            this.uniformFn[name] = gl['uniformMatrix' + type.fn].bind(gl, location, false);
+            this._uniformFn[name] = gl['uniformMatrix' + type.fn].bind(gl, location, false);
         } else if (type.type === GL.SAMPLER_2D) {
             if (!gls._textureBinder) gls._textureBinder = new TextureBinder(gl);
-            this.uniformFn[name] = gls._textureBinder.bind.bind(gls._textureBinder, location);
+            this._uniformFn[name] = gls._textureBinder.bind.bind(gls._textureBinder, location);
         } else {
-            this.uniformFn[name] = gl['uniform' + type.fn].bind(gl, location);
+            this._uniformFn[name] = gl['uniform' + type.fn].bind(gl, location);
         }
     }
 }
@@ -337,12 +338,12 @@ function Program_applyUniforms() {
     names = Object.keys(pu);
     for (i = 0, l = names.length; i < l; i++) {
         name = names[i];
-        var fn = this.uniformFn[name];
+        var fn = this._uniformFn[name];
         var val = pu[name];
         if (val.texture) val = val.texture;
         if (typeof fn === 'function') fn(val);
         if (!(val instanceof WebGLTexture)) {
-            this.uniformSrc[name] = pu[name];
+            this._uniformSrc[name] = pu[name];
             delete pu[name];
         }
     }
@@ -391,7 +392,7 @@ function Geometry(gl, programs, mode, usage) {
     this.usage = usage != null ? usage : gl.DYNAMIC_DRAW;
     this.attribute = Object.create(null);
     for (var i = 0; i < programs.length; i++) {
-        mergeAttribute(this.attribute, programs[i].attribute);
+        mergeAttribute(this.attribute, programs[i]._attribute);
     }
     var offset = 0;
     for (var name in this.attribute) {
@@ -644,15 +645,13 @@ Gls.prototype.clear = function (param) {
         this.gl[name].apply(this.gl, arguments);
     };
 });
-Gls_initializers.push(function () {
-    [
-        'POINTS', 'LINES', 'LINE_STRIP', 'TRIANGLES','TRIANGLE_STRIP',
-        'CULL_FACE',
-        'BLEND', 'SRC_ALPHA', 'ONE_MINUS_SRC_ALPHA', 'ONE', 'ZERO',
-    ].forEach(function (name) {
-        this[name] = this.gl[name];
-    }.bind(this));
-});
+[
+    'POINTS', 'LINES', 'LINE_STRIP', 'TRIANGLES','TRIANGLE_STRIP',
+    'CULL_FACE',
+    'BLEND', 'SRC_ALPHA', 'ONE_MINUS_SRC_ALPHA', 'ONE', 'ZERO',
+].forEach(function (name) {
+    Gls[name] = Gls.prototype[name] = GL[name];
+}.bind(this));
 
 ////////////////////////////////////////////////////////////
 
