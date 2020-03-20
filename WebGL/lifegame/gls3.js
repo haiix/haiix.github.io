@@ -1,7 +1,7 @@
 var Gls = function () {
 'use strict';
 
-Gls.VERSION = '0.3.25';
+Gls.VERSION = '0.3.26';
 
 var GL = window.WebGLRenderingContext || {};
 
@@ -368,12 +368,26 @@ function Buffer(size, indexSize, strideSize) {
     }
 }
 function Buffer_fetchVertices(offset, size, strideSize, attribute) {
-    var vertices = [], obj, at, name;
+    var vertices = [], obj, at, name, arr;
     for (var i = offset, l = offset + size; i < l; i++) {
         obj = Object.create(null);
         for (name in attribute) {
             at = attribute[name];
-            obj[name] = new (TYPE_BYTE[at.type].Array)(this.vertexes, i * strideSize + at.offset, at.size);
+            arr = new (TYPE_BYTE[at.type].Array)(this.vertexes, i * strideSize + at.offset, at.size);
+            if (at.size === 1) {
+                !function (arr) {
+                    Object.defineProperty(obj, name, {
+                        get: function () {
+                            return arr[0];
+                        },
+                        set: function (val) {
+                            arr[0] = val;
+                        }
+                    });
+                }(arr);
+            } else {
+                obj[name] = arr;
+            }
         }
         vertices.push(obj);
     }
