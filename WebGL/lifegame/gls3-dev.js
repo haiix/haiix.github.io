@@ -137,7 +137,7 @@ var geom = gl.createGeometry(%s, gl.TRIANGLE_STRIP);
 
 m[111]
 geom.addMesh() が存在しません。「gls3-lib.js」の読み込みを推奨します。
-「gls3-lib.js」を読み込む代わりに、geom.assign()を使うこともできます。
+「gls3-lib.js」を読み込む代わりに、geom.allocate()を使うこともできます。
 
 例(「<script src="gls3.js"></script>」の後ろに)：
 <script src="gls3-lib.js"></script>
@@ -259,7 +259,7 @@ geom.addMesh() でメッシュを追加できます。
     }
 
     for (var name in gls._program) {
-      if (Object.keys(gls._program[name].attribute).length === 0) {
+      if (Object.keys(gls._program[name]._attribute).length === 0) {
         return [m[107], name];
       }
     }
@@ -276,11 +276,17 @@ geom.addMesh() でメッシュを追加できます。
       }
     })
     .afterCall(function (geom) {
+      v(geom, 'allocate')
+      .beforeCall(function (size, indexSize, callback) {
+        if (typeof size !== 'number' || Math.floor(size) !== size || size < 1) return ['allocateの第一引数は頂点数を指定してください'];
+        if (indexSize != null && (typeof indexSize !== 'number' || Math.floor(indexSize) !== indexSize || indexSize < 0)) return ['allocateの第二引数はインデックス数を指定してください(インデックスを作成しない場合はnull)'];
+        if (callback != null && typeof callback !== 'function') return ['allocateの第三引数はコールバック関数を指定してください'];
+      });
       v(geom, 'addMesh')
       .notExists(m[111])
       .notCalled(function () {
-        v(geom, 'assign')
-        .notCalled(m[112])
+        v(geom, 'allocate')
+        .notCalled(m[112]);
       })
       //.beforeCall();
       .afterCall(function () {
@@ -292,7 +298,7 @@ geom.addMesh() でメッシュを追加できます。
 
         v(gls._program.mainShader || gls._program[Object.keys(gls._program)[0]], 'draw')
         .notCalled(m[113]);
-      })
+      });
     });
 
     v(gls, 'createTexture')

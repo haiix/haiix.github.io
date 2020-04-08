@@ -66,10 +66,10 @@ function Mouse(gls, c) {
         var rect = event.target.getBoundingClientRect();
         this.x = (event.pageX - rect.left - window.pageXOffset) / rect.width * 2 - 1;
         this.y = 1 - (event.pageY - rect.top - window.pageYOffset) / rect.height * 2;
-    }.bind(this), false);
+    }.bind(this));
     gls.canvas.addEventListener('mousewheel', function (event) {
         this.z += event.wheelDelta;
-    }.bind(this), false);
+    }.bind(this), {passive: true});
 }
 Mouse.prototype.update = function () {
     this[0] = this.dispX = this.dispX * this.delayX + this.x * (1 - this.delayX);
