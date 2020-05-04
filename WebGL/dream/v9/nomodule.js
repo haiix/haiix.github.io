@@ -7,9 +7,8 @@
   var transformOptions = {presets: ['es2015', 'es2016', 'es2017']};
 
   function path_normalize(path) {
-    var src = path.split('/'), dst = [], i, val;
-    for (i = 0; i < src.length; i++) {
-      val = src[i];
+    var src = path.split('/'), dst = [], i = 0, val;
+    while ((val = src[i++]) != null) {
       if (val === '' || val === '.') continue;
       if (val === '..') dst.pop();
       else dst.push(val);
@@ -53,10 +52,11 @@
 
   loadScript(cdnBabelPolyfill, function () {
     loadScript(cdnBabelStandalone, function () {
-      var scripts = document.querySelectorAll('script[type="module"]');
+      var scripts = document.querySelectorAll('script[type="module"]'), i = 0, script;
       window.require = require;
-      for (var i = 0; i < scripts.length; i++) {
-        new Function(Babel.transform(scripts[i].text, transformOptions).code)();
+      while (script = scripts[i++]) {
+        if (script.src) require(script.getAttribute('src'));
+        else new Function(Babel.transform(script.text, transformOptions).code)();
       }
       delete window.require;
     });
