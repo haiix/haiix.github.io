@@ -26,7 +26,6 @@
     <link rel="stylesheet" href="style/main.css" onerror="throw new Error('Load failed: ' + event.target.href)">
   </head>
   <body>
-    <script nomodule src="./js/lib/nomodule.js" onerror="throw Error('Load failed')"></script>
     <script type="module" onerror="throw new Error('Load failed');">
       import Main from './js/Main.js';
       const main = new Main();
@@ -34,5 +33,6 @@
         window.onerror(null, null, null, null, error);
       });
     </script>
+    <script nomodule src="../lib/nomodule.js" onerror="throw Error('Load failed')"></script>
   </body>
 </html>
