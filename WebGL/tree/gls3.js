@@ -1,7 +1,7 @@
 var Gls = function () {
 'use strict';
 
-Gls.VERSION = '0.3.26';
+Gls.VERSION = '0.3.27';
 
 var GL = window.WebGLRenderingContext || {};
 
@@ -350,6 +350,31 @@ function Program_applyUniforms() {
 }
 
 ////////////////////////////////////////////////////////////
+// Vector
+
+function Vector(arr, offset) {
+  this._arr = arr;
+  this._offset = offset;
+}
+var qs = [
+  {n: '0', p: 0}, {n: '1', p: 1}, {n: '2', p: 2}, {n: '3', p: 3},
+  {n: 'x', p: 0}, {n: 'y', p: 1}, {n: 'z', p: 2}, {n: 'w', p: 3},
+  {n: 'r', p: 0}, {n: 'g', p: 1}, {n: 'b', p: 2}, {n: 'a', p: 3},
+];
+for (var i = 0; i < qs.length; i++) {
+  !function (q) {
+    Object.defineProperty(Vector.prototype, q.n, {
+      set: function (v) {
+        this._arr[this._offset + q.p] = v;
+      },
+      get: function () {
+        return this._arr[this._offset + q.p];
+      }
+    });
+  }(qs[i]);
+}
+
+////////////////////////////////////////////////////////////
 // Buffer
 
 function Buffer(size, indexSize, strideSize) {
@@ -373,7 +398,8 @@ function Buffer_fetchVertices(offset, size, strideSize, attribute) {
         obj = Object.create(null);
         for (name in attribute) {
             at = attribute[name];
-            arr = new (TYPE_BYTE[at.type].Array)(this.vertexes, i * strideSize + at.offset, at.size);
+            //arr = new (TYPE_BYTE[at.type].Array)(this.vertexes, i * strideSize + at.offset, at.size);
+            arr = new Vector(new (TYPE_BYTE[at.type].Array)(this.vertexes, i * strideSize + at.offset, at.size), 0);
             if (at.size === 1) {
                 !function (arr) {
                     Object.defineProperty(obj, name, {
@@ -436,7 +462,7 @@ Geometry.prototype.allocate = function (size, indexSize, callback) {
 function Geometry_build() {
     if (this.allocated.length === 0) return;
     var buffer = new Buffer(this.currBufferSize, this.currIndexBufferSize, this.strideSize);
-    var bytes = new Uint8Array(buffer.vertexes);
+    //var bytes = new Uint8Array(buffer.vertexes);
     for (var ai = 0, offset = 0, indexOffset = 0; ai < this.allocated.length; ai++) {
         var a = this.allocated[ai];
         var vertices = Buffer_fetchVertices.call(buffer, offset, a.size, this.strideSize, this.attribute);

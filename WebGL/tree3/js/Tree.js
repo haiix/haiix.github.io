@@ -54,7 +54,7 @@ export default class Tree {
           attribute.color[3] = 255;
 
           // メッシュを筒状に変換
-          vec3.rotateY(p, vec3.fromValues(0, p[Y], (TREE_BRANCH_THICKNESS - p[Y]) / 32), vec3.create(), p[X] * Math.PI);
+          vec3.rotateY(p, vec3.fromValues(0, p.y, (TREE_BRANCH_THICKNESS - p.y) / 32), vec3.create(), p.x * Math.PI);
           // 位置とサイズを調整(原点が回転軸になるように)
           vec3.add(p, p, vec3.fromValues(0, 1, 0));
           vec3.scale(p, p, 2);
@@ -88,8 +88,8 @@ export default class Tree {
           uloop: false,
           shape: function (attribute) {
             var p = attribute.position;
-            attribute.textureCoord[X] = (p[X] + 1) / 2;
-            attribute.textureCoord[Y] = (p[Y] + 1) / 2;
+            attribute.textureCoord.x = (p.x + 1) / 2;
+            attribute.textureCoord.y = (p.y + 1) / 2;
             vec3.rotateZ(p, p, vec3.create(), r3);
 
             if (leafID === 1) {

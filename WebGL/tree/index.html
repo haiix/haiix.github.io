@@ -72,11 +72,10 @@ for (let idx = 1; idx <= TREE_BRANCH_NUM; idx++) {
     vnum: 1,     // 縦方向のメッシュ分割数
     uloop: true, // メッシュの左端と右端が接続している (頂点数を削減)
     shape(attribute) {
-      const X = 0, Y = 1, Z = 2, W = 3;
       const p = attribute.position;
 
       // メッシュを筒状に変換
-      vec3.rotateY(p, vec3.fromValues(0, p[Y], (TREE_BRANCH_THICKNESS - p[Y]) / 32), vec3.create(), p[X] * Math.PI);
+      vec3.rotateY(p, vec3.fromValues(0, p.y, (TREE_BRANCH_THICKNESS - p.y) / 32), vec3.create(), p.x * Math.PI);
       // 位置とサイズを調整(原点が回転軸になるように)
       vec3.add(p, p, vec3.fromValues(0, 1, 0));
       vec3.scale(p, p, 0.5);
