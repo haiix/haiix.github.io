@@ -5,7 +5,9 @@
   var babelStandalone = currentPath + '/babel-polyfill-6.26.0.min.js';
   var babelPolyfill = currentPath + '/babel-standalone-6.26.0.min.js';
 
-  var transformOptions = {presets: ['es2015', 'es2016', 'es2017']};
+  var transformOptions = {presets: ['es2015', 'es2016', 'es2017'], plugins: ['external-helpers']};
+
+  var cacheFilePath = 'app/cache/nomodule/scripts.json';
 
   var FileSystemObject = new ActiveXObject('Scripting.FileSystemObject');
   var Stream = new ActiveXObject('ADODB.Stream');
@@ -63,12 +65,14 @@
     };
   }
 
+  var babelHelpers;
+
   var filePath = location.pathname.slice(1).replace(/\\/g, '/')
   var fileName = '.' + filePath.slice(filePath.lastIndexOf('/'));
   var basedir = path_dirname(filePath);
   var currdir = '.';
   var cache = {};
-  var cacheS = JSON.parse(readFile(basedir, 'data/cache/nomodule/scripts.json')) || {};
+  var cacheS = JSON.parse(readFile(basedir, cacheFilePath)) || {};
   var cacheSModified = false;
   function require(path) {
     path = path_normalize(currdir + '/' + path);
@@ -77,13 +81,14 @@
       if (!cacheS[path] || cacheS[path].lastModified !== info.lastModified || cacheS[path].size !== info.size) {
         var text = readFile(basedir, path);
         if (text == null) throw new Error('File not exists: ' + path);
-        info.code = '\'use strict\';var exports={};' + Babel.transform(text, transformOptions).code + ';return exports';
+        info.code = Babel.transform(text, transformOptions).code;
         cacheS[path] = info;
         cacheSModified = true;
       }
       var prevdir = currdir;
       currdir = path_dirname(path);
-      cache[path] = new Function(cacheS[path].code)();
+      cache[path] = {};
+      new Function('require', 'babelHelpers', 'exports', cacheS[path].code)(require, babelHelpers, cache[path]);
       currdir = prevdir;
     }
     return cache[path];
@@ -104,8 +109,11 @@
 
   loadScript(babelPolyfill, function () {
     loadScript(babelStandalone, function () {
+      var global = {};
+      new Function('global', Babel.buildExternalHelpers())(global);
+      babelHelpers = global.babelHelpers;
+
       var scripts = document.querySelectorAll('script[type="module"]');
-      window.require = require;
       var info = getFileInfo(basedir, fileName);
       if (!cacheS[fileName] || cacheS[fileName].lastModified !== info.lastModified || cacheS[fileName].size !== info.size) {
         info.codes = [];
@@ -120,10 +128,9 @@
         cacheSModified = true;
       }
       for (var i = 0; i < cacheS[fileName].codes.length; i++) {
-        new Function(cacheS[fileName].codes[i])();
+        new Function('require', 'babelHelpers', cacheS[fileName].codes[i])(require, babelHelpers);
       }
-      delete window.require;
-      if (cacheSModified) writeFile(basedir, 'data/cache/nomodule/scripts.json', JSON.stringify(cacheS));
+      if (cacheSModified) writeFile(basedir, cacheFilePath, JSON.stringify(cacheS));
     });
   });
 }();
