@@ -40,6 +40,11 @@ export class ArrayIterator {
   toString(separator = '') {
     return this.join(separator);
   }
+  [Symbol.iterator]() {
+    return function* (ite) {
+      for (const [k, v] of ite) yield v;
+    }(this._ite);
+  }
 }
 
 export default function seq(ite) {
