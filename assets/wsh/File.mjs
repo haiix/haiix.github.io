@@ -1,6 +1,6 @@
 // https://docs.microsoft.com/ja-jp/office/vba/language/reference/user-interface-help/file-object
 
-import fs from './FileSystemObject.js';
+import fs from './FileSystemObject.mjs';
 
 export default class File {
   constructor(file) {

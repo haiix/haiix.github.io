@@ -1,7 +1,7 @@
 // https://docs.microsoft.com/ja-jp/office/vba/language/reference/user-interface-help/folder-object
 
-import fs from './FileSystemObject.js';
-import File from './File.js';
+import fs from './FileSystemObject.mjs';
+import File from './File.mjs';
 
 export default class Folder extends File {
   constructor(file) {
