@@ -1,3 +1,6 @@
 [submodule "TComponent"]
 	path = TComponent
 	url = https://github.com/haiix/TComponent.git
+[submodule "seq"]
+	path = seq
+	url = https://github.com/haiix/seq.git
