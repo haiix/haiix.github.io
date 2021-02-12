@@ -1,10 +1,12 @@
 import TComponent from '@haiix/TComponent'
 import Gls from './Gls.mjs'
+import * as vec3 from 'gl-matrix/cjs/vec3.js'
 
 export default class App extends TComponent {
   template () {
     return `
       <canvas id="canvas" width="400" height="400">
+        WebGL is not available.
         <script data-name="mainShader" type="x-shader/x-vertex">
           attribute vec2 position;
           uniform float time;

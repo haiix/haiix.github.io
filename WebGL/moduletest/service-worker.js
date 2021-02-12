@@ -1,3 +1,20 @@
+const moduleTransformRules = [
+  {
+    startsWith: '@haiix/',
+    url (src) {
+      const module = src.slice(7)
+      return `https://raw.githubusercontent.com/haiix/${module}/master/${module}.mjs`
+    }
+  },
+  {
+    startsWith: 'gl-matrix/cjs/',
+    url (src) {
+      const module = src.slice(14)
+      return `https://raw.githubusercontent.com/toji/gl-matrix/master/src/${module}`
+    }
+  }
+]
+
 if (self && self.constructor && self.constructor.name === 'ServiceWorkerGlobalScope') {
   const base = location.href.slice(0, location.href.lastIndexOf('/'))
   self.addEventListener('fetch', event => {
@@ -23,8 +40,14 @@ if (self && self.constructor && self.constructor.name === 'ServiceWorkerGlobalSc
           const res = await fetch(url)
           if (res.status !== 200) return res
           code = await res.text()
-          //code = code.replaceAll(/((import\s.*?\sfrom\s)['"]((@(\w*)\/)?(\w*))["'])/g, `$2'${base}/src/modules/$6.mjs'`)
-          code = code.replaceAll(/((import\s.*?\sfrom\s)['"]((@(\w*)\/)?(\w*))["'])/g, `$2'https://raw.githubusercontent.com/$5/$6/master/$6.mjs'`)
+          code = code.replaceAll(/(import\s.*?\sfrom\s+['"])(.*?)(["'])/g, (...args) => {
+            const src = args[2]
+            for (const rule of moduleTransformRules) {
+              if (!src.startsWith(rule.startsWith) || !rule.url) continue
+              return args[1] + rule.url(src) + args[3]
+            }
+            return args[1] + src + args[3]
+          })
         }
         return new Response(code, {
           headers: { 'Content-Type': 'text/javascript' }
