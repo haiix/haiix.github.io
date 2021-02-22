@@ -1,3 +1,7 @@
+import * as vec3 from 'gl-matrix/cjs/vec3.js'
+import * as mat4 from 'gl-matrix/cjs/mat4.js'
+import * as quat from 'gl-matrix/cjs/quat.js'
+
 Gls.VERSION = '0.3.27';
 
 var GL = window.WebGLRenderingContext || {};

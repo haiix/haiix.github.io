@@ -15,7 +15,21 @@ const moduleTransformRules = [
   }
 ]
 
-if (self && self.constructor && self.constructor.name === 'ServiceWorkerGlobalScope') {
+const bootCode = `
+  import App from './src/App.mjs'
+  const app = new App()
+  document.body.appendChild(app.element)
+  if (app.main) app.main()
+  if (app.loop) {
+    ;(function loop (t) {
+      requestAnimationFrame(loop)
+      app.loop(t)
+    }(0))
+  }
+  window.app = app
+`
+
+if ('ServiceWorkerGlobalScope' in self && self instanceof ServiceWorkerGlobalScope) {
   const base = location.href.slice(0, location.href.lastIndexOf('/'))
   self.addEventListener('fetch', event => {
     event.respondWith(async function () {
@@ -23,19 +37,7 @@ if (self && self.constructor && self.constructor.name === 'ServiceWorkerGlobalSc
       if (url.slice(-4) === '.mjs' || url.slice(-3) === '.js') {
         let code = ''
         if (url === base + '/service-worker.js') {
-          code = `
-            import App from './src/App.mjs'
-            const app = new App()
-            document.body.appendChild(app.element)
-            if (app.init) app.init()
-            if (app.loop) {
-              ;(function loop (t) {
-                requestAnimationFrame(loop)
-                app.loop(t)
-              }(0))
-            }
-            window.app = app
-          `
+          code = bootCode
         } else {
           const res = await fetch(url)
           if (res.status !== 200) return res
@@ -57,7 +59,7 @@ if (self && self.constructor && self.constructor.name === 'ServiceWorkerGlobalSc
       }
     }())
   })
-} else if (self && self.constructor && self.constructor.name === 'Window') {
+} else {
   ;(async function () {
     try {
       await navigator.serviceWorker.register('./service-worker.js')
