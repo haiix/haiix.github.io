@@ -88,7 +88,7 @@ function removeComment(src) {
 }
 function fetchAttributeType(src) {
     src = ';' + src.replace(/;/g, ';;');
-    var res, re = /;\s*attribute\s+(\w+\s+)?\$\{(ushort2|ubyte4)\}\s+(\w+)\s*;/g;
+    var res, re = /;\s*attribute\s+(\w+\s+)?\[\[(ushort2|ubyte4)\]\]\s+(\w+)\s*;/g;
     var attribute = Object.create(null);
     while ((res = re.exec(src)) !== null) {
         var typeStr = res[2];
@@ -99,7 +99,7 @@ function fetchAttributeType(src) {
     return attribute;
 }
 function replaceParam(str, param) {
-    return str.replace(/\$\{(.+?)\}/g, function (_, keys) {
+    return str.replace(/\[\[(.+?)\]\]/g, function (_, keys) {
         var cur = param, i, key, val, type;
         keys = keys.split('.');
         for (i = 0; i < keys.length; i++) {
