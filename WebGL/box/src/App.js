@@ -1,6 +1,6 @@
 import TComponent from '@haiix/TComponent'
 import seq from '@haiix/seq'
-import Gls from './Gls.mjs'
+import Gls from './Gls.js'
 import * as vec3 from 'gl-matrix/cjs/vec3.js'
 import * as vec4 from 'gl-matrix/cjs/vec4.js'
 
@@ -51,7 +51,7 @@ export default class App extends TComponent {
     this.camera = this.gl.createCamera({ fov: 45, near: 0.1, far: 100, z: 10 })
 
     this.geom = this.gl.createGeometry([this.shader])
-    //this.geom = this.gl.createGeometry([this.shader], this.gl.LINE_STRIP)
+    // this.geom = this.gl.createGeometry([this.shader], this.gl.LINE_STRIP)
 
     for (const modelId of seq(25)) {
       const modelX = modelId % 5 - 2
