@@ -1,5 +1,5 @@
 import TComponent from '@haiix/TComponent'
-import Tree from './Tree.mjs'
+import Tree from './Tree.js'
 
 export default class App extends TComponent {
   template () {
