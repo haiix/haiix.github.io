@@ -1,7 +1,7 @@
 var Gls = function () {
 'use strict';
 
-Gls.VERSION = '0.3.27';
+Gls.VERSION = '0.3.28';
 
 var GL = window.WebGLRenderingContext || {};
 
@@ -62,12 +62,15 @@ Gls_initializers.push(function (canvas, param) {
 
 Gls_initializers.push(function (canvas, param) {
     var gl, div;
-    param.context = Object.create(param.context || null)
-    var ca = param.context;
-    if (ca.depth !== true) ca.depth = false;
-    if (ca.stencil !== true) ca.stencil = false;
-    if (ca.preserveDrawingBuffer !== false) ca.preserveDrawingBuffer = true;
-    gl = this.canvas.getContext('webgl', ca) || this.canvas.getContext('experimental-webgl', ca);
+
+    var contextAttributes = { preserveDrawingBuffer: true };
+    var contextAttributeNames = ['alpha', 'desynchronized', 'antialias', 'depth', 'failIfMajorPerformanceCaveat', 'powerPreference', 'premultipliedAlpha', 'preserveDrawingBuffer', 'stencil'];
+    for (var i = 0; i < contextAttributeNames.length; i++) {
+        var name = contextAttributeNames[i];
+        if (name in param) contextAttributes[name] = param[name];
+    }
+
+    gl = this.canvas.getContext('webgl', contextAttributes) || this.canvas.getContext('experimental-webgl', contextAttributes);
     if (!gl) {
         div = document.createElement('div');
         div.innerHTML = this.canvas.innerHTML;
@@ -667,8 +670,8 @@ Gls.prototype.bindFramebuffer = function (framebuffer) {
 // init depth
 var GLS_CLEAR_PARAM = 0;
 Gls_initializers.push(function (canvas, param) {
-    GLS_CLEAR_PARAM = GL.COLOR_BUFFER_BIT | (param.context.depth ? GL.DEPTH_BUFFER_BIT : 0) | (param.context.stencil ? GL.STENCIL_BUFFER_BIT : 0);
-    if (param.context.depth) {
+    GLS_CLEAR_PARAM = GL.COLOR_BUFFER_BIT | (param.depth !== false ? GL.DEPTH_BUFFER_BIT : 0) | (param.stencil === true ? GL.STENCIL_BUFFER_BIT : 0);
+    if (param.depth !== false) {
         this.gl.enable(GL.DEPTH_TEST);
         this.gl.clearDepth(1);
     }

@@ -48,7 +48,7 @@ const TREE_BRANCH_THICKNESS = 5;        // 枝の太さ
 const TREE_BRANCH_REDUCTION_RATE = 0.8; // 次の枝の縮小率
 const TREE_BRANCH_EXPAND = 0.5;         // 枝の広がり具合
 
-window.gl = new Gls('#view', {context: {alpha: true, depth: true, antialias: true}});
+window.gl = new Gls('#view', {alpha: true, depth: true, antialias: true});
 
 // 地面
 gl.terrainGeom = gl.createGeometry([gl.mainShader], gl.LINE_STRIP);

@@ -2,7 +2,7 @@ import WorldChunk from './WorldChunk.js';
 
 export default class Main {
   async main() {
-    window.gl = new Gls('#view', {context: {alpha: true, depth: true, antialias: false}});
+    window.gl = new Gls('#view', {alpha: true, depth: true, antialias: false});
     WorldChunk.init(gl);
 
     // 画面の背景色を設定

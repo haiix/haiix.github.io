@@ -80,7 +80,7 @@
     <script>
 'use strict';
 
-var gl = new Gls('#view', {context: {alpha: false, depth: true, antialias: true}});
+var gl = new Gls('#view', {alpha: false, depth: true, antialias: true});
 
 // シャドウマップ
 gl.mainShader.uniform.shadowMap = gl.createFramebuffer({
