@@ -21,28 +21,29 @@ html, body {
 }
 
 .tree {
+  line-height: 24px;
+  cursor: default;
   outline: none;
   overflow: auto;
   background: #FFF;
   color: #000;
+  user-select: none;
 }
 .tree ul {
   margin: 0;
   padding: 0;
   list-style-type: none;
-  cursor: default;
-  line-height: 24px;
 }
-.tree li > * {
+.tree li > div > * {
   vertical-align: middle;
 }
-.tree li:hover {
+.tree li > div:hover {
   background: #DEF;
 }
-.tree li.current {
+.tree li > div.current {
   background: #DDD;
 }
-.tree:focus li.current {
+.tree:focus li > div.current {
   background: #BDF;
 }
 .tree .material-icons {
