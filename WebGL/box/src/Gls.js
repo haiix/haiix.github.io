@@ -224,8 +224,11 @@ Gls_initializers.push(function (canvas, param) {
     this._program = program;
 });
 Gls.prototype.createProgram = function (vsSrc, fsSrc, param) {
-    var vs = compileShader(this.gl, VertexShader, vsSrc, param);
-    var fs = compileShader(this.gl, FragmentShader, fsSrc, param);
+    var _param = Object.create(param || null)
+    _param.ushort2 = 'vec2';
+    _param.ubyte4 = 'vec4';
+    var vs = compileShader(this.gl, VertexShader, vsSrc, _param);
+    var fs = compileShader(this.gl, FragmentShader, fsSrc, _param);
     var name = 't_' + Date.now();
     return new Program(this, name, vs, fs);
 };

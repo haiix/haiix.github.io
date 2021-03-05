@@ -9,44 +9,50 @@ export default class App extends TComponent {
     return `
       <canvas id="canvas" width="600" height="600">
         WebGL is not available.
-        <script data-name="mainShader" type="x-shader/x-vertex">
-          attribute vec3 position;
-          attribute vec3 normal;
-          attribute [[ubyte4]] color;
-          uniform mat4 mvp;
-          uniform float time;
-          varying vec4 vColor;
-
-          void main() {
-            vec4 tp = mvp * vec4(position, 1.0);          // 視点から見た頂点座標
-            vec4 tn = mvp * vec4(position + normal, 1.0); // 視点から見た頂点+頂点の法線ベクトル
-            vec3 normal_v = normalize(tn.xyz - tp.xyz);   // 視点から見た頂点の法線ベクトル
-            vec3 camera_v = vec3(0.0, 0.0, -1.0);         // 視線ベクトル
-            float lightness = dot(normal_v, camera_v);    // 視点から見た頂点の法線ベクトルと視線ベクトルのドット積
-
-            gl_Position = tp;
-            vColor = 1.0 - (1.0 - color / 255.0) * (1.0 - pow(1.0 - lightness, 3.0) * 0.4);
-          }
-        </script>
-        <script data-name="mainShader" type="x-shader/x-fragment">
-          precision mediump float;
-          varying vec4 vColor;
-          void main() {
-            gl_FragColor = vColor;
-          }
-        </script>
       </canvas>
+    `
+  }
+
+  mainVertexShader () {
+    return `
+      attribute vec3 position;
+      attribute vec3 normal;
+      attribute [[ubyte4]] color;
+      uniform mat4 mvp;
+      uniform float time;
+      varying vec4 vColor;
+
+      void main() {
+        vec4 tp = mvp * vec4(position, 1.0);          // 視点から見た頂点座標
+        vec4 tn = mvp * vec4(position + normal, 1.0); // 視点から見た頂点+頂点の法線ベクトル
+        vec3 normal_v = normalize(tn.xyz - tp.xyz);   // 視点から見た頂点の法線ベクトル
+        vec3 camera_v = vec3(0.0, 0.0, -1.0);         // 視線ベクトル
+        float lightness = dot(normal_v, camera_v);    // 視点から見た頂点の法線ベクトルと視線ベクトルのドット積
+
+        gl_Position = tp;
+        vColor = 1.0 - (1.0 - color / 255.0) * (1.0 - pow(1.0 - lightness, 3.0) * 0.4);
+      }
+    `
+  }
+
+  mainFlagmentShader () {
+    return `
+      precision mediump float;
+      varying vec4 vColor;
+      void main() {
+        gl_FragColor = vColor;
+      }
     `
   }
 
   constructor () {
     super()
 
-    this.gl = new Gls(this.canvas, { context: { depth: true } })
+    this.gl = new Gls(this.canvas, { alpha: true, antialias: true, depth: true })
     this.gl.clearColor(0.9, 0.8, 0.7, 1)
     this.gl.enable(this.gl.CULL_FACE)
 
-    this.shader = this.gl.mainShader
+    this.shader = this.gl.createProgram(this.mainVertexShader(), this.mainFlagmentShader())
     this.mouse = this.gl.createMouse({ delay: 0.9 })
     this.camera = this.gl.createCamera({ fov: 45, near: 0.1, far: 100, z: 10 })
 
