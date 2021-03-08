@@ -20,7 +20,7 @@ export default class App extends TComponent {
       attribute [[ubyte4]] color;
       uniform mat4 mvp;
       uniform float time;
-      varying vec4 vColor;
+      varying vec3 vColor;
 
       void main() {
         vec4 tp = mvp * vec4(position, 1.0);          // 視点から見た頂点座標
@@ -30,7 +30,7 @@ export default class App extends TComponent {
         float lightness = dot(normal_v, camera_v);    // 視点から見た頂点の法線ベクトルと視線ベクトルのドット積
 
         gl_Position = tp;
-        vColor = 1.0 - (1.0 - color / 255.0) * (1.0 - pow(1.0 - lightness, 3.0) * 0.4);
+        vColor = 1.0 - (1.0 - color.rgb / 255.0) * (1.0 - pow(1.0 - lightness, 3.0) * 0.4);
       }
     `
   }
@@ -38,9 +38,9 @@ export default class App extends TComponent {
   mainFlagmentShader () {
     return `
       precision mediump float;
-      varying vec4 vColor;
+      varying vec3 vColor;
       void main() {
-        gl_FragColor = vColor;
+        gl_FragColor = vec4(vColor, 1.0);
       }
     `
   }
@@ -64,43 +64,40 @@ export default class App extends TComponent {
       const modelZ = (modelId / 5 | 0) - 2
       const colorId = Math.random() * 3 | 0
       for (const idx of seq(6)) {
-        this.geom.addMesh({
-          vnum: 5,
-          unum: 5,
-          shape (vertex) {
-            const p = vertex.position
+        const mesh = this.geom.createMesh(5, 5)
+        mesh.transform(attribute => {
+          const p = attribute.position
 
-            p.z += 1
-            vec3.rotateX(p, vec3.fromValues(p.x, 0, p.z), vec3.create(), p.y * Math.PI / -4)
-            vec3.rotateY(p, vec3.fromValues(0, p.y, p.z), vec3.create(), p.x * Math.PI / 4)
+          p.z += 1
+          vec3.rotateX(p, vec3.fromValues(p.x, 0, p.z), vec3.create(), p.y * Math.PI / -4)
+          vec3.rotateY(p, vec3.fromValues(0, p.y, p.z), vec3.create(), p.x * Math.PI / 4)
 
-            if (idx < 4) {
-              vec3.rotateY(p, p, vec3.create(), idx * Math.PI / 2)
-            } else {
-              vec3.rotateX(p, p, vec3.create(), (idx + 0.5) * Math.PI)
-            }
+          if (idx < 4) {
+            vec3.rotateY(p, p, vec3.create(), idx * Math.PI / 2)
+          } else {
+            vec3.rotateX(p, p, vec3.create(), (idx + 0.5) * Math.PI)
+          }
 
-            vec3.copy(vertex.normal, p)
+          vec3.copy(attribute.normal, p)
 
-            vec3.scale(p, p, 0.2)
-            p.x += Math.sign(p.x) * 0.83
-            p.y += Math.sign(p.y) * 0.83
-            p.z += Math.sign(p.z) * 0.83
+          vec3.scale(p, p, 0.2)
+          p.x += Math.sign(p.x) * 0.83
+          p.y += Math.sign(p.y) * 0.83
+          p.z += Math.sign(p.z) * 0.83
 
-            p.x += modelX * 2
-            p.z += modelZ * 2
+          p.x += modelX * 2
+          p.z += modelZ * 2
 
-            switch (colorId) {
-              case 0:
-                vec4.set(vertex.color, 96, 128, 224, 255)
-                break
-              case 1:
-                vec4.set(vertex.color, 128, 192, 32, 255)
-                break
-              case 2:
-                vec4.set(vertex.color, 224, 64, 160, 255)
-                break
-            }
+          switch (colorId) {
+            case 0:
+              vec4.set(attribute.color, 96, 128, 224, 255)
+              break
+            case 1:
+              vec4.set(attribute.color, 128, 192, 32, 255)
+              break
+            case 2:
+              vec4.set(attribute.color, 224, 64, 160, 255)
+              break
           }
         })
       }

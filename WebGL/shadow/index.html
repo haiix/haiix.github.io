@@ -107,40 +107,32 @@ var depthVP = function (range) {
 
 // モデル作成
 var floorGeom = gl.createGeometry([gl.shadowShader, gl.mainShader], gl.TRIANGLE_STRIP);
-floorGeom.addMesh({
-  unum: 1,
-  vnum: 1,
-  uloop: false,
-  shape: function (vtx) {
-    // 床
-    var p = vtx.position;
-    var n = vtx.normal;
+var floorMesh = floorGeom.createMesh(1, 1);
+floorMesh.transform(function (attribute) {
+  // 床
+  var p = attribute.position;
+  var n = attribute.normal;
 
-    p.x *= 8;
-    p.y *= 8;
-    p.z = -1;
+  p.x *= 8;
+  p.y *= 8;
+  p.z = -1;
 
-    n.z = 1;
-  }
+  n.z = 1;
 });
 var ballGeom = gl.createGeometry([gl.shadowShader, gl.mainShader], gl.TRIANGLE_STRIP);
-ballGeom.addMesh({
-  unum: 32,
-  vnum: 32,
-  uloop: false,
-  shape: function (vtx) {
-    var p = vtx.position;
-    var n = vtx.normal;
+var ballMesh = ballGeom.createMesh(32, 32);
+ballMesh.transform(function (attribute) {
+  var p = attribute.position;
+  var n = attribute.normal;
 
-    var l = Math.cos(p.y * Math.PI / 2);
-    p.z = Math.sin(p.y * Math.PI / 2);
-    p.y = Math.sin(p.x * Math.PI) * l;
-    p.x = Math.cos(p.x * Math.PI) * l;
+  var l = Math.cos(p.y * Math.PI / 2);
+  p.z = Math.sin(p.y * Math.PI / 2);
+  p.y = Math.sin(p.x * Math.PI) * l;
+  p.x = Math.cos(p.x * Math.PI) * l;
 
-    n.x = p.x;
-    n.y = p.y;
-    n.z = p.z;
-  },
+  n.x = p.x;
+  n.y = p.y;
+  n.z = p.z;
 });
 
 // モデル描画

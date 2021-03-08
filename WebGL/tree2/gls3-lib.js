@@ -2,52 +2,55 @@
 'use strict';
 
 ////////////////////////////////////////////////////////////
-// Geometry
+// Mesh
 
-function createMesh(vtx, idx, unum, vnum, uloop) {
+function createMesh(vtx, idx, ucount, vcount, attrName) {
+    attrName = attrName || 'position';
     var u, v, n;
-    var umax = uloop ? unum : unum + 1;
-    for (v = 0, n = 0; v <= vnum; v++) {
+    var umax = ucount + 1;
+    for (v = 0, n = 0; v <= vcount; v++) {
         for (u = 0; u < umax; u++, n++) {
-            vtx[n].position[0] = u / unum * 2 - 1;
-            vtx[n].position[1] = v / vnum * 2 - 1;
+            vtx[n][attrName][0] = u / ucount * 2 - 1;
+            vtx[n][attrName][1] = v / vcount * 2 - 1;
         }
     }
-    for (v = 0, n = 0; v < vnum; v++) {
+    for (v = 0, n = 0; v < vcount; v++) {
         idx[n++] = v * umax;
         for (u = 0; u < umax; u++) {
             idx[n++] = u + v * umax;
             idx[n++] = u + (v + 1) * umax;
         }
-        if (uloop) {
-            idx[n++] = v * umax;
-            idx[n++] = (v + 1) * umax;
-            idx[n++] = (v + 1) * umax;
-        } else {
-            idx[n++] = (u - 1) + (v + 1) * umax;
-        }
+        idx[n++] = (u - 1) + (v + 1) * umax;
     }
 }
 
-var Geometry = Gls.prototype.createGeometry.call({gl:{}}, []).constructor;
-Geometry.prototype.addMesh = function (mesh) {
-    mesh = mesh || {};
-    var unum = mesh.unum || 1;
-    var vnum = mesh.vnum || 1;
-    var uloop = mesh.uloop || false;
-    var callback = mesh.shape;
-    var size = (uloop ? unum : unum + 1) * (vnum + 1);
-    var indexSize = (unum * 2 + 4) * vnum;
-    this.allocate(size, indexSize, function (vtx, idx) {
-        createMesh(vtx, idx, unum, vnum, uloop);
-        if (callback) {
-            callback = callback.bind(mesh);
-            for (var i = 0; i < vtx.length; i++) {
-                callback(vtx[i]);
+function Mesh(geom, ucount, vcount, attrName) {
+    this._geom;
+    this.ucount = ucount;
+    this.vcount = vcount;
+    var callbacks = [];
+    this._callbacks = callbacks;
+    var size = (ucount + 1) * (vcount + 1);
+    var indexSize = (ucount * 2 + 4) * vcount;
+    geom.allocate(size, indexSize, function (vtx, idx) {
+        createMesh(vtx, idx, ucount, vcount, attrName);
+        for (var i = 0; i < callbacks.length; i++) {
+            var callback = callbacks[i];
+            for (var j = 0; j < vtx.length; j++) {
+                callback(vtx[j]);
             }
         }
     });
+}
+Mesh.prototype.transform = function (callback) {
+    this._callbacks.push(callback);
+    return this;
 };
+
+var Geometry = Gls.prototype.createGeometry.call({gl:{}}, []).constructor;
+Geometry.prototype.createMesh = function (ucount, vcount, attrName) {
+    return new Mesh(this, ucount, vcount, attrName);
+}
 
 ////////////////////////////////////////////////////////////
 // Mouse

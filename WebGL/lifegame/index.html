@@ -18,7 +18,7 @@
       <script data-name="mainShader" type="x-shader/x-fragment">
         precision mediump float;
 
-        const vec2 iReso = 1.0 / vec2(${canvas.width}, ${canvas.height});
+        const vec2 iReso = 1.0 / vec2([[canvas.width]], [[canvas.height]]);
 
         uniform sampler2D texture;
 
@@ -29,7 +29,7 @@
       <script data-name="lifeShader" type="x-shader/x-fragment">
         precision mediump float;
 
-        const vec2 iReso = 1.0 / vec2(${canvas.width}, ${canvas.height});
+        const vec2 iReso = 1.0 / vec2([[canvas.width]], [[canvas.height]]);
 
         uniform sampler2D texture;
 
@@ -63,7 +63,7 @@
       gls.frame2 = gls.createFramebuffer();
 
       gls.geom = gls.createGeometry(['mainShader', 'lifeShader']);
-      gls.geom.addMesh();
+      gls.geom.createMesh(1, 1);
 
       gls.bindFramebuffer(gls.frame1);
       gls.mainShader.uniform.texture = function () {

@@ -40,34 +40,30 @@ export default class Tree {
 
     for (let idx = 2; idx <= TREE_BRANCH_NUM; idx += 2) {
       // 枝を追加
-      treeGeom.addMesh({
-        unum: 3,     // 横方向のメッシュ分割数
-        vnum: 1,     // 縦方向のメッシュ分割数
-        uloop: true, // メッシュの左端と右端が接続している (頂点数を削減)
-        shape(attribute) {
-          const X = 0, Y = 1, Z = 2, W = 3;
-          const p = attribute.position;
+      const mesh = treeGeom.createMesh(3, 1);
+      mesh.transform(attribute => {
+        const X = 0, Y = 1, Z = 2, W = 3;
+        const p = attribute.position;
 
-          attribute.color[0] = 96;
-          attribute.color[1] = 64;
-          attribute.color[2] = 32;
-          attribute.color[3] = 255;
+        attribute.color[0] = 96;
+        attribute.color[1] = 64;
+        attribute.color[2] = 32;
+        attribute.color[3] = 255;
 
-          // メッシュを筒状に変換
-          vec3.rotateY(p, vec3.fromValues(0, p.y, (TREE_BRANCH_THICKNESS - p.y) / 32), vec3.create(), p.x * Math.PI);
-          // 位置とサイズを調整(原点が回転軸になるように)
-          vec3.add(p, p, vec3.fromValues(0, 1, 0));
-          vec3.scale(p, p, 2);
+        // メッシュを筒状に変換
+        vec3.rotateY(p, vec3.fromValues(0, p.y, (TREE_BRANCH_THICKNESS - p.y) / 32), vec3.create(), p.x * Math.PI);
+        // 位置とサイズを調整(原点が回転軸になるように)
+        vec3.add(p, p, vec3.fromValues(0, 1, 0));
+        vec3.scale(p, p, 2);
 
-          // 再帰的な配置
-          for (let m = 1; m <= TREE_BRANCH_NUM; m += m) {
-            treeR(p, idx, m);
-          }
+        // 再帰的な配置
+        for (let m = 1; m <= TREE_BRANCH_NUM; m += m) {
+          treeR(p, idx, m);
+        }
 
-          vec3.rotateY(p, p, vec3.create(), treeAngle);
-          vec3.scale(p, p, treeScale);
-          vec3.add(p, p, treePosition);
-        },
+        vec3.rotateY(p, p, vec3.create(), treeAngle);
+        vec3.scale(p, p, treeScale);
+        vec3.add(p, p, treePosition);
       });
     }
     // 葉
@@ -82,32 +78,28 @@ export default class Tree {
       const r2 = Math.random() * Math.PI * 2;
       for (let leafID= 0; leafID < 3; leafID++) {
         const r3 = Math.random() * Math.PI * 2;
-        leafGeom.addMesh({
-          unum: 1,
-          vnum: 1,
-          uloop: false,
-          shape: function (attribute) {
-            var p = attribute.position;
-            attribute.textureCoord.x = (p.x + 1) / 2;
-            attribute.textureCoord.y = (p.y + 1) / 2;
-            vec3.rotateZ(p, p, vec3.create(), r3);
+        const mesh = leafGeom.createMesh(1, 1);
+        mesh.transform(attribute => {
+          var p = attribute.position;
+          attribute.textureCoord.x = (p.x + 1) / 2;
+          attribute.textureCoord.y = (p.y + 1) / 2;
+          vec3.rotateZ(p, p, vec3.create(), r3);
 
-            if (leafID === 1) {
-              vec3.rotateX(p, p, vec3.create(), Math.PI / 2);
-            } else if (leafID === 2) {
-              vec3.rotateY(p, p, vec3.create(), Math.PI / 2);
-            }
+          if (leafID === 1) {
+            vec3.rotateX(p, p, vec3.create(), Math.PI / 2);
+          } else if (leafID === 2) {
+            vec3.rotateY(p, p, vec3.create(), Math.PI / 2);
+          }
 
-            vec3.rotateX(p, p, vec3.create(), r1);
-            vec3.rotateZ(p, p, vec3.create(), r2);
+          vec3.rotateX(p, p, vec3.create(), r1);
+          vec3.rotateZ(p, p, vec3.create(), r2);
 
-            vec3.scale(p, p, 0.8);
-            vec3.add(p, p, op);
+          vec3.scale(p, p, 0.8);
+          vec3.add(p, p, op);
 
-            vec3.rotateY(p, p, vec3.create(), treeAngle);
-            vec3.scale(p, p, treeScale);
-            vec3.add(p, p, treePosition);
-          },
+          vec3.rotateY(p, p, vec3.create(), treeAngle);
+          vec3.scale(p, p, treeScale);
+          vec3.add(p, p, treePosition);
         });
       }
     }

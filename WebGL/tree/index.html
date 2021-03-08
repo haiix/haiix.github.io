@@ -52,44 +52,36 @@ window.gl = new Gls('#view', {alpha: true, depth: true, antialias: true});
 
 // 地面
 gl.terrainGeom = gl.createGeometry([gl.mainShader], gl.LINE_STRIP);
-gl.terrainGeom.addMesh({
-  unum: 40,
-  vnum: 40,
-  uloop: false,
-  shape(attribute) {
-    const p = attribute.position;
-    vec3.scale(p, p, 10);
-    vec3.rotateX(p, p, vec3.create(), Math.PI / 2);
-  },
+const terrainMesh = gl.terrainGeom.createMesh(40, 40);
+terrainMesh.transform(function (attribute) {
+  const p = attribute.position;
+  vec3.scale(p, p, 10);
+  vec3.rotateX(p, p, vec3.create(), Math.PI / 2);
 });
 
 // 木
 gl.treeGeom = gl.createGeometry([gl.mainShader], gl.TRIANGLE_STRIP);
 for (let idx = 1; idx <= TREE_BRANCH_NUM; idx++) {
   // 枝を追加
-  gl.treeGeom.addMesh({
-    unum: 3,     // 横方向のメッシュ分割数
-    vnum: 1,     // 縦方向のメッシュ分割数
-    uloop: true, // メッシュの左端と右端が接続している (頂点数を削減)
-    shape(attribute) {
-      const p = attribute.position;
+  const mesh = gl.treeGeom.createMesh(3, 1);
+  mesh.transform(attribute => {
+    const p = attribute.position;
 
-      // メッシュを筒状に変換
-      vec3.rotateY(p, vec3.fromValues(0, p.y, (TREE_BRANCH_THICKNESS - p.y) / 32), vec3.create(), p.x * Math.PI);
-      // 位置とサイズを調整(原点が回転軸になるように)
-      vec3.add(p, p, vec3.fromValues(0, 1, 0));
-      vec3.scale(p, p, 0.5);
+    // メッシュを筒状に変換
+    vec3.rotateY(p, vec3.fromValues(0, p.y, (TREE_BRANCH_THICKNESS - p.y) / 32), vec3.create(), p.x * Math.PI);
+    // 位置とサイズを調整(原点が回転軸になるように)
+    vec3.add(p, p, vec3.fromValues(0, 1, 0));
+    vec3.scale(p, p, 0.5);
 
-      // 再帰的な配置
-      for (let m = 1; m <= TREE_BRANCH_NUM; m += m) {
-        const q = idx & (m - 1);
-        if (q === 0) continue;
-        vec3.rotateX(p, p, vec3.create(), TREE_BRANCH_EXPAND); // 枝の広がり
-        vec3.rotateY(p, p, vec3.create(), idx - q);            // 枝の向き
-        vec3.scale(p, p, TREE_BRANCH_REDUCTION_RATE);          // 縮小
-        vec3.add(p, p, vec3.fromValues(0, 1, 0));              // 移動
-      }
-    },
+    // 再帰的な配置
+    for (let m = 1; m <= TREE_BRANCH_NUM; m += m) {
+      const q = idx & (m - 1);
+      if (q === 0) continue;
+      vec3.rotateX(p, p, vec3.create(), TREE_BRANCH_EXPAND); // 枝の広がり
+      vec3.rotateY(p, p, vec3.create(), idx - q);            // 枝の向き
+      vec3.scale(p, p, TREE_BRANCH_REDUCTION_RATE);          // 縮小
+      vec3.add(p, p, vec3.fromValues(0, 1, 0));              // 移動
+    }
   });
 }
 
