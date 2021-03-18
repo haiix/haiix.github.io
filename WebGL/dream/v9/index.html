@@ -8,8 +8,8 @@
     <title>模様生成</title>
   </head>
   <body>
-    <script src="gls3.js"></script>
     <script type="module">
+import Gls from '../../../assets/Gls.mjs'
 import TComponent from '../../../TComponent/TComponent.mjs'
 
 function Math_mod (a, b) {
@@ -98,9 +98,9 @@ class Main {
     this.gl = new Gls(canvas, { alpha: false, depth: false, antialias: false })
     this.gl.clearColor(1, 1, 1, 1)
     this.program = this.gl.createProgram(`
-      attribute float id;
+      attribute vec2 position;
       void main() {
-          gl_Position = vec4(vec2(mod(id, 2.0), floor(id / 2.0)) * 2.0 - 1.0, 0.0, 1.0);
+          gl_Position = vec4(position, 0.0, 1.0);
       }
     `, `
       precision mediump float;
@@ -145,9 +145,7 @@ class Main {
       }
     `)
     this.geom = this.gl.createGeometry([this.program])
-    this.geom.allocate(4, null, vertices =>
-      vertices.forEach((attribute, id) => attribute.id = id)
-    )
+    this.geom.createMesh(1, 1)
     this.gl.clear()
   }
   draw (reso, seed) {

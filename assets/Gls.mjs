@@ -1,7 +1,4 @@
-var Gls = function () {
-'use strict';
-
-Gls.VERSION = '0.3.30';
+Gls.VERSION = '0.3.31';
 
 var GL = window.WebGLRenderingContext || {};
 
@@ -497,6 +494,56 @@ Gls.prototype.createGeometry = function (programs, mode, usage) {
 };
 
 ////////////////////////////////////////////////////////////
+// Mesh
+
+function createMesh(vtx, idx, ucount, vcount, attrName) {
+    attrName = attrName || 'position';
+    var u, v, n;
+    var umax = ucount + 1;
+    for (v = 0, n = 0; v <= vcount; v++) {
+        for (u = 0; u < umax; u++, n++) {
+            vtx[n][attrName][0] = u / ucount * 2 - 1;
+            vtx[n][attrName][1] = v / vcount * 2 - 1;
+        }
+    }
+    for (v = 0, n = 0; v < vcount; v++) {
+        idx[n++] = v * umax;
+        for (u = 0; u < umax; u++) {
+            idx[n++] = u + v * umax;
+            idx[n++] = u + (v + 1) * umax;
+        }
+        idx[n++] = (u - 1) + (v + 1) * umax;
+    }
+}
+
+function Mesh(geom, ucount, vcount, attrName) {
+    this._geom;
+    this.ucount = ucount;
+    this.vcount = vcount;
+    var callbacks = [];
+    this._callbacks = callbacks;
+    var size = (ucount + 1) * (vcount + 1);
+    var indexSize = (ucount * 2 + 4) * vcount;
+    geom.allocate(size, indexSize, function (vtx, idx) {
+        createMesh(vtx, idx, ucount, vcount, attrName);
+        for (var i = 0; i < callbacks.length; i++) {
+            var callback = callbacks[i];
+            for (var j = 0; j < vtx.length; j++) {
+                callback(vtx[j]);
+            }
+        }
+    });
+}
+Mesh.prototype.transform = function (callback) {
+    this._callbacks.push(callback);
+    return this;
+};
+
+Geometry.prototype.createMesh = function (ucount, vcount, attrName) {
+    return new Mesh(this, ucount, vcount, attrName);
+};
+
+////////////////////////////////////////////////////////////
 // Texture
 
 ATTRIBUTE_TYPE[GL.SAMPLER_2D] = {type: GL.SAMPLER_2D, size: 1, fn: '1i', isMatrix: false}; // 35678
@@ -671,16 +718,15 @@ Gls.prototype.bindFramebuffer = function (framebuffer) {
 
 ////////////////////////////////////////////////////////////
 // init depth
-var GLS_CLEAR_PARAM = 0;
 Gls_initializers.push(function (canvas, param) {
-    GLS_CLEAR_PARAM = GL.COLOR_BUFFER_BIT | (param.depth !== false ? GL.DEPTH_BUFFER_BIT : 0) | (param.stencil === true ? GL.STENCIL_BUFFER_BIT : 0);
+    this._clearParam = GL.COLOR_BUFFER_BIT | (param.depth !== false ? GL.DEPTH_BUFFER_BIT : 0) | (param.stencil === true ? GL.STENCIL_BUFFER_BIT : 0);
     if (param.depth !== false) {
         this.gl.enable(GL.DEPTH_TEST);
         this.gl.clearDepth(1);
     }
 });
 Gls.prototype.clear = function (param) {
-    this.gl.clear(GLS_CLEAR_PARAM | param);
+    this.gl.clear(this._clearParam | param);
 };
 
 ////////////////////////////////////////////////////////////
@@ -701,5 +747,5 @@ Gls.prototype.clear = function (param) {
 
 ////////////////////////////////////////////////////////////
 
-return Gls;
-}();
+export default Gls;
+
