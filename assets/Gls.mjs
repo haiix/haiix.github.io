@@ -539,7 +539,7 @@ Mesh.prototype.transform = function (callback) {
     return this;
 };
 
-Geometry.prototype.createMesh = function (ucount, vcount, attrName) {
+Geometry.prototype.addMesh = function (ucount, vcount, attrName) {
     return new Mesh(this, ucount, vcount, attrName);
 };
 

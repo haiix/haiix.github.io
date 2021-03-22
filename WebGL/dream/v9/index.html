@@ -145,7 +145,7 @@ class Main {
       }
     `)
     this.geom = this.gl.createGeometry([this.program])
-    this.geom.createMesh(1, 1)
+    this.geom.addMesh(1, 1)
     this.gl.clear()
   }
   draw (reso, seed) {
