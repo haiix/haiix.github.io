@@ -1,14 +1,163 @@
 import TComponent from '@haiix/TComponent'
 import seq from '@haiix/seq'
+import style from '../../assets/style.mjs'
+
+const CLASS_NAME = 't-component-ui-tree'
+
+style(`
+  .${CLASS_NAME} {
+    line-height: 24px;
+    cursor: default;
+    outline: none;
+    overflow: auto;
+    background: #FFF;
+    color: #000;
+    user-select: none;
+  }
+  .${CLASS_NAME} ul {
+    margin: 0;
+    padding: 0;
+    list-style-type: none;
+  }
+  .${CLASS_NAME} li > div > * {
+    vertical-align: middle;
+  }
+  .${CLASS_NAME} li > div:hover {
+    background: #DEF;
+  }
+  .${CLASS_NAME} li.current > div {
+    background: #DDD;
+  }
+  .${CLASS_NAME}:focus li.current > div {
+    background: #BDF;
+  }
+  .${CLASS_NAME} .expand-icon {
+    display: inline-block;
+    margin-right: 4px;
+    font-size: 20px;
+    color: transparent;
+    transition: color .5s;
+  }
+  .${CLASS_NAME}:focus .expand-icon,
+  .${CLASS_NAME}:hover .expand-icon {
+    color: #666;
+  }
+  .${CLASS_NAME} .icon {
+    display: inline-block;
+    margin-right: 4px;
+    font-size: 18px;
+  }
+`)
+
+class TreeItem extends TComponent {
+  template () {
+    return `
+      <li id="_item">
+        <div id="_container" style="padding-left: 0em;">
+          <i id="_expandIcon" class="material-icons expand-icon">chevron_right</i>
+          <i id="_icon" class="material-icons icon" style="color: #FC9;">folder</i>
+          <span id="_text"></span>
+        </div>
+        <ul id="_list" style="display: none;"></ul>
+      </li>
+    `
+  }
+
+  constructor (attr, nodes) {
+    super()
+    this.key = ''
+  }
+
+  set text (v) {
+    this._text.textContent = v
+  }
+
+  get text () {
+    return this._text.textContent
+  }
+
+  set icon (v) {
+    this._icon.textContent = v
+  }
+
+  set iconColor (v) {
+    this._icon.style.color = v
+  }
+
+  appendChild (item) {
+    if (!(item instanceof TreeItem)) throw new Error()
+    this._list.appendChild(item._item)
+  }
+
+  get parentNode () {
+    return TComponent.from(this._item.parentNode.parentNode)
+  }
+
+  getRootNode () {
+    let curr = this
+    while (curr instanceof TreeItem) {
+      curr = curr.parentNode
+    }
+    return curr instanceof Tree ? curr : null
+  }
+
+  async expand () {
+    const root = this.getRootNode()
+    if (root.onExpand) {
+      this._expandIcon.textContent = 'refresh'
+      await root.onExpand(this)
+    }
+    this._expandIcon.textContent = 'expand_more'
+    this._list.style.display = ''
+  }
+
+  async collapse () {
+    this._expandIcon.textContent = 'chevron_right'
+    this._list.style.display = 'none'
+    const tree = this.getRootNode()
+    if (tree.current && this._item.contains(tree.current._item)) {
+      tree.current = this
+    }
+  }
+
+  get isExpanded () {
+    return this._list.style.display !== 'none'
+  }
+
+  set isExpandable (b) {
+    if (b) {
+      this._expandIcon.textContent = 'chevron_right'
+    } else {
+      this._expandIcon.textContent = '_'
+      this._list.style.display = 'none'
+    }
+  }
+
+  get isExpandable () {
+    return this._expandIcon.textContent !== '_'
+  }
+
+  _setIndent (v) {
+    this._container.style.paddingLeft = v + 'em'
+    for (const item of seq(this._list.childNodes).map(elem => TComponent.from(elem))) {
+      item._setIndent(v + 1)
+    }
+  }
+
+  //_getIndent () {
+  //  return this._container.style.paddingLeft.slice(0, -2) >> 0
+  //}
+}
 
 export default class Tree extends TComponent {
   template () {
     return `
-      <div id="_tree" tabindex="0" class="tree"
+      <div id="_tree" tabindex="0" class="${CLASS_NAME}"
         onmousedown="this._handleTreeMousedown(event)"
         onmousemove="event.preventDefault()"
         onkeydown="this._handleTreeKeydown(event)"
       >
+        <ul id="_list"></ul>
       </div>
     `
   }
@@ -20,147 +169,119 @@ export default class Tree extends TComponent {
       this._tree.setAttribute(key, value)
     }
 
-    this._tree.innerHTML = '<ul>' + seq((nodes[0] || { data: '' }).data.split('\n'))
-      .map(line => [line.search(/\S/), line])
-      .filter(([indent]) => indent >= 0)
-      .map(([indent, line]) => [indent, line.slice(indent)])
-      .map(function ([indent, line]) {
-        if (this.indent < 0) this.indent = indent
-        return [indent - this.indent, line]
-      }, { indent: -1 })
-      .map(([indent, line]) => [Math.ceil(indent / 2), line])
-      .concat([[-1, '']])
-      .map(function ([indent, line]) {
-        const prevIndent = this.prevIndent
-        const delta = indent - prevIndent
-        const prevLine = this.prevLine
-        this.prevIndent = indent
-        this.prevLine = line
-        return [prevIndent, prevLine, delta]
-      }, { prevIndent: -1, prevLine: '' })
-      .slice(1)
-      .map(([indent, line, delta]) => [indent, line, delta, delta > 0 ? 'expand_more' : '_'])
-      .map(([indent, line, delta, icon]) => [`<li><div style="padding-left: ${indent}em;"><i class="material-icons">${icon}</i><span>${line}</span></div>`, delta])
-      .map(([line, delta]) => line + (delta > 0 ? '<ul>' : '</ul>').repeat(Math.abs(delta)))
-      .join('')
-    this.current = this.first
+    //this.current = this.first
+    this.current = null
+    this.onChange = null
+    this.onExpand = null
+  }
+
+  appendChild (item) {
+    if (!(item instanceof TreeItem)) throw new Error()
+    this._list.appendChild(item._item)
+    item._setIndent(0)
   }
 
   set current (item) {
     if (this._lastCurrent === item) return
-    if (this._lastCurrent != null) this._lastCurrent.classList.remove('current')
+    if (this._lastCurrent != null) this._lastCurrent._item.classList.remove('current')
     this._lastCurrent = item
-    if (item) item.classList.add('current')
+    if (item) item._item.classList.add('current')
+    if (this.onChange) this.onChange(item)
   }
 
   get current () {
-    if (this._lastCurrent == null || !this._lastCurrent.classList.contains('current')) {
-      this._lastCurrent = this._tree.querySelector('.current')
+    if (this._lastCurrent == null || !this._lastCurrent._item.classList.contains('current')) {
+      this._lastCurrent = TComponent.from(this._tree.querySelector('.current'))
     }
     return this._lastCurrent
   }
 
-  get first () {
-    return this._tree.firstChild && this._tree.firstChild.firstChild.firstChild
-  }
+  //get first () {
+  //  return this._tree.firstChild && this._tree.firstChild.firstChild
+  //}
 
   focus () {
     this._tree.focus()
   }
 
-  expand (item) {
-    item.firstChild.textContent = 'expand_more'
-    item.nextSibling.style.display = ''
-  }
-
-  collapse (item) {
-    item.firstChild.textContent = 'chevron_right'
-    item.nextSibling.style.display = 'none'
-    if (item.nextSibling.contains(this.current)) {
-      this.current = item
+  async _handleTreeMousedown (event) {
+    let elem = event.target
+    while (elem.tagName !== 'LI') {
+      if (elem === this._tree) return
+      elem = elem.parentNode
     }
-  }
+    const item = TComponent.from(elem)
 
-  _handleTreeMousedown (event) {
-    let item = event.target
-    while (item.tagName !== 'LI') {
-      if (item === this._tree) return
-      item = item.parentNode
-    }
-    item = item.firstChild
-
-    if (item.firstChild === event.target && item.nextSibling) {
-      const ul = item.nextSibling
-      if (ul) {
-        if (ul.style.display !== 'none') {
-          this.collapse(item)
-        } else {
-          this.expand(item)
-        }
+    if (event.target === item._expandIcon && item.isExpandable) {
+      const ul = item._list
+      if (item.isExpanded) {
+        await item.collapse()
+      } else {
+        await item.expand()
       }
     } else {
       this.current = item
     }
   }
 
-  _handleTreeKeydown (event) {
+  async _handleTreeKeydown (event) {
     if (!this.current) return
     switch (event.keyCode) {
       case 8:  // Back Space
       {
-        if (this.current.parentNode.parentNode.parentNode !== this._tree) {
-          this.current = this.current.parentNode.parentNode.previousSibling
+        if (this.current.parentNode !== this) {
+          this.current = this.current.parentNode
         }
       }
       break
       case 37: // Left
       {
-        if (this.current.nextSibling && this.current.nextSibling.style.display !== 'none') {
-          this.collapse(this.current)
+        if (this.current.isExpanded) {
+          await this.current.collapse()
         } else {
-          if (this.current.parentNode.parentNode.parentNode !== this._tree) {
-            this.current = this.current.parentNode.parentNode.previousSibling
+          if (this.current.parentNode !== this) {
+            this.current = this.current.parentNode
           }
         }
       }
       break
       case 38: // Up
       {
-        if (this.current.parentNode.previousSibling) {
-          let li = this.current.parentNode.previousSibling
-          while (li.firstChild.nextSibling && li.firstChild.nextSibling.style.display !== 'none') {
-            li = li.firstChild.nextSibling.lastChild
+        if (this.current._item.previousSibling) {
+          let item = TComponent.from(this.current._item.previousSibling)
+          while (item.isExpanded && item._list.lastChild) {
+            item = TComponent.from(item._list.lastChild)
           }
-          this.current = li.firstChild
+          this.current = item
         } else {
-          if (this.current.parentNode.parentNode.parentNode !== this._tree) {
-            this.current = this.current.parentNode.parentNode.previousSibling
+          if (this.current.parentNode !== this) {
+            this.current = this.current.parentNode
           }
         }
       }
       break
       case 39: // Right
       {
-        if (this.current.nextSibling) {
-          if (this.current.nextSibling.style.display === 'none') {
-            this.expand(this.current)
-          } else {
-            this.current = this.current.nextSibling.firstChild.firstChild
+        if (this.current.isExpandable && !this.current.isExpanded) {
+          await this.current.expand()
+        } else {
+          if (this.current._list.firstChild) {
+            this.current = TComponent.from(this.current._list.firstChild)
           }
         }
       }
       break
       case 40: // Down
       {
-        if (this.current.nextSibling && this.current.nextSibling.style.display !== 'none') {
-          this.current = this.current.nextSibling.firstChild.firstChild
+        if (this.current.isExpanded && this.current._list.firstChild) {
+          this.current = TComponent.from(this.current._list.firstChild)
         } else {
-          let li = this.current.parentNode
-          while (!li.nextSibling && li !== this._tree) {
-            li = li.parentNode.parentNode
+          let item = this.current
+          while (item !== this && !item._item.nextSibling) {
+            item = item.parentNode
           }
-          if (li !== this._tree) {
-            this.current = li.nextSibling.firstChild
+          if (item !== this) {
+            this.current = TComponent.from(item._item.nextSibling)
           }
         }
       }
@@ -168,3 +289,4 @@ export default class Tree extends TComponent {
     }
   }
 }
+Tree.Item = TreeItem
