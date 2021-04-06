@@ -103,9 +103,10 @@ class TreeItem extends TComponent {
 
   async expand () {
     const root = this.getRootNode()
-    if (root.onExpand) {
-      this._expandIcon.textContent = 'refresh'
-      await root.onExpand(this)
+    if (root.onexpand) {
+      this._expandIcon.textContent = 'autorenew'
+      const event = new CustomEvent('expand', { detail: this })
+      await root.onexpand(event)
     }
     this._expandIcon.textContent = 'expand_more'
     this._list.style.display = ''
@@ -165,14 +166,18 @@ export default class Tree extends TComponent {
   constructor (attr, nodes) {
     super()
 
-    for (const [key, value] of Object.entries(attr)) {
-      this._tree.setAttribute(key, value)
-    }
-
     //this.current = this.first
     this.current = null
     this.onChange = null
-    this.onExpand = null
+    this.onexpand = null
+
+    for (const [key, value] of Object.entries(attr)) {
+      if (typeof value === 'string') {
+        this._tree.setAttribute(key, value)
+      } else {
+        this[key] = value
+      }
+    }
   }
 
   appendChild (item) {

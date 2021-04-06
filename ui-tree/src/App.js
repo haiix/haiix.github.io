@@ -32,7 +32,9 @@ export default class App extends TComponent {
     this.uses(Tree)
     return `
       <div class="horizontal">
-        <tree id="_tree" style="border: 1px solid #999; width: 200px;" />
+        <tree id="_tree" style="border: 1px solid #999; width: 200px;"
+          onexpand="return this._handleExpand(event)"
+        />
         <div style="border: 1px solid #CCC;"></div>
       </div>
     `
@@ -67,17 +69,19 @@ export default class App extends TComponent {
     this._tree.onChange = function (item) {
       console.log(item.text)
     }
-    this._tree.onExpand = async function (item) {
-      switch (item.key) {
-        case 'dblist':
-          await new Promise(resolve => window.setTimeout(resolve, 200))
-          break;
-        case 'tblist':
-          await new Promise(resolve => window.setTimeout(resolve, 200))
-          break;
-      }
-    }
 
     //this._tree.focus()
+  }
+
+  async _handleExpand (event) {
+    const item = event.detail
+    switch (item.key) {
+      case 'dblist':
+        await new Promise(resolve => window.setTimeout(resolve, 200))
+        break;
+      case 'tblist':
+        await new Promise(resolve => window.setTimeout(resolve, 200))
+        break;
+    }
   }
 }
