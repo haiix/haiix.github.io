@@ -1,4 +1,4 @@
-const moduleTransformRules = [
+const moduleConversionRules = [
   {
     nameStartsWith: '@haiix/',
     url (src) {
@@ -15,34 +15,50 @@ const moduleTransformRules = [
   }
 ]
 
+const base = location.href.slice(0, location.href.lastIndexOf('/'))
+
+async function convert(req, cache) {
+  if (req.url === base + '/service-worker.js') {
+    const code = 'import * as index from \'./src/index.js\''
+    return new Response(code, {
+      headers: { 'Content-Type': 'text/javascript' }
+    })
+  }
+
+  let res
+  try {
+    res = await fetch(req.url)
+    if (res.status !== 200) return res
+  } catch (error) {
+    const _res = await cache.match(req)
+    if (!_res) throw error
+    return _res
+  }
+
+  if (req.url.slice(-4) === '.mjs' || req.url.slice(-3) === '.js') {
+    const code = (await res.text()).replaceAll(/(import\s.*?\sfrom\s+['"])(.*?)(["'])/g, (...args) => {
+      const src = args[2]
+      for (const rule of moduleConversionRules) {
+        if (!src.startsWith(rule.nameStartsWith) || !rule.url) continue
+        return args[1] + rule.url(src) + args[3]
+      }
+      return args[1] + src + args[3]
+    })
+    res = new Response(code, {
+      headers: { 'Content-Type': 'text/javascript' }
+    })
+  }
+  return res
+}
+
 if ('ServiceWorkerGlobalScope' in self && self instanceof ServiceWorkerGlobalScope) {
-  const base = location.href.slice(0, location.href.lastIndexOf('/'))
   self.addEventListener('fetch', event => {
     event.respondWith(async function () {
-      const url = event.request.url
-      if (url.slice(-4) === '.mjs' || url.slice(-3) === '.js') {
-        let code = ''
-        if (url === base + '/service-worker.js') {
-          code = 'import * as index from \'./src/index.js\''
-        } else {
-          const res = await fetch(url)
-          if (res.status !== 200) return res
-          code = await res.text()
-          code = code.replaceAll(/(import\s.*?\sfrom\s+['"])(.*?)(["'])/g, (...args) => {
-            const src = args[2]
-            for (const rule of moduleTransformRules) {
-              if (!src.startsWith(rule.nameStartsWith) || !rule.url) continue
-              return args[1] + rule.url(src) + args[3]
-            }
-            return args[1] + src + args[3]
-          })
-        }
-        return new Response(code, {
-          headers: { 'Content-Type': 'text/javascript' }
-        })
-      } else {
-        return await fetch(event.request)
-      }
+      const cache = await caches.open(base)
+      const req = event.request
+      const res = await convert(req, cache)
+      if (res.status === 200) await cache.put(req, res.clone())
+      return res
     }())
   })
 } else {
