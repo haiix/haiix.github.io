@@ -7,9 +7,12 @@ import * as vec4 from 'gl-matrix/cjs/vec4.js'
 export default class App extends TComponent {
   template () {
     return `
-      <canvas id="canvas" width="600" height="600">
-        WebGL is not available.
-      </canvas>
+      <div>
+        <h1>box</h1>
+        <canvas id="canvas" width="600" height="600">
+          WebGL is not available.
+        </canvas>
+      </div>
     `
   }
 

@@ -1,5 +1,10 @@
 <!DOCTYPE html>
 <meta charset="UTF-8">
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-<script type="module" src="./service-worker.js"></script>
-<script nomodule>window.onload = function () { document.body.innerHTML = '<p>Module is not available.</p>' }</script>
+<script src="../assets/moduleProxy.js"></script>
+<script>
+  moduleProxy.register({
+    rules: './moduleProxyRules.js',
+    load: './src/index.js'
+  })
+</script>
