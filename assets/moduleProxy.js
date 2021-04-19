@@ -63,9 +63,10 @@
             import(self.moduleProxy.base + settings.load)
           })
         } else {
-          cache.put(settingsUrl, new Response(JSON.stringify(settings)))
           self.navigator.serviceWorker.register(settings.rules).then(function () {
             //console.debug('registered!')
+            return cache.put(settingsUrl, new Response(JSON.stringify(settings)))
+          }).then(function () {
             location.reload()
           })
         }
