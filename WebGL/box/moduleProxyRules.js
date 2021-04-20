@@ -1,6 +1,6 @@
 importScripts('../../assets/moduleProxy.js')
 
-moduleProxy.rules([
+moduleProxy.rules = [
   {
     nameStartsWith: '@haiix/',
     url (src) {
@@ -15,4 +15,4 @@ moduleProxy.rules([
       return `https://raw.githubusercontent.com/toji/gl-matrix/master/src/${module}`
     }
   }
-])
+]

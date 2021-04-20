@@ -46,9 +46,6 @@
         return cache.match(req)
       })
     },
-    rules: function (rules) {
-      self.moduleProxy.rules = rules
-    },
     register: function (settings) {
       var cache = null
       var settingsUrl = self.moduleProxy.base + 'moduleProxySettings.json'
@@ -59,8 +56,10 @@
         if (_res) {
           //console.debug('alrady registered')
           _res.json().then(function (settings) {
-            //console.warn(settings.load)
-            import(self.moduleProxy.base + settings.load)
+            return import(self.moduleProxy.base + settings.load)
+          }).catch(function (error) {
+            document.body.insertAdjacentHTML('afterbegin', '<pre>' + (error.stack || error.message) + '</pre>')
+            throw error
           })
         } else {
           self.navigator.serviceWorker.register(settings.rules).then(function () {

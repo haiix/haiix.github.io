@@ -1,6 +1,6 @@
 importScripts('../assets/moduleProxy.js')
 
-moduleProxy.rules([
+moduleProxy.rules = [
   {
     nameStartsWith: '@haiix/',
     url (src) {
@@ -8,4 +8,4 @@ moduleProxy.rules([
       return `https://raw.githubusercontent.com/haiix/${module}/master/${module}.mjs`
     }
   }
-])
+]

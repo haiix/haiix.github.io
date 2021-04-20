@@ -1,8 +1,8 @@
 class Style {
-  constructor (text) {
+  constructor (text, options = null) {
     this.elem = document.createElement('style')
     this.elem.textContent = text
-    this.enable()
+    if (!(options && options.disabled)) this.enable()
   }
 
   enable () {
@@ -14,6 +14,6 @@ class Style {
   }
 }
 
-export default function style (text) {
-  return new Style(text)
+export default function style (text, options = null) {
+  return new Style(text, options)
 }
