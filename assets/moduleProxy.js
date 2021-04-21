@@ -15,67 +15,67 @@
       }
     },
     convert: function (req) {
-      var cache = null
-      return self.moduleProxy.getCache().then(function (_cache) {
-        cache = _cache
-        return fetch(req.url)
+      return fetch(req.url).then(function (res) {
+        if (res.status !== 200) return res
+        if (req.url.slice(-4) !== '.mjs' && req.url.slice(-3) !== '.js') return res
+        return res.text().then(function (_text) {
+          var code = _text.replaceAll(/(import\s.*?\sfrom\s+['"])(.*?)(["'])/g, function () {
+            var src = arguments[2]
+            for (var i = 0; i < self.moduleProxy.rules.length; i++) {
+              var rule = self.moduleProxy.rules[i]
+              if (!src.startsWith(rule.nameStartsWith) || !rule.url) continue
+              return arguments[1] + rule.url(src) + arguments[3]
+            }
+            return arguments[1] + src + arguments[3]
+          })
+          return new Response(code, {
+            headers: { 'Content-Type': 'text/javascript' }
+          })
+        })
       }).then(function (res) {
         if (res.status !== 200) return res
-        if (req.url.slice(-4) === '.mjs' || req.url.slice(-3) === '.js') {
-          return res.text().then(function (_text) {
-            var code = _text.replaceAll(/(import\s.*?\sfrom\s+['"])(.*?)(["'])/g, function () {
-              var src = arguments[2]
-              for (var i = 0; i < self.moduleProxy.rules.length; i++) {
-                var rule = self.moduleProxy.rules[i]
-                if (!src.startsWith(rule.nameStartsWith) || !rule.url) continue
-                return arguments[1] + rule.url(src) + arguments[3]
-              }
-              return arguments[1] + src + arguments[3]
-            })
-            res = new Response(code, {
-              headers: { 'Content-Type': 'text/javascript' }
-            })
-            cache.put(req, res.clone())
-            return res
-          })
-        } else {
+        return self.moduleProxy.getCache().then(function (cache) {
           cache.put(req, res.clone())
           return res
-        }
+        })
       }).catch(function (error) {
-        return cache.match(req)
+        return self.moduleProxy.getCache().then(function (cache) {
+          return cache.match(req)
+        })
       })
     },
     register: function (settings) {
       var cache = null
       var settingsUrl = self.moduleProxy.base + 'moduleProxySettings.json'
-      self.moduleProxy.getCache().then(function (_cache) {
+      return self.moduleProxy.getCache().then(function (_cache) {
         cache = _cache
         return cache.match(settingsUrl)
       }).then(function (_res) {
         if (_res) {
           //console.debug('alrady registered')
-          _res.json().then(function (settings) {
-            return import(self.moduleProxy.base + settings.load)
+          return _res.json().then(function (settings) {
+            if (settings.import) return eval('import(self.moduleProxy.base + settings.import)')
           }).catch(function (error) {
             document.body.insertAdjacentHTML('afterbegin', '<pre>' + (error.stack || error.message) + '</pre>')
             throw error
           })
         } else {
-          self.navigator.serviceWorker.register(settings.rules).then(function () {
+          return self.navigator.serviceWorker.register(settings.rules).then(function () {
             //console.debug('registered!')
             return cache.put(settingsUrl, new Response(JSON.stringify(settings)))
           }).then(function () {
             location.reload()
+            return new Promise(function () {})
           })
         }
       })
     }
   }
   if ('ServiceWorkerGlobalScope' in self && self instanceof ServiceWorkerGlobalScope) {
+    self.moduleProxy.getCache()
     self.addEventListener('fetch', function (event) {
       event.respondWith(function () {
-        console.debug('proxy fetched', event.request.url)
+        //console.debug('proxy fetched', event.request.url)
         return self.moduleProxy.convert(event.request)
       }())
     })
