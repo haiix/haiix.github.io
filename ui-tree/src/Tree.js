@@ -1,6 +1,7 @@
 import TComponent from '@haiix/TComponent'
 import seq from '@haiix/seq'
 import style from '../../assets/style.mjs'
+import customEventPolyfill from 'custom-event-polyfill'
 
 const CLASS_NAME = 't-component-ui-tree'
 

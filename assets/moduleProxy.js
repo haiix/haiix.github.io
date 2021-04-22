@@ -1,5 +1,7 @@
 ;(function () {
   'use strict'
+  var currentScript = null
+  if (self.document) currentScript = (document.body || document.head).querySelector('script:last-child').src
   self.moduleProxy = {
     base: location.href.slice(0, location.href.split('#')[0].lastIndexOf('/')) + '/',
     rules: [],
@@ -45,6 +47,17 @@
       })
     },
     register: function (settings) {
+      if (!self.caches) {
+        moduleProxy.rulesUrl = settings.rules
+        var script = document.createElement('script')
+        script.type = 'module'
+        script.src = settings.import
+        document.head.appendChild(script)
+        var script = document.createElement('script')
+        script.src = currentScript.slice(0, currentScript.lastIndexOf('/')) + '/nomodule.js'
+        document.head.appendChild(script)
+        return
+      }
       var cache = null
       var settingsUrl = self.moduleProxy.base + 'moduleProxySettings.json'
       return self.moduleProxy.getCache().then(function (_cache) {

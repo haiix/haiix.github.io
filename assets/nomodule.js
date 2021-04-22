@@ -11,13 +11,22 @@
   };
 
   function path_normalize(path) {
+    var protocol = '';
+    var protocols = ['http:/', 'https:/', ''];
+    for (var i = 0; i < protocols.length; i++) {
+      protocol = protocols[i];
+      if (protocol != '' && path.startsWith(protocol)) {
+        path = path.slice(protocol.length);
+        break
+      }
+    }
     var src = path.split('/'), dst = [], i = 0, val;
     while ((val = src[i++]) != null) {
       if (val === '' || val === '.') continue;
       if (val === '..') dst.pop();
       else dst.push(val);
     }
-    return (path[0] === '/' ? '/' : './') + dst.join('/');
+    return protocol + (path.slice(0, 1) === '/' ? '/' : './') + dst.join('/');
   }
 
   function path_dirname(path) {
@@ -29,7 +38,16 @@
   var cache = {};
   var currdir = path_dirname(location.pathname);
   function require(path) {
-    path = path_normalize(currdir + '/' + path);
+    if (window.moduleProxy) {
+      for (var i = 0; i < window.moduleProxy.rules.length; i++) {
+        var rule = window.moduleProxy.rules[i]
+        if (!path.startsWith(rule.nameStartsWith) || !rule.url) continue
+        path = rule.url(path)
+        break
+      }
+    }
+
+    if (path.slice(0, 1) === '.') path = path_normalize(currdir + '/' + path);
     if (!cache[path]) {
       var req = new XMLHttpRequest();
       req.open('GET', path, false);
@@ -66,6 +84,11 @@
         var global = {};
         new Function('global', Babel.buildExternalHelpers())(global);
         babelHelpers = global.babelHelpers;
+
+        if (window.moduleProxy) {
+          window.importScripts = function () {};
+          require(window.moduleProxy.rulesUrl);
+        }
 
         var scripts = document.querySelectorAll('script[type="module"]'), i = 0, script;
         while (script = scripts[i++]) {
