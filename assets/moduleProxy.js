@@ -1,7 +1,7 @@
 ;(function () {
   'use strict'
   var currentScript = null
-  if (self.document) currentScript = (document.body || document.head).querySelector('script:last-child').src
+  if (self.document) currentScript = document.querySelector('script:last-child').src
   self.moduleProxy = {
     base: location.href.slice(0, location.href.split('#')[0].lastIndexOf('/')) + '/',
     rules: [],

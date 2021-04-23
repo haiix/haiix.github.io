@@ -1,7 +1,7 @@
 import TComponent from '@haiix/TComponent'
 import seq from '@haiix/seq'
 import style from '../../assets/style.mjs'
-import customEventPolyfill from 'custom-event-polyfill'
+import * as customEventPolyfill from 'custom-event-polyfill'
 
 const CLASS_NAME = 't-component-ui-tree'
 
@@ -169,7 +169,7 @@ export default class Tree extends TComponent {
 
     //this.current = this.first
     this.current = null
-    this.onChange = null
+    this.onchange = null
     this.onexpand = null
 
     for (const [key, value] of Object.entries(attr)) {
@@ -188,11 +188,12 @@ export default class Tree extends TComponent {
   }
 
   set current (item) {
+    if (!(item instanceof TreeItem) && item != null) throw new Error()
     if (this._lastCurrent === item) return
     if (this._lastCurrent != null) this._lastCurrent._item.classList.remove('current')
     this._lastCurrent = item
     if (item) item._item.classList.add('current')
-    if (this.onChange) this.onChange(item)
+    if (this.onchange) this.onchange(new CustomEvent('change', { detail: item }))
   }
 
   get current () {
