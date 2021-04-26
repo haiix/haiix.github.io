@@ -1,8 +1,8 @@
 import TComponent from '@haiix/TComponent'
 import seq from '@haiix/seq'
-import Gls from './Gls.js'
 import * as vec3 from 'gl-matrix/cjs/vec3.js'
 import * as vec4 from 'gl-matrix/cjs/vec4.js'
+import Gls from '../../../assets/Gls-lib.mjs'
 
 export default class App extends TComponent {
   template () {
@@ -67,7 +67,7 @@ export default class App extends TComponent {
       const modelZ = (modelId / 5 | 0) - 2
       const colorId = Math.random() * 3 | 0
       for (const idx of seq(6)) {
-        const mesh = this.geom.createMesh(5, 5)
+        const mesh = this.geom.addMesh(5, 5)
         mesh.transform(attribute => {
           const p = attribute.position
 
