@@ -66,7 +66,6 @@ class TreeItem extends TComponent {
 
   constructor (attr, nodes) {
     super()
-    this.key = ''
   }
 
   set text (v) {
@@ -192,7 +191,10 @@ export default class Tree extends TComponent {
     if (this._lastCurrent === item) return
     if (this._lastCurrent != null) this._lastCurrent._item.classList.remove('current')
     this._lastCurrent = item
-    if (item) item._item.classList.add('current')
+    if (item) {
+      item._item.classList.add('current')
+      item._item.scrollIntoView({block: 'nearest', inline: 'nearest'})
+    }
     if (this.onchange) this.onchange(new CustomEvent('change', { detail: item }))
   }
 
@@ -236,6 +238,7 @@ export default class Tree extends TComponent {
     switch (event.keyCode) {
       case 8:  // Back Space
       {
+        event.preventDefault()
         if (this.current.parentNode !== this) {
           this.current = this.current.parentNode
         }
@@ -243,6 +246,7 @@ export default class Tree extends TComponent {
       break
       case 37: // Left
       {
+        event.preventDefault()
         if (this.current.isExpanded) {
           await this.current.collapse()
         } else {
@@ -254,6 +258,7 @@ export default class Tree extends TComponent {
       break
       case 38: // Up
       {
+        event.preventDefault()
         if (this.current._item.previousSibling) {
           let item = TComponent.from(this.current._item.previousSibling)
           while (item.isExpanded && item._list.lastChild) {
@@ -269,6 +274,7 @@ export default class Tree extends TComponent {
       break
       case 39: // Right
       {
+        event.preventDefault()
         if (this.current.isExpandable && !this.current.isExpanded) {
           await this.current.expand()
         } else {
@@ -280,6 +286,7 @@ export default class Tree extends TComponent {
       break
       case 40: // Down
       {
+        event.preventDefault()
         if (this.current.isExpanded && this.current._list.firstChild) {
           this.current = TComponent.from(this.current._list.firstChild)
         } else {
