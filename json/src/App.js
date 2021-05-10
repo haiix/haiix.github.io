@@ -66,7 +66,7 @@ export default class App extends TComponent {
     return `
       <div class="app vertical">
         <div onclick="this.handleClickTab(event)" id="tabs" class="app-tabs">
-          <a href="#text" class="current">ソース</a>
+          <a href="#text" class="current">テキスト</a>
           |
           <a href="#tree">ツリー</a>
         </div>
@@ -103,13 +103,12 @@ export default class App extends TComponent {
   updateTree (obj) {
     this.rootObj = obj
     this.tree._list.innerHTML = ''
-    const item = new Tree.Item()
-    item.text = 'ルート'
+
+    const item = this._createChildItem('ルート', obj)
     item.icon = 'desktop_windows'
     item.iconColor = '#69C'
-    item.isLoaded = false
     this.tree.appendChild(item)
-    item.expand()
+    if (item.isExpandable) item.expand()
   }
   handleTreeExpand (event) {
     const item = event.detail
@@ -136,20 +135,24 @@ export default class App extends TComponent {
 
     const ite = Array.isArray(curr) ? curr.entries() : Object.entries(curr)
     for (const [key, val] of ite) {
-      const isExpandable = typeof val === 'object' && val != null
-      const citem = new Tree.Item()
-      const _val = (typeof val === 'string') ? '"' + val + '"' : val
-      citem.text = key + (isExpandable ? '' : ': ' + _val)
-      if (!isExpandable) {
+      const citem = this._createChildItem(key, val)
+      if (!citem.isExpandable) {
         citem.icon = 'insert_drive_file'
         citem.iconColor = '#CCC'
       }
-      citem.key = key
-      citem.isLoaded = false
-      citem.isExpandable = isExpandable
       item.appendChild(citem)
     }
 
     item.isLoaded = true
+  }
+  _createChildItem (key, val) {
+    const isExpandable = typeof val === 'object' && val != null
+    const citem = new Tree.Item()
+    const _val = (typeof val === 'string') ? '"' + val + '"' : val
+    citem.text = key + (isExpandable ? '' : ': ' + _val)
+    citem.key = key
+    citem.isLoaded = false
+    citem.isExpandable = isExpandable
+    return citem
   }
 }

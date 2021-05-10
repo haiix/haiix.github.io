@@ -7,7 +7,6 @@ const CLASS_NAME = 't-component-ui-tree'
 
 style(`
   .${CLASS_NAME} {
-    line-height: 24px;
     cursor: default;
     outline: none;
     overflow: auto;
@@ -19,11 +18,20 @@ style(`
     margin: 0;
     padding: 0;
     list-style-type: none;
+    min-width: max-content;
   }
   .${CLASS_NAME} li > div {
     white-space: nowrap;
+    height: 24px;
+    line-height: 0;
   }
   .${CLASS_NAME} li > div > * {
+    vertical-align: middle;
+  }
+  .${CLASS_NAME} li > div:first-child::before {
+    content: "";
+    display: inline-block;
+    height: 100%;
     vertical-align: middle;
   }
   .${CLASS_NAME} li > div:hover {
@@ -39,12 +47,16 @@ style(`
     display: inline-block;
     margin-right: 4px;
     font-size: 20px;
-    color: transparent;
-    transition: color .5s;
+    color: #666;
+    opacity: 0;
+    transition: opacity .5s;
   }
   .${CLASS_NAME}:focus .expand-icon,
   .${CLASS_NAME}:hover .expand-icon {
-    color: #666;
+    opacity: 1;
+  }
+  .${CLASS_NAME} .expand-icon:hover {
+    color: #3CF;
   }
   .${CLASS_NAME} .icon {
     display: inline-block;
