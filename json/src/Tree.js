@@ -172,7 +172,7 @@ class TreeItem extends TComponent {
 export default class Tree extends TComponent {
   template () {
     return `
-      <div id="_tree" tabindex="0" class="${CLASS_NAME}"
+      <div id="_tree" tabindex="0"
         onmousedown="this._handleTreeMousedown(event)"
         onmousemove="event.preventDefault()"
         onkeydown="this._handleTreeKeydown(event)"
@@ -198,6 +198,8 @@ export default class Tree extends TComponent {
         this[key] = value
       }
     }
+
+    this._tree.classList.add(CLASS_NAME)
   }
 
   appendChild (item) {

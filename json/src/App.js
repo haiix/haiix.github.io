@@ -1,7 +1,7 @@
 import TComponent from '@haiix/TComponent'
-import Tree from './Tree.js'
-import ContainerList from './ContainerList.js'
 import style from '../../assets/style.mjs'
+import { TUl, TLi } from './List.js'
+import Tree from './Tree.js'
 
 style(`
   html, body {
@@ -14,103 +14,93 @@ style(`
     background: #FFF;
     color: #000;
   }
-  .horizontal {
-    display: flex;
-    flex-flow: row nowrap;
+  .tab {
+    position: relative;
+    border-bottom: 1px solid #CCC;
+    align-items: flex-end;
+    background: #FFF;
+    top: -1px;
+  }
+  .tab > * {
+    position: relative;
+    background: #EEE;
+    border: 1px solid #CCC;
+    padding: 2px 5px;
+    top: 1px;
+    margin-right: -1px;
+  }
+  .tab > :not(.current):hover {
+    background: #DEF;
+  }
+  .tab > .current {
+    background: #FFF;
+    padding: 3px 5px 4px;
+    border-bottom: none;
+  }
+  textarea {
     width: 100%;
     height: 100%;
+    margin: 0;
+    padding: 4px;
+    box-sizing: border-box;
+    border: none;
+    outline: none;
+    resize: none;
   }
-  .horizontal > * {
-    flex: 0 0 auto;
-  }
-  .horizontal > :last-child {
-    flex: 1 1 auto;
-  }
-  .vertical {
-    display: flex;
-    flex-flow: column nowrap;
+  .tree {
     width: 100%;
     height: 100%;
-  }
-  .vertical > * {
-    flex: 0 0 auto;
-  }
-  .vertical > :last-child {
-    flex: 1 1 auto;
   }
 `)
 
 export default class App extends TComponent {
   template () {
-    this.uses(Tree, ContainerList)
-    style(`
-      .app-view {
-        overflow: hidden;
-      }
-      .app-view > * {
-        box-sizing: border-box;
-        width: 100%;
-        height: 100%;
-      }
-      .app textarea {
-        resize: none;
-      }
-      .app-tabs > a {
-        display: inline-block;
-        padding: 4px;
-      }
-      .app-tabs > .current {
-        font-weight: bold;
-      }
-    `)
+    this.uses(TUl, TLi, Tree)
     return `
-      <div class="app vertical">
-        <div onclick="this.handleClickTab(event)" id="tabs" class="app-tabs">
-          <a href="#text" class="current">テキスト</a>
-          |
-          <a href="#tree">ツリー</a>
-        </div>
-        <ContainerList id="view" class="app-view">
-          <textarea id="text" data-key="text">{"a":1,"b":{"c":2,"d":{"e":3,"f":4}}}</textarea>
-          <Tree id="tree" data-key="tree" style="border: 1px solid #999;" onexpand="this.handleTreeExpand(event)" />
-        </ContainerList>
-      </div>
+      <t-ul class="vertical">
+        <t-ul id="_tab" class="horizontal tab" onchange="this._handleChangeTab(event)">
+          <t-li value="text" current>テキスト</t-li>
+          <t-li value="tree">ツリー</t-li>
+        </t-ul>
+        <t-ul id="_view" parent-class="stretch" class="overlap">
+          <t-li value="text" current>
+            <textarea id="_textarea">{"a":1,"b":{"c":2,"d":{"e":3,"f":4}}}</textarea>
+          </t-li>
+          <t-li value="tree">
+            <Tree id="_tree" class="tree" onexpand="this._handleTreeExpand(event)" />
+          </t-li>
+        </t-ul>
+      </t-ul>
     `
   }
   constructor () {
     super()
     this.rootObj = null
   }
-  handleClickTab (event) {
-    event.preventDefault()
-    if (event.target.tagName !== 'A') return
-    const key = event.target.hash.slice(1);
-    if (key === 'tree') {
-      try {
-        const obj = JSON.parse(this.text.value)
-        this.updateTree(obj)
-      } catch (error) {
-        alert(error.message)
-        return
-      }
-    }
-    for (const tab of this.tabs.childNodes) {
-      if (tab.classList) tab.classList.remove('current')
-    }
-    event.target.classList.add('current')
-    this.view.show(key)
-  }
   updateTree (obj) {
     this.rootObj = obj
-    this.tree._list.innerHTML = ''
+    this._tree._list.innerHTML = ''
 
     const item = this._createChildItem('ルート', obj)
     item.icon = 'desktop_windows'
     item.iconColor = '#69C'
-    this.tree.appendChild(item)
+    this._tree.appendChild(item)
     if (item.isExpandable) item.expand()
   }
-  handleTreeExpand (event) {
+  _handleChangeTab (event) {
+    const value = event.detail.value;
+    if (value === 'tree') {
+      try {
+        this.updateTree(JSON.parse(this._textarea.value))
+      } catch (error) {
+        alert(error.message)
+        this._tab.value = 'text'
+        return
+      }
+    }
+    this._view.value = value
+  }
+  _handleTreeExpand (event) {
     const item = event.detail
     if (item.isLoaded) return
 
@@ -147,12 +137,12 @@ export default class App extends TComponent {
   }
   _createChildItem (key, val) {
     const isExpandable = typeof val === 'object' && val != null
-    const citem = new Tree.Item()
+    const item = new Tree.Item()
     const _val = (typeof val === 'string') ? '"' + val + '"' : val
-    citem.text = key + (isExpandable ? '' : ': ' + _val)
-    citem.key = key
-    citem.isLoaded = false
-    citem.isExpandable = isExpandable
-    return citem
+    item.text = key + (isExpandable ? '' : ': ' + _val)
+    item.key = key
+    item.isLoaded = false
+    item.isExpandable = isExpandable
+    return item
   }
 }
