@@ -4,15 +4,24 @@ import { TUl, TLi } from './List.js'
 import Tree from './Tree.js'
 
 style(`
-  html, body {
-    width: 100%;
-    height: 100%;
-    margin: 0;
-    padding: 0;
-    font-family: "Meiryo UI";
-    font-size: 9pt;
+  .app {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     background: #FFF;
     color: #000;
+    font-family: "Meiryo UI";
+    font-size: 9pt;
+    user-select: none;
+    cursor: default;
+  }
+
+  ul.app, .app ul {
+    margin: 0;
+    padding: 0;
+    list-style-type: none;
   }
   .tab {
     position: relative;
@@ -51,18 +60,45 @@ style(`
     width: 100%;
     height: 100%;
   }
+
+  .composition,
+  .composition .column,
+  .composition .row {
+    display: flex;
+  }
+  .composition.column,
+  .composition .column {
+    flex-direction: column;
+  }
+  .composition > *,
+  .composition .row > *,
+  .composition .column > * {
+    flex: none;
+  }
+  .composition .stretch {
+    flex: auto;
+  }
+
+  .overlap > * {
+    display: none;
+  }
+  .overlap > .current {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
 `)
 
 export default class App extends TComponent {
   template () {
     this.uses(TUl, TLi, Tree)
     return `
-      <t-ul class="vertical">
-        <t-ul id="_tab" class="horizontal tab" onchange="this._handleChangeTab(event)">
+      <div class="app composition column">
+        <t-ul id="_tab" class="row tab" onchange="this._handleChangeTab(event)">
           <t-li value="text" current>テキスト</t-li>
           <t-li value="tree">ツリー</t-li>
         </t-ul>
-        <t-ul id="_view" parent-class="stretch" class="overlap">
+        <t-ul id="_view" class="stretch overlap">
           <t-li value="text" current>
             <textarea id="_textarea">{"a":1,"b":{"c":2,"d":{"e":3,"f":4}}}</textarea>
           </t-li>
@@ -70,7 +106,7 @@ export default class App extends TComponent {
             <Tree id="_tree" class="tree" onexpand="this._handleTreeExpand(event)" />
           </t-li>
         </t-ul>
-      </t-ul>
+      </div>
     `
   }
   constructor () {
@@ -139,7 +175,7 @@ export default class App extends TComponent {
     const isExpandable = typeof val === 'object' && val != null
     const item = new Tree.Item()
     const _val = (typeof val === 'string') ? '"' + val + '"' : val
-    item.text = key + (isExpandable ? '' : ': ' + _val)
+    item.text = key + (isExpandable ? (Array.isArray(val) ? '[]' : '') : ': ' + _val)
     item.key = key
     item.isLoaded = false
     item.isExpandable = isExpandable

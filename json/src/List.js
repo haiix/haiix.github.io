@@ -1,43 +1,6 @@
 import TComponent from '@haiix/TComponent'
 import seq from '@haiix/seq'
 import * as customEventPolyfill from 'custom-event-polyfill'
-import style from '../../assets/style.mjs'
-
-const UL_CLASS_NAME = 't-component-ui-ul'
-
-style(`
-  ul.${UL_CLASS_NAME} {
-    margin: 0;
-    padding: 0;
-    list-style-type: none;
-    user-select: none;
-    cursor: default;
-    width: 100%;
-    height: 100%;
-  }
-  ul.${UL_CLASS_NAME}.vertical {
-    display: inline-flex;
-    flex-flow: column nowrap;
-  }
-  ul.${UL_CLASS_NAME}.horizontal {
-    display: inline-flex;
-    flex-flow: row nowrap;
-  }
-  ul.${UL_CLASS_NAME}.vertical > *, ul.${UL_CLASS_NAME}.horizontal > * {
-    flex: 0 0 auto;
-  }
-  ul.${UL_CLASS_NAME}.vertical > .stretch, ul.${UL_CLASS_NAME}.horizontal > .stretch {
-    flex: 1 1 auto;
-  }
-  ul.${UL_CLASS_NAME}.overlap > * {
-    display: none;
-    width: 100%;
-    height: 100%;
-  }
-  ul.${UL_CLASS_NAME}.overlap > .current {
-    display: inline-block;
-  }
-`)
 
 export class TUl extends TComponent {
   template () {
@@ -63,7 +26,6 @@ export class TUl extends TComponent {
       }
     }
     this._current = this.items.find(item => item.current)
-    this.element.classList.add(UL_CLASS_NAME)
     this.element.addEventListener('mousedown', this._handleMouseDown.bind(this))
   }
   set items (items) {
