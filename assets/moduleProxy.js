@@ -5,15 +5,31 @@
   self.moduleProxy = {
     base: location.href.slice(0, location.href.split('#')[0].lastIndexOf('/')) + '/',
     rules: [],
-    cache: null,
-    getCache: function () {
-      if (!self.moduleProxy.cache) {
-        return caches.open(self.moduleProxy.base).then(function (_cache) {
-          self.moduleProxy.cache = _cache
-          return _cache
-        })
-      } else {
-        return Promise.resolve(self.moduleProxy.cache)
+    cache: {
+      status: 0,
+      resolves: [],
+      result: null,
+      get: function () {
+        var _self = this
+        if (_self.status === 0) {
+          _self.status = 1
+          caches.open(self.moduleProxy.base).then(function (_cache) {
+            _self.result = _cache
+            _self.status = 2
+            for (var i = 0; i < _self.resolves.length; i++) {
+              var resolve = _self.resolves[i]
+              resolve(_cache)
+            }
+            _self.resolves.length = 0
+          })
+        }
+        if (_self.status === 1) {
+          return new Promise(function (resolve) {
+            _self.resolves.push(resolve)
+          })
+        } else {
+          return Promise.resolve(_self.result)
+        }
       }
     },
     convert: function (req) {
@@ -36,19 +52,19 @@
         })
       }).then(function (res) {
         if (res.status !== 200) return res
-        return self.moduleProxy.getCache().then(function (cache) {
+        return self.moduleProxy.cache.get().then(function (cache) {
           cache.put(req, res.clone())
           return res
         })
       }).catch(function (error) {
-        return self.moduleProxy.getCache().then(function (cache) {
+        return self.moduleProxy.cache.get().then(function (cache) {
           return cache.match(req)
         })
       })
     },
     register: function (settings) {
       if (!self.caches) {
-        moduleProxy.rulesUrl = settings.rules
+        self.moduleProxy.rulesUrl = settings.rules
         var script = document.createElement('script')
         script.type = 'module'
         script.src = settings.import
@@ -59,8 +75,8 @@
         return
       }
       var cache = null
-      var settingsUrl = self.moduleProxy.base + 'moduleProxySettings.json'
-      return self.moduleProxy.getCache().then(function (_cache) {
+      var settingsUrl = self.moduleProxy.base + self.moduleProxy.rulesUrl
+      return self.moduleProxy.cache.get().then(function (_cache) {
         cache = _cache
         return cache.match(settingsUrl)
       }).then(function (_res) {
@@ -85,7 +101,7 @@
     }
   }
   if ('ServiceWorkerGlobalScope' in self && self instanceof ServiceWorkerGlobalScope) {
-    self.moduleProxy.getCache()
+    self.moduleProxy.cache.get()
     self.addEventListener('fetch', function (event) {
       event.respondWith(function () {
         //console.debug('proxy fetched', event.request.url)
