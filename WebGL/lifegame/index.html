@@ -8,91 +8,83 @@
     <title>ライフゲーム</title>
   </head>
   <body>
-    <canvas width="1024" height="1024">
-      <script data-name="mainShader,lifeShader" type="x-shader/x-vertex">
-        attribute vec2 position;
-        void main(void) {
-          gl_Position = vec4(position, 0.0, 1.0);
-        }
-      </script>
-      <script data-name="mainShader" type="x-shader/x-fragment">
-        precision mediump float;
+    <canvas width="1024" height="1024"></canvas>
+    <script type="module">
+import Gls from '../../assets/Gls.mjs'
 
-        const vec2 iReso = 1.0 / vec2([[canvas.width]], [[canvas.height]]);
+const gl = new Gls('canvas', {alpha: true, depth: false, antialias: false})
+gl.mainShader = gl.createProgram(`
+  attribute vec2 position;
 
-        uniform sampler2D texture;
+  void main(void) {
+    gl_Position = vec4(position, 0.0, 1.0);
+  }
+`, `
+  precision mediump float;
+  const vec2 iReso = 1.0 / vec2(${gl.canvas.width}, ${gl.canvas.height});
+  uniform sampler2D texture;
 
-        void main(void) {
-          gl_FragColor = texture2D(texture, gl_FragCoord.xy * iReso);
-        }
-      </script>
-      <script data-name="lifeShader" type="x-shader/x-fragment">
-        precision mediump float;
+  void main(void) {
+    gl_FragColor = texture2D(texture, gl_FragCoord.xy * iReso);
+  }
+`)
+gl.lifeShader = gl.createProgram(
+  gl.mainShader.vertexShader
+, `
+  precision mediump float;
+  const vec2 iReso = 1.0 / vec2(${gl.canvas.width}, ${gl.canvas.height});
+  uniform sampler2D texture;
 
-        const vec2 iReso = 1.0 / vec2([[canvas.width]], [[canvas.height]]);
+  vec3 getVal(vec2 pos) {
+    return texture2D(texture, (gl_FragCoord.xy + pos) * iReso).rgb;
+  }
 
-        uniform sampler2D texture;
+  void main(void) {
+    vec3 val = getVal(vec2(0.0)) * 0.5
+      + getVal(vec2(-1.0, -1.0))
+      + getVal(vec2( 0.0, -1.0))
+      + getVal(vec2( 1.0, -1.0))
+      + getVal(vec2(-1.0,  0.0))
+      + getVal(vec2( 1.0,  0.0))
+      + getVal(vec2(-1.0,  1.0))
+      + getVal(vec2( 0.0,  1.0))
+      + getVal(vec2( 1.0,  1.0))
+    ;
+    gl_FragColor = vec4(1.0 - floor(abs(val - 3.0)), 1.0);
+  }
+`)
+gl.frame1 = gl.createFramebuffer()
+gl.frame2 = gl.createFramebuffer()
 
-        vec3 getVal(vec2 pos) {
-          return texture2D(texture, (gl_FragCoord.xy + pos) * iReso).rgb;
-        }
+gl.geom = gl.createGeometry([gl.mainShader, gl.lifeShader])
+gl.geom.addMesh(1, 1)
 
-        void main(void) {
-          vec3 count = getVal(vec2(0.0)) * 0.5;
-          count += getVal(vec2(-1.0, -1.0));
-          count += getVal(vec2( 0.0, -1.0));
-          count += getVal(vec2( 1.0, -1.0));
-          count += getVal(vec2(-1.0,  0.0));
-          count += getVal(vec2( 1.0,  0.0));
-          count += getVal(vec2(-1.0,  1.0));
-          count += getVal(vec2( 0.0,  1.0));
-          count += getVal(vec2( 1.0,  1.0));
-          gl_FragColor = vec4(1.0 - floor(abs(count - 3.0)), 1.0);
-        }
-      </script>
-    </canvas>
-    <script src="gls3.js"></script>
-    <script src="gls3-lib.js"></script>
-    <!--<script src="gls3-dev.js"></script>-->
-    <script>
-      'use strict';
+gl.bindFramebuffer(gl.frame1)
+gl.mainShader.uniform.texture = (() => {
+  const imageData = document.createElement('canvas').getContext('2d').createImageData(gl.canvas.width, gl.canvas.height)
+  //const imageData = new ImageData(gl.canvas.width, gl.canvas.height)
+  const d = new Uint32Array(imageData.data.buffer)
+  for (let i = 0; i < d.length; i++) {
+    const v = Math.random() < 0.5 ? 0 : 255
+    d[i] = v << 0 | v << 8 | v << 16 | 255 << 24
+  }
+  return gl.createTexture(imageData, gl.NEAREST_REPEAT)
+})()
+gl.mainShader.draw(gl.geom)
 
-      var gls = new Gls('canvas', {alpha: true, depth: false, antialias: false});
+;(function loop() {
+  requestAnimationFrame(loop)
 
-      gls.frame1 = gls.createFramebuffer();
-      gls.frame2 = gls.createFramebuffer();
+  gl.bindFramebuffer(gl.frame2)
+  gl.lifeShader.uniform.texture = gl.frame1
+  gl.lifeShader.draw(gl.geom)
 
-      gls.geom = gls.createGeometry(['mainShader', 'lifeShader']);
-      gls.geom.createMesh(1, 1);
+  gl.bindFramebuffer(null)
+  gl.mainShader.uniform.texture = gl.frame2
+  gl.mainShader.draw(gl.geom)
 
-      gls.bindFramebuffer(gls.frame1);
-      gls.mainShader.uniform.texture = function () {
-        var imageData = document.createElement('canvas').getContext('2d').createImageData(gls.canvas.width, gls.canvas.height);
-        //var imageData = new ImageData(gls.canvas.width, gls.canvas.height);
-        var d = new Uint32Array(imageData.data.buffer);
-        for (var i = 0; i < d.length; i++) {
-          var v = Math.random() < 0.5 ? 0 : 255;
-          d[i] = v << 0 | v << 8 | v << 16 | 255 << 24;
-        }
-        return gls.createTexture(imageData, gls.NEAREST_REPEAT);
-      }();
-      gls.mainShader.draw(gls.geom);
-
-      !function loop() {
-        requestAnimationFrame(loop);
-
-        gls.bindFramebuffer(gls.frame2);
-        gls.lifeShader.uniform.texture = gls.frame1;
-        gls.lifeShader.draw(gls.geom);
-
-        gls.bindFramebuffer(null);
-        gls.mainShader.uniform.texture = gls.frame2;
-        gls.mainShader.draw(gls.geom);
-
-        var tmp = gls.frame1;
-        gls.frame1 = gls.frame2;
-        gls.frame2 = tmp;
-      }();
+  ;[gl.frame1, gl.frame2] = [gl.frame2, gl.frame1]
+}())
     </script>
   </body>
 </html>

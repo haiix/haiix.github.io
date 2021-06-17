@@ -62,49 +62,50 @@ export default class App extends TComponent {
     this.geom = this.gl.createGeometry([this.shader])
     // this.geom = this.gl.createGeometry([this.shader], this.gl.LINE_STRIP)
 
-    for (const modelId of seq(25)) {
+    const ColorIds = seq(25).map(n => Math.random() * 3 | 0).toArray()
+
+    this.geom.addMeshes(5, 5, 25 * 6, (attribute, i) => {
+      const modelId = Math.floor(i / 6)
+      const faceId = i % 6
+
       const modelX = modelId % 5 - 2
       const modelZ = (modelId / 5 | 0) - 2
-      const colorId = Math.random() * 3 | 0
-      for (const idx of seq(6)) {
-        const mesh = this.geom.addMesh(5, 5)
-        mesh.transform(attribute => {
-          const p = attribute.position
+      const colorId = ColorIds[modelId]
 
-          p.z += 1
-          vec3.rotateX(p, vec3.fromValues(p.x, 0, p.z), vec3.create(), p.y * Math.PI / -4)
-          vec3.rotateY(p, vec3.fromValues(0, p.y, p.z), vec3.create(), p.x * Math.PI / 4)
+      const p = attribute.position
 
-          if (idx < 4) {
-            vec3.rotateY(p, p, vec3.create(), idx * Math.PI / 2)
-          } else {
-            vec3.rotateX(p, p, vec3.create(), (idx + 0.5) * Math.PI)
-          }
+      p.z += 1
+      vec3.rotateX(p, vec3.fromValues(p.x, 0, p.z), vec3.create(), p.y * Math.PI / -4)
+      vec3.rotateY(p, vec3.fromValues(0, p.y, p.z), vec3.create(), p.x * Math.PI / 4)
 
-          vec3.copy(attribute.normal, p)
-
-          vec3.scale(p, p, 0.2)
-          p.x += Math.sign(p.x) * 0.83
-          p.y += Math.sign(p.y) * 0.83
-          p.z += Math.sign(p.z) * 0.83
-
-          p.x += modelX * 2
-          p.z += modelZ * 2
-
-          switch (colorId) {
-            case 0:
-              vec4.set(attribute.color, 96, 128, 224, 255)
-              break
-            case 1:
-              vec4.set(attribute.color, 128, 192, 32, 255)
-              break
-            case 2:
-              vec4.set(attribute.color, 224, 64, 160, 255)
-              break
-          }
-        })
+      if (faceId < 4) {
+        vec3.rotateY(p, p, vec3.create(), faceId * Math.PI / 2)
+      } else {
+        vec3.rotateX(p, p, vec3.create(), (faceId + 0.5) * Math.PI)
       }
-    }
+
+      vec3.copy(attribute.normal, p)
+
+      vec3.scale(p, p, 0.2)
+      p.x += Math.sign(p.x) * 0.83
+      p.y += Math.sign(p.y) * 0.83
+      p.z += Math.sign(p.z) * 0.83
+
+      p.x += modelX * 2
+      p.z += modelZ * 2
+
+      switch (colorId) {
+        case 0:
+          vec4.set(attribute.color, 96, 128, 224, 255)
+          break
+        case 1:
+          vec4.set(attribute.color, 128, 192, 32, 255)
+          break
+        case 2:
+          vec4.set(attribute.color, 224, 64, 160, 255)
+          break
+      }
+    })
   }
 
   loop (t) {

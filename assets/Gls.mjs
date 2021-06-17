@@ -1,644 +1,686 @@
-Gls.VERSION = '0.3.31';
+export const VERSION = '0.4.0';
 
-var GL = window.WebGLRenderingContext || {};
+const replaceAll = String.prototype.replaceAll ? String.prototype.replaceAll : function (a, b) { return this.split(a).join(b) }
 
-var ATTRIBUTE_TYPE = {};
-ATTRIBUTE_TYPE[GL.FLOAT]      = {type: GL.FLOAT, size:  1, fn: '1f',  isMatrix: false}; // 5126
-ATTRIBUTE_TYPE[GL.FLOAT_VEC2] = {type: GL.FLOAT, size:  2, fn: '2fv', isMatrix: false}; // 35664
-ATTRIBUTE_TYPE[GL.FLOAT_VEC3] = {type: GL.FLOAT, size:  3, fn: '3fv', isMatrix: false}; // 35665
-ATTRIBUTE_TYPE[GL.FLOAT_VEC4] = {type: GL.FLOAT, size:  4, fn: '4fv', isMatrix: false}; // 35666
-ATTRIBUTE_TYPE[GL.FLOAT_MAT2] = {type: GL.FLOAT, size:  4, fn: '2fv', isMatrix: true};  // 35674
-ATTRIBUTE_TYPE[GL.FLOAT_MAT3] = {type: GL.FLOAT, size:  9, fn: '3fv', isMatrix: true};  // 35675
-ATTRIBUTE_TYPE[GL.FLOAT_MAT4] = {type: GL.FLOAT, size: 16, fn: '4fv', isMatrix: true};  // 35676
+const GL = WebGLRenderingContext || {}
 
-var TYPE_BYTE = {};
-TYPE_BYTE[GL.BYTE]           = {byte: 1, Array: window.Int8Array};    // 5120
-TYPE_BYTE[GL.UNSIGNED_BYTE]  = {byte: 1, Array: window.Uint8Array};   // 5121
-TYPE_BYTE[GL.SHORT]          = {byte: 2, Array: window.Int16Array};   // 5122
-TYPE_BYTE[GL.UNSIGNED_SHORT] = {byte: 2, Array: window.Uint16Array};  // 5123
-TYPE_BYTE[GL.INT]            = {byte: 4, Array: window.Int32Array};   // 5124
-TYPE_BYTE[GL.UNSIGNED_INT]   = {byte: 4, Array: window.Uint32Array};  // 5125
-TYPE_BYTE[GL.FLOAT]          = {byte: 4, Array: window.Float32Array}; // 5126
-
-////////////////////////////////////////////////////////////
-// Util
-
-function noop() {}
-
-////////////////////////////////////////////////////////////
-// Core
-
-var Gls_initializers = [];
-function Gls(canvas, param) {
-    if (!(this instanceof Gls)) throw new Error('Should call as new Gls()');
-    param = Object.create(param || null);
-    param.PI = Math.PI;
-    for (var i = 0, l = Gls_initializers.length; i < l; i++) {
-        Gls_initializers[i].call(this, canvas, param);
-    }
+const ATTRIBUTE_TYPE = {
+  [GL.FLOAT]:      { type: GL.FLOAT, size:  1, fn: '1f',  ftype: 'primitive' },
+  [GL.FLOAT_VEC2]: { type: GL.FLOAT, size:  2, fn: '2fv', ftype: 'primitive' },
+  [GL.FLOAT_VEC3]: { type: GL.FLOAT, size:  3, fn: '3fv', ftype: 'primitive' },
+  [GL.FLOAT_VEC4]: { type: GL.FLOAT, size:  4, fn: '4fv', ftype: 'primitive' },
+  [GL.FLOAT_MAT2]: { type: GL.FLOAT, size:  4, fn: '2fv', ftype: 'matrix' },
+  [GL.FLOAT_MAT3]: { type: GL.FLOAT, size:  9, fn: '3fv', ftype: 'matrix' },
+  [GL.FLOAT_MAT4]: { type: GL.FLOAT, size: 16, fn: '4fv', ftype: 'matrix' },
+  [GL.SAMPLER_2D]: { type: GL.SAMPLER_2D, size: 1, fn: '1i', ftype: 'texture' }
 }
 
-////////////////////////////////////////////////////////////
-// Canvas
+const EX_ATTRIBUTE_TYPE = {
+  byte4:   { glslType: 'vec4', type: GL.BYTE },
+  ubyte4:  { glslType: 'vec4', type: GL.UNSIGNED_BYTE },
+  short2:  { glslType: 'vec2', type: GL.SHORT },
+  ushort2: { glslType: 'vec2', type: GL.UNSIGNED_SHORT }
+}
 
-Gls_initializers.push(function (canvas, param) {
-    if (typeof canvas === 'string') {
-        canvas = document.querySelector(canvas);
-    }
-    if (!(canvas instanceof HTMLCanvasElement)) {
-        throw new Error('Canvas element was not found');
-    }
-    param.canvas = Object.create(param.canvas || null);
-    param.canvas.width = canvas.width;
-    param.canvas.height = canvas.height;
-    this.canvas = canvas;
-});
-
-////////////////////////////////////////////////////////////
-// WebGL
-
-Gls_initializers.push(function (canvas, param) {
-    var gl, div;
-
-    var contextAttributes = { preserveDrawingBuffer: true };
-    var contextAttributeNames = ['alpha', 'desynchronized', 'antialias', 'depth', 'failIfMajorPerformanceCaveat', 'powerPreference', 'premultipliedAlpha', 'preserveDrawingBuffer', 'stencil'];
-    for (var i = 0; i < contextAttributeNames.length; i++) {
-        var name = contextAttributeNames[i];
-        if (name in param) contextAttributes[name] = param[name];
-    }
-
-    gl = this.canvas.getContext('webgl', contextAttributes) || this.canvas.getContext('experimental-webgl', contextAttributes);
-    if (!gl) {
-        div = document.createElement('div');
-        div.innerHTML = this.canvas.innerHTML;
-        this.canvas.parentNode.replaceChild(div, this.canvas);
-        throw new Error('WebGL is not supported');
-    }
-    this.gl = gl;
-});
+const TYPE_BYTE = {
+  [GL.BYTE]:           { byte: 1, name: 'Int8' },
+  [GL.UNSIGNED_BYTE]:  { byte: 1, name: 'Uint8' },
+  [GL.SHORT]:          { byte: 2, name: 'Int16' },
+  [GL.UNSIGNED_SHORT]: { byte: 2, name: 'Uint16' },
+  [GL.INT]:            { byte: 4, name: 'Int32' },
+  [GL.UNSIGNED_INT]:   { byte: 4, name: 'Uint32' },
+  [GL.FLOAT]:          { byte: 4, name: 'Float32' }
+}
 
 ////////////////////////////////////////////////////////////
 // Shader
 
-function removeComment(src) {
-    return src.replace(/(\/\/.*\n)|(\/\**?\*\/)/g, function (v) {
-        return new Array(v.split('\n').length).join('\n') + ' ';
-    });
-}
-function fetchAttributeType(src) {
-    src = ';' + src.replace(/;/g, ';;');
-    var res, re = /;\s*attribute\s+(\w+\s+)?\[\[(ushort2|ubyte4)\]\]\s+(\w+)\s*;/g;
-    var attribute = Object.create(null);
-    while ((res = re.exec(src)) !== null) {
-        var typeStr = res[2];
-        var name = res[3];
-        var type = typeStr === 'ushort2' ? GL.UNSIGNED_SHORT : typeStr === 'ubyte4' ? GL.UNSIGNED_BYTE : null;
-        attribute[name] = {type: type};
-    }
-    return attribute;
-}
-function replaceParam(str, param) {
-    return str.replace(/\[\[(.+?)\]\]/g, function (_, keys) {
-        var cur = param, i, key, val, type;
-        keys = keys.split('.');
-        for (i = 0; i < keys.length; i++) {
-            key = keys[i];
-            val = cur[key];
-            if (val == null) break;
-            cur = val;
-        }
-        type = typeof val;
-        if (val == null) return '';
-        else if (typeof val === 'number') return val.toFixed(8);
-        else return '' + val;
-    });
+function createShader (gl, type, name, source) {
+  const shader = gl.createShader(type)
+  gl.shaderSource(shader, source)
+  gl.compileShader(shader)
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    throw new Error(name + ' shader compile error: ' + gl.getShaderInfoLog(shader))
+  }
+  return shader
 }
 
-function Shader(gl, type, src) {
-    var typeName;
-    this.gl = gl;
-    this.shader = gl.createShader(type);
-    gl.shaderSource(this.shader, src);
-    gl.compileShader(this.shader);
-    if (!gl.getShaderParameter(this.shader, GL.COMPILE_STATUS)) {
-        typeName = type === GL.VERTEX_SHADER ? 'Vertex' : type === GL.FRAGMENT_SHADER ? 'Fragment' : 'Unknown';
-        throw new Error(typeName + ' shader compile error: ' + gl.getShaderInfoLog(this.shader));
-    }
+function createVertexShader (gl, source) {
+  return createShader(gl, gl.VERTEX_SHADER, 'Vertex', source)
 }
 
-function VertexShader(gl, src, attribute) {
-    Shader.call(this, gl, GL.VERTEX_SHADER, src);
-    this.attribute = attribute;
+function createFragmentShader (gl, source) {
+  return createShader(gl, gl.FRAGMENT_SHADER, 'Fragment', source)
 }
-//VertexShader.prototype = Object.create(Shader.prototype);
 
-function FragmentShader(gl, src) {
-    Shader.call(this, gl, GL.FRAGMENT_SHADER, src);
+function removeSourceComments (src) {
+  return src.replace(/(\/\/.*\n)|(\/\**?\*\/)/g, v => (
+    new Array(v.split('\n').length).join('\n') + ' '
+  ))
 }
-//FragmentShader.prototype = Object.create(Shader.prototype);
 
-function compileShader(gl, Shader, src, param) {
-    var attribute;
-    src = removeComment(src);
-    if (Shader === VertexShader) attribute = fetchAttributeType(src);
-    src = replaceParam(src, param);
-    return new Shader(gl, src, attribute);
+function getShaderSourceExAttributeTypes (source) {
+  const tmp = ';' + replaceAll.call(source, ';', ';;') + ';'
+  const re = /;\s*attribute\s+\[\[(\w+)\]\]\s+(\w+)\s*;/g
+  const types = Object.create(null)
+  for (let result; result = re.exec(tmp); ) {
+    let [_, type, name] = result
+    if (!EX_ATTRIBUTE_TYPE[type]) continue
+    types[name] = type
+  }
+  return types
 }
-Gls_initializers.push(function (canvas, param) {
-    param.ushort2 = 'vec2';
-    param.ubyte4 = 'vec4';
-    function initShaders(gl, Shader, selector) {
-        var elements, shaders, i, element, names, src, shader, j, name;
-        elements = gl.canvas.querySelectorAll(selector);
-        shaders = Object.create(null);
-        for (i = 0; i < elements.length; i++) {
-            element = elements[i];
-            names = (element.getAttribute('data-name') || '').split(',');
-            shader = compileShader(gl, Shader, element.textContent, param);
-            for (j = 0; j < names.length; j++) {
-                name = names[j];
-                if (shaders[name]) throw new Error('Duplicate shader name: ' + name);
-                shaders[name] = shader;
-            }
-        }
-        return shaders;
-    }
-    this._shader = Object.create(null);
-    this._shader.vertex = initShaders(this.gl, VertexShader, 'script[type="x-shader/x-vertex"]');
-    this._shader.fragment = initShaders(this.gl, FragmentShader, 'script[type="x-shader/x-fragment"]');
-});
+
+function replaceShaderSourcesParams (src) {
+  let curr = src
+  for (const [k, v] of Object.entries(EX_ATTRIBUTE_TYPE)) {
+    curr = replaceAll.call(curr, '[[' + k + ']]', v.glslType)
+  }
+  return curr
+}
+
+export class GlsVertexShader {
+  constructor (gls, source) {
+    source = removeSourceComments(source)
+    this.exAttribute = getShaderSourceExAttributeTypes(source)
+    source = replaceShaderSourcesParams(source)
+    this.shader = createVertexShader(gls.gl, source)
+  }
+}
+
+export class GlsFragmentShader {
+  constructor (gls, source) {
+    source = removeSourceComments(source)
+    source = replaceShaderSourcesParams(source)
+    this.shader = createFragmentShader(gls.gl, source)
+  }
+}
 
 ////////////////////////////////////////////////////////////
 // Program
 
-var Program_initializers = [];
-function Program(gls, name, vs, fs) {
-    if (gls.gl !== vs.gl || gls.gl !== fs.gl) throw new Error('Different context');
-    this.name = name;
-    this._gls = gls;
-    for (var i = 0, l = Program_initializers.length; i < l; i++) {
-        Program_initializers[i].call(this, vs, fs);
-    }
-}
-Program_initializers.push(function (vs, fs) {
-    var gl = this._gls.gl;
-    var program = gl.createProgram();
-    gl.attachShader(program, vs.shader);
-    gl.attachShader(program, fs.shader);
-    gl.linkProgram(program);
-    if (!gl.getProgramParameter(program, GL.LINK_STATUS)) {
-        throw new Error('Link error: ' + gl.getProgramInfoLog(program));
-    }
-    this._program = program;
-});
-Program.prototype.draw = function (geom) {
-    Geometry_build.call(geom);
-    if (geom.programs.indexOf(this) < 0) throw new Error('Using a program with a different geometry');
-    this._gls.gl.useProgram(this._program);
-    Program_applyUniforms.call(this);
-
-    for (var i = 0; i < geom.buffers.length; i++) {
-        var buffer = geom.buffers[i];
-        Program_createVBO.call(this, geom, buffer);
-        Program_bindVBO.call(this, geom, buffer);
-        if (geom.buffers[0].indices) {
-            this._gls.gl.drawElements(geom.mode, buffer.indices.length, buffer.type, 0);
-        } else {
-            this._gls.gl.drawArrays(geom.mode, 0, buffer.vertexes.byteLength / geom.strideSize);
-        }
-    }
-};
-Gls_initializers.push(function (canvas, param) {
-    var shader = this._shader, program = Object.create(null);
-    for (var programName in shader.vertex) {
-        var vs = shader.vertex[programName];
-        var fs = shader.fragment[programName];
-        if (!fs) continue;
-        program[programName] = new Program(this, programName, vs, fs);
-        if (!this[programName]) this[programName] = program[programName];
-    }
-    this._program = program;
-});
-Gls.prototype.createProgram = function (vsSrc, fsSrc, param) {
-    var _param = Object.create(param || null)
-    _param.ushort2 = 'vec2';
-    _param.ubyte4 = 'vec4';
-    var vs = compileShader(this.gl, VertexShader, vsSrc, _param);
-    var fs = compileShader(this.gl, FragmentShader, fsSrc, _param);
-    var name = 't_' + Date.now();
-    return new Program(this, name, vs, fs);
-};
-
-////////////////////////////////////////////////////////////
-// Program/Attribute
-
-function mergeAttribute(dst, src) {
-    var name, dat, sat;
-    for (name in src) {
-        sat = src[name];
-        dat = dst[name];
-        if (dat) {
-            if (dat.size != null && dat.size !== sat.size) {
-                throw new Error('Same attribute but size is different: ' + name);
-            }
-            if (dat.type != null && dat.type !== sat.type) {
-                throw new Error('Same attribute but type is different: ' + name + ' (' + dat.type + ' != ' + sat.type + ')' );
-            }
-        } else {
-            dst[name] = {};
-        }
-        dst[name].size = sat.size;
-        dst[name].type = sat.type;
-    }
+function createProgram (gl, vertexShader, fragmentShader) {
+  const program = gl.createProgram()
+  gl.attachShader(program, vertexShader)
+  gl.attachShader(program, fragmentShader)
+  gl.linkProgram(program)
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    throw new Error('Link error: ' + gl.getProgramInfoLog(program))
+  }
+  return program
 }
 
-Program_initializers.push(function (vs) {
-    this._attribute = Object.create(null);
-    mergeAttribute(this._attribute, vs.attribute);
-    Program_fetchAttributeLocations.call(this);
-});
-function Program_fetchAttributeLocations() {
-    var dst = this._attribute, gl = this._gls.gl, l, i, info, name, at;
-    l = gl.getProgramParameter(this._program, GL.ACTIVE_ATTRIBUTES);
-    for (i = 0; i < l; i++) {
-        info = gl.getActiveAttrib(this._program, i);
-        name = info.name;
-        at = ATTRIBUTE_TYPE[info.type];
-        dst[name] = dst[name] || {};
-        dst[name].size = dst[name].size || at.size;
-        dst[name].type = dst[name].type || at.type;
-        dst[name].location = i;
-    }
-}
-function Program_createVBO(geom, buffer) {
-    if (buffer.vbo) return;
-    var gl = this._gls.gl, curr;
-    curr = gl.getParameter(GL.ARRAY_BUFFER_BINDING);
-    buffer.vbo = gl.createBuffer();
-    gl.bindBuffer(GL.ARRAY_BUFFER, buffer.vbo);
-    gl.bufferData(GL.ARRAY_BUFFER, buffer.vertexes, geom.usage);
-    gl.bindBuffer(GL.ARRAY_BUFFER, curr);
-    if (!buffer.indices) return;
-    curr = gl.getParameter(GL.ELEMENT_ARRAY_BUFFER_BINDING);
-    buffer.ibo = gl.createBuffer();
-    gl.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, buffer.ibo);
-    gl.bufferData(GL.ELEMENT_ARRAY_BUFFER, buffer.indices, geom.usage);
-    gl.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, curr);
-}
-function Program_bindVBO(geom, buffer) {
-    var gl = this._gls.gl, oesvao = this._gls._oesvao;
-    if (oesvao) {
-        if (buffer.vao[this.name]) {
-            oesvao.bindVertexArrayOES(buffer.vao[this.name]);
-            return;
-        }
-        buffer.vao[this.name] = oesvao.createVertexArrayOES();
-        oesvao.bindVertexArrayOES(buffer.vao[this.name]);
-    }
-    var attribute = geom.attribute, name, at, st;
-    gl.bindBuffer(GL.ARRAY_BUFFER, buffer.vbo);
-    for (name in this._attribute) {
-        at = this._attribute[name];
-        st = attribute[name];
-        gl.enableVertexAttribArray(at.location);
-        gl.vertexAttribPointer(at.location, at.size, at.type, false, geom.strideSize, st.offset);
-    }
-    if (buffer.ibo) gl.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, buffer.ibo);
-}
-Gls_initializers.push(function (canvas) {
-    this._oesvao = this.gl.getExtension('OES_vertex_array_object');
-});
-
-////////////////////////////////////////////////////////////
-// Program/Uniform
-
-Program_initializers.push(function () {
-    this._uniformFn = Object.create(null);
-    this._uniformSrc = Object.create(null);
-    this.uniform = Object.create(this._uniformSrc);
-    Program_fetchUniforms.call(this);
-});
-function Program_fetchUniforms() {
-    var gls = this._gls, gl = gls.gl, i, l, info, name, type, location;
-    l = gl.getProgramParameter(this._program, GL.ACTIVE_UNIFORMS);
-    for (i = 0; i < l; i++) {
-        info = gl.getActiveUniform(this._program, i);
-        name = info.name;
-        type = ATTRIBUTE_TYPE[info.type];
-        location = gl.getUniformLocation(this._program, name);
-        if (type.isMatrix) {
-            this._uniformFn[name] = gl['uniformMatrix' + type.fn].bind(gl, location, false);
-        } else if (type.type === GL.SAMPLER_2D) {
-            if (!gls._textureBinder) gls._textureBinder = new TextureBinder(gl);
-            this._uniformFn[name] = gls._textureBinder.bind.bind(gls._textureBinder, location);
-        } else {
-            this._uniformFn[name] = gl['uniform' + type.fn].bind(gl, location);
-        }
-    }
-}
-function Program_applyUniforms() {
-    var names, i, l, name, pu = this.uniform;
-    names = Object.keys(pu);
-    for (i = 0, l = names.length; i < l; i++) {
-        name = names[i];
-        var fn = this._uniformFn[name];
-        var val = pu[name];
-        if (val.texture) val = val.texture;
-        if (typeof fn === 'function') fn(val);
-        if (!(val instanceof WebGLTexture)) {
-            this._uniformSrc[name] = pu[name];
-            delete pu[name];
-        }
-    }
+function getAttributeInfos (gl, program) {
+  const infos = []
+  const l = gl.getProgramParameter(program, gl.ACTIVE_ATTRIBUTES)
+  for (let i = 0; i < l; i++) {
+    infos.push(gl.getActiveAttrib(program, i))
+  }
+  return infos
 }
 
-////////////////////////////////////////////////////////////
-// Vector
-
-function Vector(arr, offset) {
-  this._arr = arr;
-  this._offset = offset;
+function getUniformInfos (gl, program) {
+  const infos = []
+  const l = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS)
+  for (let i = 0; i < l; i++) {
+    const info = gl.getActiveUniform(program, i)
+    const location = gl.getUniformLocation(program, info.name)
+    infos.push([info, location])
+  }
+  return infos
 }
-var qs = [
-  {n: '0', p: 0}, {n: '1', p: 1}, {n: '2', p: 2}, {n: '3', p: 3},
-  {n: 'x', p: 0}, {n: 'y', p: 1}, {n: 'z', p: 2}, {n: 'w', p: 3},
-  {n: 'r', p: 0}, {n: 'g', p: 1}, {n: 'b', p: 2}, {n: 'a', p: 3},
-];
-for (var i = 0; i < qs.length; i++) {
-  !function (q) {
-    Object.defineProperty(Vector.prototype, q.n, {
-      set: function (v) {
-        this._arr[this._offset + q.p] = v;
-      },
-      get: function () {
-        return this._arr[this._offset + q.p];
-      }
-    });
-  }(qs[i]);
+
+function createUniform (uniformInfos) {
+  const uniform = Object.create(null)
+  for (const [info] of uniformInfos) {
+    const size = ATTRIBUTE_TYPE[info.type].size
+    if (size === 1) {
+      uniform[info.name] = 0
+    } else {
+      uniform[info.name] = new Float32Array(size)
+    }
+  }
+  return uniform
+}
+
+export class GlsProgram {
+  constructor (gls, vertexShader, fragmentShader) {
+    this.gls = gls
+    if (typeof vertexShader === 'string') {
+      vertexShader = new GlsVertexShader(gls, vertexShader)
+    }
+    if (typeof fragmentShader === 'string') {
+      fragmentShader = new GlsFragmentShader(gls, fragmentShader)
+    }
+    this.vertexShader = vertexShader
+    this.fragmentShader = fragmentShader
+    this.program = createProgram(gls.gl, vertexShader.shader, fragmentShader.shader)
+    this.attributeInfos = getAttributeInfos(gls.gl, this.program)
+    this.exAttribute = vertexShader.exAttribute
+    this.uniformInfos = getUniformInfos(gls.gl, this.program)
+    this.uniform = createUniform(this.uniformInfos)
+  }
+  draw (buffer) {
+    buffer.drawBy(this)
+  }
 }
 
 ////////////////////////////////////////////////////////////
 // Buffer
 
-function Buffer(size, indexSize, strideSize) {
-    this.vao = Object.create(null);
-    this.vertexes = new ArrayBuffer(strideSize * size);
-    if (indexSize) {
-        if (size <= 256) {
-            this.type = GL.UNSIGNED_BYTE;
-        } else if (size <= 65536) {
-            this.type = GL.UNSIGNED_SHORT;
-        } else {
-            throw new Error('Number of vertices exceeds the upper limit');
-            //this.type = gl.UNSIGNED_INT; // OES_element_index_uint
-        }
-        this.indices = new (TYPE_BYTE[this.type].Array)(indexSize);
-    }
+function getBufferAttribute (buffer, offset, name) {
+  const info = buffer.infos[name]
+  const typeByte = TYPE_BYTE[info.type]
+  return new GlsAttribute(buffer.vertexes, typeByte.name, buffer.stride * offset + info.offset, typeByte.byte, info.size)
 }
-function Buffer_fetchVertices(offset, size, strideSize, attribute) {
-    var vertices = [], obj, at, name, arr;
-    for (var i = offset, l = offset + size; i < l; i++) {
-        obj = Object.create(null);
-        for (name in attribute) {
-            at = attribute[name];
-            //arr = new (TYPE_BYTE[at.type].Array)(this.vertexes, i * strideSize + at.offset, at.size);
-            arr = new Vector(new (TYPE_BYTE[at.type].Array)(this.vertexes, i * strideSize + at.offset, at.size), 0);
-            if (at.size === 1) {
-                !function (arr) {
-                    Object.defineProperty(obj, name, {
-                        get: function () {
-                            return arr[0];
-                        },
-                        set: function (val) {
-                            arr[0] = val;
-                        }
-                    });
-                }(arr);
-            } else {
-                obj[name] = arr;
-            }
+
+function getBufferVertex (buffer, offset) {
+  const vertex = Object.create(null)
+  for (const [name, info] of Object.entries(buffer.infos)) {
+    const attribute = getBufferAttribute(buffer, offset, name)
+    if (info.size === 1) {
+      Object.defineProperty(vertex, name, {
+        get () {
+          return attribute[0]
+        },
+        set (v) {
+          attribute[0] = v
         }
-        vertices.push(obj);
+      })
+    } else {
+      vertex[name] = attribute
     }
-    return vertices;
+  }
+  return vertex
 }
-function Buffer_fetchIndices(offset, size) {
-    return this.indices ? this.indices.subarray(offset, offset + size) : null;
+
+function createBufferInfos (programs) {
+  const infos = Object.create(null)
+  let offset = 0
+  for (const program of programs) {
+    for (const [index, info] of program.attributeInfos.entries()) {
+      const { name } = info
+      let { type, size } = ATTRIBUTE_TYPE[info.type]
+      let bytes = size * 4
+      if (program.exAttribute[name]) {
+        type = EX_ATTRIBUTE_TYPE[program.exAttribute[name]].type
+        bytes = 4
+      }
+      if (infos[name]) {
+        if (infos[name].type !== type || infos[name].size !== size) {
+          throw new Error()
+        }
+        continue
+      }
+      infos[name] = { type, size, offset }
+      offset += bytes
+    }
+  }
+  return [infos, offset]
+}
+
+export class GlsBuffer {
+  constructor (programs, vertexSize, indexSize, mode, usage) {
+    this.programs = programs
+    ;[this.infos, this.stride] = createBufferInfos(programs)
+    this.mode = mode
+    this.usage = usage
+    this.vertexSize = vertexSize
+    this.vertexes = new DataView(new ArrayBuffer(this.stride * vertexSize))
+    this.indices = indexSize != null ? new (vertexSize <= 256 ? Int8Array : Int16Array)(indexSize) : null
+    this.vbo = null
+    this.ibo = null
+    this.vao = new Map()
+  }
+  getVertex (offset) {
+    return getBufferVertex(this, offset)
+  }
+  drawBy (program) {
+    if (!this.programs.includes(program)) {
+      throw new Error('Using a program with a different buffer')
+    }
+    drawProgramBuffer(program, buffer)
+  }
+}
+
+////////////////////////////////////////////////////////////
+// Bind program and buffer
+
+function createArrayBuffer(gl, srcData, usage) {
+  const curr = gl.getParameter(gl.ARRAY_BUFFER_BINDING)
+  const buffer = gl.createBuffer()
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
+  gl.bufferData(gl.ARRAY_BUFFER, srcData, usage)
+  gl.bindBuffer(gl.ARRAY_BUFFER, curr)
+  return buffer
+}
+
+function createElementArrayBuffer (gl, srcData, usage) {
+  if (!srcData) return null
+  const curr = gl.getParameter(gl.ELEMENT_ARRAY_BUFFER_BINDING)
+  const buffer = gl.createBuffer()
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffer)
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, srcData, usage)
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, curr)
+  return buffer
+}
+
+function bindProgramBuffer (gl, attributeInfos, buffer, oesvao) {
+  if (oesvao) {
+    let vao = buffer.vao.get(attributeInfos)
+    if (vao) {
+      oesvao.bindVertexArrayOES(vao)
+      return
+    }
+    vao = oesvao.createVertexArrayOES()
+    buffer.vao.set(attributeInfos, vao)
+    oesvao.bindVertexArrayOES(vao)
+  }
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer.vbo)
+  for (const [index, attributeInfo] of attributeInfos.entries()) {
+    const info = buffer.infos[attributeInfo.name]
+    gl.enableVertexAttribArray(index)
+    gl.vertexAttribPointer(index, info.size, info.type, false, buffer.stride, info.offset)
+  }
+  if (buffer.ibo) gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffer.ibo)
+}
+
+function bindProgramUniform (gls, gl, program, uniform, uniformInfos) {
+  for (const [info, location] of uniformInfos) {
+    const name = info.name
+    const { fn, ftype } = ATTRIBUTE_TYPE[info.type]
+    const value = uniform[name]
+    if (ftype === 'matrix') {
+      gl['uniformMatrix' + fn](location, false, value)
+    } else if (ftype === 'texture') {
+      if (!gls._textureBinder) gls._textureBinder = new TextureBinder(gl)
+      gls._textureBinder.bind(location, value.texture || value || null)
+    } else {
+      gl['uniform' + fn](location, value)
+    }
+  }
+}
+
+function drawProgramBuffer (program, buffer) {
+  const gls = program.gls, gl = gls.gl, oesvao = gls._oesvao
+  if (!buffer.vbo) {
+    buffer.vbo = createArrayBuffer(gl, buffer.vertexes.buffer, buffer.usage)
+    buffer.ibo = createElementArrayBuffer(gl, buffer.indices.buffer, buffer.usage)
+  }
+  bindProgramBuffer(gl, program.attributeInfos, buffer, oesvao)
+  gl.useProgram(program.program)
+  bindProgramUniform(gls, gl, program.program, program.uniform, program.uniformInfos)
+  if (buffer.ibo) {
+    gl.drawElements(buffer.mode, buffer.indices.length, buffer.vertexSize <= 256 ? gl.UNSIGNED_BYTE : gl.UNSIGNED_SHORT, 0)
+  } else {
+    gl.drawArrays(buffer.mode, 0, buffer.vertexSize)
+  }
+}
+
+////////////////////////////////////////////////////////////
+// Attribute
+
+export class GlsAttribute {
+  constructor (view, typeName, offset, byte, size) {
+    this.view = view
+    this.setterName = 'set' + typeName
+    this.getterName = 'get' + typeName
+    this.offset = offset
+    this.byte = byte
+    this.size = size
+    this.littleEndian = true
+  }
+  get 0 () {
+    return this.view[this.getterName](this.offset, this.littleEndian)
+  }
+  set 0 (v) {
+    this.view[this.setterName](this.offset, v, this.littleEndian)
+  }
+  get 1 () {
+    return this.view[this.getterName](this.offset + this.byte, this.littleEndian)
+  }
+  set 1 (v) {
+    this.view[this.setterName](this.offset + this.byte, v, this.littleEndian)
+  }
+  get 2 () {
+    if (this.size <= 2) return
+    return this.view[this.getterName](this.offset + this.byte * 2, this.littleEndian)
+  }
+  set 2 (v) {
+    if (this.size <= 2) return
+    this.view[this.setterName](this.offset + this.byte * 2, v, this.littleEndian)
+  }
+  get 3 () {
+    if (this.size <= 3) return
+    return this.view[this.getterName](this.offset + this.byte * 3, this.littleEndian)
+  }
+  set 3 (v) {
+    if (this.size <= 3) return
+    this.view[this.setterName](this.offset + this.byte * 3, v, this.littleEndian)
+  }
+  get x () {
+    return this[0]
+  }
+  set x (v) {
+    this[0] = v
+  }
+  get y () {
+    return this[1]
+  }
+  set y (v) {
+    this[1] = v
+  }
+  get z () {
+    return this[2]
+  }
+  set z (v) {
+    this[2] = v
+  }
+  get w () {
+    return this[3]
+  }
+  set w (v) {
+    this[3] = v
+  }
+  get r () {
+    return this[0]
+  }
+  set r (v) {
+    this[0] = v
+  }
+  get g () {
+    return this[1]
+  }
+  set g (v) {
+    this[1] = v
+  }
+  get b () {
+    return this[2]
+  }
+  set b (v) {
+    this[2] = v
+  }
+  get a () {
+    return this[3]
+  }
+  set a (v) {
+    this[3] = v
+  }
 }
 
 ////////////////////////////////////////////////////////////
 // Geometry
 
-function Geometry(gl, programs, mode, usage) {
-    this.programs = programs;
-    this.mode = mode != null ? mode : gl.TRIANGLE_STRIP;
-    this.usage = usage != null ? usage : gl.DYNAMIC_DRAW;
-    this.attribute = Object.create(null);
-    for (var i = 0; i < programs.length; i++) {
-        mergeAttribute(this.attribute, programs[i]._attribute);
+const MAX_BUFFER_SIZE = 65536
+function createMesh (buffer, vertexOffset, indexOffset, ucount, vcount, callback, i, attrName = 'position') {
+  const umax = ucount + 1
+  for (let v = 0, n = vertexOffset; v <= vcount; v++) {
+    for (let u = 0; u < umax; u++) {
+      const vtx = buffer.getVertex(n++)
+      vtx[attrName][0] = u / ucount * 2 - 1
+      vtx[attrName][1] = v / vcount * 2 - 1
+      if (callback) callback(vtx, i)
     }
-    var offset = 0;
-    for (var name in this.attribute) {
-        var at = this.attribute[name];
-        at.offset = offset;
-        offset += TYPE_BYTE[at.type].byte * at.size;
+  }
+  const idx = buffer.indices
+  for (let v = 0, n = indexOffset; v < vcount; v++) {
+    idx[n++] = vertexOffset + v * umax
+    for (let u = 0; u < umax; u++) {
+      idx[n++] = vertexOffset + u + v * umax
+      idx[n++] = vertexOffset + u + (v + 1) * umax
     }
-    this.strideSize = offset;
-    //this.uniform = Object.create(null);
-    this.allocated = [];
-    this.buffers = [];
-    this.currBufferSize = 0;
-    this.currIndexBufferSize = 0;
+    idx[n++] = vertexOffset + (umax - 1) + (v + 1) * umax
+  }
 }
-Geometry.prototype.allocate = function (size, indexSize, callback) {
-    if (this.currBufferSize + size > 65536) {
-        Geometry_build.call(this);
+export class GlsGeometry {
+  constructor (programs, mode, usage) {
+    this.programs = programs
+    this.mode = mode
+    this.usage = usage
+    this.buffers = []
+    this.currentVertexOffset = 0
+    this.currentIndexOffset = 0
+    this.callbacks = []
+  }
+  allocate (vertexSize, indexSize, callback) {
+    if (vertexSize > MAX_BUFFER_SIZE) {
+      throw new RangeError('The size you tried to allocate exceeds the maximum value.')
     }
-    this.allocated.push({
-        size: size,
-        indexSize: indexSize,
-        callback: callback || noop,
-    });
-    this.currBufferSize += size;
-    this.currIndexBufferSize += indexSize;
-};
-function Geometry_build() {
-    if (this.allocated.length === 0) return;
-    var buffer = new Buffer(this.currBufferSize, this.currIndexBufferSize, this.strideSize);
-    //var bytes = new Uint8Array(buffer.vertexes);
-    for (var ai = 0, offset = 0, indexOffset = 0; ai < this.allocated.length; ai++) {
-        var a = this.allocated[ai];
-        var vertices = Buffer_fetchVertices.call(buffer, offset, a.size, this.strideSize, this.attribute);
-        var indices = Buffer_fetchIndices.call(buffer, indexOffset, a.indexSize);
-        a.callback.call(null, vertices, indices);
-        if (indices && offset > 0) {
-            for (var i = 0; i < indices.length; i++) {
-                indices[i] += offset;
-            }
+    if (this.currentVertexOffset + vertexSize > MAX_BUFFER_SIZE) {
+      GlsGeometry_build(this)
+    }
+    this.callbacks.push([callback, this.currentVertexOffset, this.currentIndexOffset])
+    this.currentVertexOffset += vertexSize
+    this.currentIndexOffset += indexSize
+  }
+  addMesh (ucount = 1, vcount = 1, callback = null, attrName = 'position') {
+    this.addMeshes(ucount, vcount, 1, callback, attrName)
+  }
+  addMeshes (ucount = 1, vcount = 1, count = 1, callback = null, attrName = 'position') {
+    const vertexSize = (ucount + 1) * (vcount + 1)
+    const indexSize = (ucount * 2 + 4) * vcount
+    const maxBufferCount = Math.floor(MAX_BUFFER_SIZE / vertexSize)
+    for (let offset = 0; offset < count; offset += maxBufferCount) {
+      const subCount = Math.min(count - offset, maxBufferCount)
+      this.allocate(vertexSize * subCount, indexSize * subCount, (buffer, vertexOffset, indexOffset) => {
+        for (let i = 0; i < subCount; i++) {
+          createMesh(buffer, vertexOffset, indexOffset, ucount, vcount, callback, offset + i, attrName)
+          vertexOffset += vertexSize
+          indexOffset += indexSize
         }
-        offset += a.size;
-        indexOffset += a.indexSize;
+      })
     }
-    this.buffers.push(buffer);
-    this.allocated.length = 0;
-    this.currBufferSize = 0;
-    this.currIndexBufferSize = 0;
+  }
+  drawBy (program) {
+    if (!this.programs.includes(program)) {
+      throw new Error('Using a program with a different buffer')
+    }
+    GlsGeometry_build(this)
+    for (const buffer of this.buffers) {
+      drawProgramBuffer(program, buffer)
+    }
+  }
 }
-Gls.prototype.createGeometry = function (programs, mode, usage) {
-    programs = programs.slice();
-    for (var i = 0; i < programs.length; i++) {
-        var program = programs[i];
-        if (typeof program === 'string') programs[i] = this._program[program];
+function GlsGeometry_build (self) {
+  if (self.currentVertexOffset > 0) {
+    const buffer = new GlsBuffer(self.programs, self.currentVertexOffset, self.currentIndexOffset, self.mode, self.usage)
+    for (const [callback, vertexOffset, vertexSize, indexOffset, indexSize] of self.callbacks) {
+      callback(buffer, vertexOffset, vertexSize, indexOffset, indexSize)
     }
-    return new Geometry(this.gl, programs, mode, usage);
-};
+    self.buffers.push(buffer)
+  }
+  self.currentVertexOffset = 0
+  self.currentIndexOffset = 0
+  self.callbacks.length = 0
+}
 
 ////////////////////////////////////////////////////////////
-// Mesh
+// TextureBinder
 
-function createMesh(vtx, idx, ucount, vcount, attrName) {
-    attrName = attrName || 'position';
-    var u, v, n;
-    var umax = ucount + 1;
-    for (v = 0, n = 0; v <= vcount; v++) {
-        for (u = 0; u < umax; u++, n++) {
-            vtx[n][attrName][0] = u / ucount * 2 - 1;
-            vtx[n][attrName][1] = v / vcount * 2 - 1;
-        }
+export class TextureBinder {
+  constructor (gl) {
+    this.gl = gl
+    this.max = Math.max(2, gl.getParameter(gl.MAX_COMBINED_TEXTURE_IMAGE_UNITS))
+    this.units = [] // [{ number, locations[], texture }, ...]
+  }
+  bind (location, texture) {
+    let unit = TextureBinder_fetchByLocation(this, location)
+    if (unit) {
+      if (unit.texture === texture) {
+        return TextureBinder_moveToLast(this, unit)
+      }
+      TextureBinder_unbind(this, unit, location)
     }
-    for (v = 0, n = 0; v < vcount; v++) {
-        idx[n++] = v * umax;
-        for (u = 0; u < umax; u++) {
-            idx[n++] = u + v * umax;
-            idx[n++] = u + (v + 1) * umax;
-        }
-        idx[n++] = (u - 1) + (v + 1) * umax;
-    }
+    if (!texture) return
+    unit = TextureBinder_fetchByTexture(this, texture) || TextureBinder_bindTexture(this, texture)
+    TextureBinder_bindLocation(this, unit, location)
+    TextureBinder_moveToLast(this, unit)
+  }
 }
 
-function Mesh(geom, ucount, vcount, attrName) {
-    this._geom;
-    this.ucount = ucount;
-    this.vcount = vcount;
-    var callbacks = [];
-    this._callbacks = callbacks;
-    var size = (ucount + 1) * (vcount + 1);
-    var indexSize = (ucount * 2 + 4) * vcount;
-    geom.allocate(size, indexSize, function (vtx, idx) {
-        createMesh(vtx, idx, ucount, vcount, attrName);
-        for (var i = 0; i < callbacks.length; i++) {
-            var callback = callbacks[i];
-            for (var j = 0; j < vtx.length; j++) {
-                callback(vtx[j]);
-            }
-        }
-    });
+function TextureBinder_fetchByLocation (self, location) {
+  return self.units.find(unit => unit.locations.includes(location))
 }
-Mesh.prototype.transform = function (callback) {
-    this._callbacks.push(callback);
-    return this;
-};
 
-Geometry.prototype.addMesh = function (ucount, vcount, attrName) {
-    return new Mesh(this, ucount, vcount, attrName);
-};
+function TextureBinder_fetchByTexture (self, texture) {
+  return self.units.find(unit => unit.texture === texture)
+}
+
+function TextureBinder_bindTexture (self, texture) {
+  const number = TextureBinder_newNumber(self)
+  self.gl.activeTexture(self.gl['TEXTURE' + number])
+  self.gl.bindTexture(self.gl.TEXTURE_2D, texture)
+  return { number, locations: [], texture }
+}
+
+function TextureBinder_newNumber (self) {
+  const fs = new Array(self.max).fill(false)
+  self.units = self.units.slice(1 - self.max)
+  for (const unit of self.units) fs[unit.number] = true
+  return fs.indexOf(false)
+}
+
+function TextureBinder_bindLocation (self, unit, location) {
+  self.gl.uniform1i(location, unit.number)
+  unit.locations.push(location)
+}
+
+function TextureBinder_unbind (self, unit, location) {
+  if (unit.locations.length === 1) {
+    self.units.splice(self.units.indexOf(unit), 1)
+  } else {
+    unit.locations.splice(unit.locations.indexOf(location), 1)
+  }
+}
+
+function TextureBinder_moveToLast (self, unit) {
+  const n = self.units.indexOf(unit)
+  if (n >= 0) self.units.splice(n, 1)
+  self.units.push(unit)
+}
 
 ////////////////////////////////////////////////////////////
 // Texture
 
-ATTRIBUTE_TYPE[GL.SAMPLER_2D] = {type: GL.SAMPLER_2D, size: 1, fn: '1i', isMatrix: false}; // 35678
-
-function TextureBinder(gl) {
-    this.gl = gl;
-    this.max = Math.max(2, gl.getParameter(gl.MAX_COMBINED_TEXTURE_IMAGE_UNITS));
-    this.units = []; // {number, locations[], texture}
-}
-TextureBinder.prototype.bind = function (location, texture) {
-    var unit = TextureBinder_fetchByLocation.call(this, location);
-    if (unit) {
-        if (unit.texture === texture) {
-            return TextureBinder_moveToLast.call(this, unit);
-        }
-        TextureBinder_unbind.call(this, unit, location);
+function setTextureParameters (gl, parameter) {
+  let mipmap = !parameter.MIN_FILTER
+  for (const [key, value] of Object.entries(parameter)) {
+    if (key === 'MIN_FILTER' && !(value === 'NEAREST' || value === 'LINEAR')) {
+      mipmap = true
     }
-    if (!texture) return;
-    unit = TextureBinder_fetchByTexture.call(this, texture);
-    if (!unit) {
-        unit = TextureBinder_bindTexture.call(this, texture);
-    }
-    TextureBinder_bindLocation.call(this, unit, location);
-    TextureBinder_moveToLast.call(this, unit);
-};
-function TextureBinder_fetchByLocation(location) {
-    var unit, i;
-    for (i = 0; i < this.units.length; i++) {
-        unit = this.units[i];
-        if (unit.locations.indexOf(location) >= 0) return unit;
-    }
-}
-function TextureBinder_fetchByTexture(texture) {
-    var unit, i;
-    for (i = 0; i < this.units.length; i++) {
-        unit = this.units[i];
-        if (unit.texture === texture) return unit;
-    }
-}
-function TextureBinder_bindTexture(texture) {
-    var number = TextureBinder_newNumber.call(this);
-    this.gl.activeTexture(this.gl['TEXTURE' + number]);
-    this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
-    return {number: number, locations: [], texture: texture};
-}
-function TextureBinder_newNumber() {
-    var fs = new Array(this.max), i;
-    this.units = this.units.slice(1 - this.max);
-    for (i = 0; i < this.units.length; i++) {
-        fs[this.units[i].number] = true;
-    }
-    for (i = 0; i < fs.length; i++) {
-        if (!fs[i]) return i;
-    }
-}
-function TextureBinder_bindLocation(unit, location) {
-    unit.locations.push(location);
-    this.gl.uniform1i(location, unit.number);
-}
-function TextureBinder_unbind(unit, location) {
-    unit.locations.splice(unit.locations.indexOf(location), 1);
-    if (unit.locations.length === 0) {
-        this.units.splice(this.units.indexOf(unit), 1);
-    }
-}
-function TextureBinder_moveToLast(unit) {
-    var n = this.units.indexOf(unit);
-    if (n >= 0) this.units.splice(n, 1);
-    this.units.push(unit);
+    gl.texParameteri(gl.TEXTURE_2D, gl['TEXTURE_' + key], gl[value])
+  }
+  if (mipmap) gl.generateMipmap(gl.TEXTURE_2D)
 }
 
-function setTextureParameters(gl, parameter) {
-    var key, value, mipmap = !parameter.MIN_FILTER;
-    for (key in parameter) {
-        value = parameter[key];
-        if (key === 'MIN_FILTER' && !(value === 'NEAREST' || value === 'LINEAR')) {
-            mipmap = true;
-        }
-        gl.texParameteri(gl.TEXTURE_2D, gl['TEXTURE_' + key], gl[value]);
+function createImageTexture (gl, img, parameter) {
+  parameter = parameter || {}
+  const currentTexture = gl.getParameter(gl.TEXTURE_BINDING_2D)
+  const texture = gl.createTexture()
+  gl.bindTexture(gl.TEXTURE_2D, texture)
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img)
+  setTextureParameters(gl, parameter)
+  gl.bindTexture(gl.TEXTURE_2D, currentTexture)
+  return texture
+}
+
+////////////////////////////////////////////////////////////
+// Framebuffer
+
+function createFramebuffer(gl, param) {
+  const currentFramebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING)
+  const framebuffer = gl.createFramebuffer()
+  gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
+  let depthRenderbuffer = null
+  if (param.depth !== false) {
+    const currentRenderbuffer = gl.getParameter(gl.RENDERBUFFER_BINDING)
+    depthRenderbuffer = gl.createRenderbuffer()
+    gl.bindRenderbuffer(gl.RENDERBUFFER, depthRenderbuffer)
+    gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, param.width, param.height)
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depthRenderbuffer)
+    gl.bindRenderbuffer(gl.RENDERBUFFER, currentRenderbuffer)
+  }
+  const currentTexture = gl.getParameter(gl.TEXTURE_BINDING_2D)
+  const texture = gl.createTexture()
+  gl.bindTexture(gl.TEXTURE_2D, texture)
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, param.width, param.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
+  setTextureParameters(gl, param.texture)
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0)
+  gl.bindTexture(gl.TEXTURE_2D, currentTexture)
+  gl.bindFramebuffer(gl.FRAMEBUFFER, currentFramebuffer)
+  return [framebuffer, depthRenderbuffer, texture]
+}
+
+export class GlsFramebuffer {
+  constructor (gls, param = null) {
+    param = Object.assign({
+      width: gls.canvas.width,
+      height: gls.canvas.height,
+      texture: gls.NEAREST_CLAMP,
+      depth: true
+    }, param)
+    ;[this.framebuffer, this.depthRenderbuffer, this.texture] = createFramebuffer(gls.gl, param)
+    this.width = param.width
+    this.height = param.height
+  }
+}
+
+////////////////////////////////////////////////////////////
+// Gls
+
+export default class Gls {
+  constructor (canvas, contextAttributes) {
+    this.canvas = typeof canvas === 'string' ? document.querySelector(canvas) : canvas
+    contextAttributes = Object.assign({preserveDrawingBuffer: true}, contextAttributes)
+    this.gl = this.canvas.getContext('webgl', contextAttributes) || this.canvas.getContext('experimental-webgl', contextAttributes)
+    this._oesvao = this.gl.getExtension('OES_vertex_array_object')
+    this._textureBinder = null
+    this._clearMask = this.gl.COLOR_BUFFER_BIT
+      | (contextAttributes.depth ? this.gl.DEPTH_BUFFER_BIT : 0)
+      | (contextAttributes.stencil ? this.gl.STENCIL_BUFFER_BIT : 0)
+    if (contextAttributes.depth !== false) {
+      this.gl.enable(this.gl.DEPTH_TEST)
+      this.gl.clearDepth(1)
     }
-    if (mipmap) gl.generateMipmap(gl.TEXTURE_2D);
+  }
+  createVertexShader (src) {
+    return new GlsVertexShader(this, src)
+  }
+  createFragmentShader (src) {
+    return new GlsFragmentShader(this, src)
+  }
+  createProgram (vertexShader, fragmentShader) {
+    return new GlsProgram(this, vertexShader, fragmentShader)
+  }
+  createBuffer (programs, vertexSize, indexSize, mode = this.gl.TRIANGLE_STRIP, usage = this.gl.DYNAMIC_DRAW) {
+    return new GlsBuffer(programs, vertexSize, indexSize, mode, usage)
+  }
+  createGeometry (programs, mode = this.gl.TRIANGLE_STRIP, usage = this.gl.DYNAMIC_DRAW) {
+    return new GlsGeometry(programs, mode, usage)
+  }
+  createTexture (img, parameter) {
+    return createImageTexture(this.gl, img, parameter)
+  }
+  createFramebuffer (param = null) {
+    return new GlsFramebuffer(this, param)
+  }
+  bindFramebuffer (framebuffer) {
+    if (framebuffer) {
+      this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, framebuffer.framebuffer);
+      this.gl.viewport(0, 0, framebuffer.width, framebuffer.height);
+    } else {
+      this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+      this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+    }
+  }
+  clear (mask = this._clearMask) {
+    this.gl.clear(mask)
+  }
 }
-function createImageTexture(gl, img, parameter) {
-    parameter = parameter || {};
-    var currentTexture = gl.getParameter(gl.TEXTURE_BINDING_2D);
-    var texture = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
-    setTextureParameters(gl, parameter);
-    gl.bindTexture(gl.TEXTURE_2D, currentTexture);
-    return texture;
-}
-Gls.prototype.createTexture = function (image, param) {
-    return createImageTexture(this.gl, image, param);
-};
+
+////////////////////////////////////////////////////////////
+// constant values
+
 Gls.prototype.NEAREST_CLAMP = {
     MIN_FILTER: 'NEAREST',
     MAG_FILTER: 'NEAREST',
@@ -665,87 +707,17 @@ Gls.prototype.LINEAR_REPEAT = {
 };
 
 ////////////////////////////////////////////////////////////
-// Framebuffer
-
-function Framebuffer(gls, param) {
-    param = Object.create(param || {});
-    param.width = param.width || gls.canvas.width;
-    param.height = param.height || gls.canvas.height;
-    param.texture = param.texture || gls.NEAREST_CLAMP;
-    param.depth = param.depth !== false;
-    Framebuffer_init.call(this, gls.gl, param);
-    this.width = param.width;
-    this.height = param.height;
-}
-function Framebuffer_init(gl, param) {
-    var currentFramebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING);
-    var framebuffer = gl.createFramebuffer();
-    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
-    var depthRenderbuffer = null, currentRenderbuffer;
-    if (param.depth !== false) {
-        currentRenderbuffer = gl.getParameter(gl.RENDERBUFFER_BINDING);
-        depthRenderbuffer = gl.createRenderbuffer();
-        gl.bindRenderbuffer(gl.RENDERBUFFER, depthRenderbuffer);
-        gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, param.width, param.height);
-        gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depthRenderbuffer);
-        gl.bindRenderbuffer(gl.RENDERBUFFER, currentRenderbuffer);
-    }
-    var currentTexture = gl.getParameter(gl.TEXTURE_BINDING_2D);
-    var texture = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, param.width, param.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-    setTextureParameters(gl, param.texture);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
-    gl.bindTexture(gl.TEXTURE_2D, currentTexture);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, currentFramebuffer);
-    this.framebuffer = framebuffer;
-    this.depthRenderbuffer = depthRenderbuffer;
-    this.texture = texture;
-}
-
-Gls.prototype.createFramebuffer = function (param) {
-    return new Framebuffer(this, param);
-};
-Gls.prototype.bindFramebuffer = function (framebuffer) {
-    if (framebuffer) {
-        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, framebuffer.framebuffer);
-        this.gl.viewport(0, 0, framebuffer.width, framebuffer.height);
-    } else {
-        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
-        this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-    }
-};
-
-////////////////////////////////////////////////////////////
-// init depth
-Gls_initializers.push(function (canvas, param) {
-    this._clearParam = GL.COLOR_BUFFER_BIT | (param.depth !== false ? GL.DEPTH_BUFFER_BIT : 0) | (param.stencil === true ? GL.STENCIL_BUFFER_BIT : 0);
-    if (param.depth !== false) {
-        this.gl.enable(GL.DEPTH_TEST);
-        this.gl.clearDepth(1);
-    }
-});
-Gls.prototype.clear = function (param) {
-    this.gl.clear(this._clearParam | param);
-};
-
-////////////////////////////////////////////////////////////
 // WebGL methods and properties
 
-['clearColor', 'enable', 'disable', 'blendFunc', 'blendFuncSeparate', 'viewport'].forEach(function (name) {
-    Gls.prototype[name] = function () {
-        this.gl[name].apply(this.gl, arguments);
-    };
-});
-[
-    'POINTS', 'LINES', 'LINE_STRIP', 'TRIANGLES','TRIANGLE_STRIP',
-    'CULL_FACE',
-    'BLEND', 'SRC_ALPHA', 'ONE_MINUS_SRC_ALPHA', 'ONE', 'ZERO',
-].forEach(function (name) {
-    Gls[name] = Gls.prototype[name] = GL[name];
-}.bind(this));
-
-////////////////////////////////////////////////////////////
-
-export default Gls;
-
+const methodNames = ['clearColor', 'enable', 'disable', 'blendFunc', 'blendFuncSeparate', 'viewport']
+for (const name of methodNames) {
+  Gls.prototype[name] = function (...args) { return this.gl[name](...args) }
+}
+const propertyNames = [
+  'POINTS', 'LINES', 'LINE_STRIP', 'TRIANGLES','TRIANGLE_STRIP',
+  'CULL_FACE',
+  'BLEND', 'SRC_ALPHA', 'ONE_MINUS_SRC_ALPHA', 'ONE', 'ZERO',
+]
+for (const name of propertyNames) {
+  Gls[name] = Gls.prototype[name] = GL[name];
+}
