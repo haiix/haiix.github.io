@@ -10,20 +10,21 @@
     <script type="module">
 import Gls from './Gls-lib.mjs'
 
-const gl = new Gls('#view', {alpha: false, depth: true, antialias: true})
+const gl = new Gls('#view', { alpha: false, depth: true, antialias: true })
+gl.enable(gl.CULL_FACE)
 
 gl.mainShader = gl.createProgram(`
   attribute vec3 position;
   attribute vec3 normal;
-  uniform mat4 MVP;
-  uniform mat4 depthMVP;
+  uniform mat4 modelMat;
+  uniform mat4 depthMat;
   uniform vec3 lightInvDir;
   varying vec4 shadowCoord;
   varying float vColor;
 
   void main() {
-    gl_Position =  MVP * vec4(position, 1.0);
-    shadowCoord = (depthMVP * vec4(position, 1.0)) * 0.5 + 0.5;
+    gl_Position =  modelMat * vec4(position, 1.0);
+    shadowCoord = (depthMat * vec4(position, 1.0)) * 0.5 + 0.5;
     vColor = clamp(dot(normal, lightInvDir), 0.0, 1.0) * 0.75 + 0.65;
   }
 `, `
@@ -49,10 +50,10 @@ gl.mainShader = gl.createProgram(`
     vec2 coord = shadowCoord.xy;
     float z = shadowCoord.z - 0.008;
     float n = 0.003;
-    if (texture2D(shadowMap, coord).z < z) { visibility -= 0.1; }
-    if (texture2D(shadowMap, coord + vec2(n, 0.0)).z < z) { visibility -= 0.05; }
-    if (texture2D(shadowMap, coord + vec2(-n, n)).z < z) { visibility -= 0.05; }
-    if (texture2D(shadowMap, coord + vec2(-n, -n)).z < z) { visibility -= 0.05; }
+    visibility -= step(texture2D(shadowMap, coord + vec2(0., 0.)).z, z) * 0.1;
+    visibility -= step(texture2D(shadowMap, coord + vec2( n, 0.)).z, z) * 0.05;
+    visibility -= step(texture2D(shadowMap, coord + vec2(-n,  n)).z, z) * 0.05;
+    visibility -= step(texture2D(shadowMap, coord + vec2(-n, -n)).z, z) * 0.05;
 
     gl_FragColor = vec4(hsv2rgb(hue, 0.5, min(visibility, vColor)), 1.0);
   }
@@ -60,19 +61,18 @@ gl.mainShader = gl.createProgram(`
 
 gl.shadowShader = gl.createProgram(`
   attribute vec3 position;
-  uniform mat4 depthMVP;
+  uniform mat4 depthMat;
 
   void main() {
-      gl_Position = depthMVP * vec4(position, 1.0);
+    gl_Position = depthMat * vec4(position, 1.0);
   }
 `, `
   precision mediump float;
 
   void main() {
-      gl_FragColor = vec4(vec3(gl_FragCoord.z), 1.0);
+    gl_FragColor = vec4(vec3(gl_FragCoord.z), 1.0);
   }
 `)
-
 
 // シャドウマップ
 gl.mainShader.uniform.shadowMap = gl.createFramebuffer({
@@ -99,7 +99,7 @@ const depthVP = (range => {
 
 // モデル作成
 const floorGeom = gl.createGeometry([gl.shadowShader, gl.mainShader], gl.TRIANGLE_STRIP)
-const floorMesh = floorGeom.addMesh(1, 1, attribute => {
+floorGeom.addMesh(1, 1, attribute => {
   // 床
   const p = attribute.position
   const n = attribute.normal
@@ -111,7 +111,7 @@ const floorMesh = floorGeom.addMesh(1, 1, attribute => {
   n.z = 1
 })
 const ballGeom = gl.createGeometry([gl.shadowShader, gl.mainShader], gl.TRIANGLE_STRIP)
-const ballMesh = ballGeom.addMesh(32, 32, attribute => {
+ballGeom.addMesh(32, 32, attribute => {
   const p = attribute.position
   const n = attribute.normal
 
@@ -126,12 +126,12 @@ const ballMesh = ballGeom.addMesh(32, 32, attribute => {
 })
 
 // モデル描画
-function drawGeoms(prog, VP, time) {
+function drawGeoms(shader, modelVP, time) {
   // 床
-  prog.uniform.MVP = VP
-  prog.uniform.hue = 1 / 12
-  prog.uniform.depthMVP = depthVP
-  prog.draw(floorGeom)
+  shader.uniform.modelMat = modelVP
+  shader.uniform.depthMat = depthVP
+  shader.uniform.hue = 1 / 12
+  shader.draw(floorGeom)
 
   // ボール
   for (let i = 0; i < 16; i++) {
@@ -139,54 +139,34 @@ function drawGeoms(prog, VP, time) {
     const y = Math.sin(i) * Math.sqrt(i * 3)
     const z = Math.abs(Math.sin(i * 2 + time / 500)) * 5
 
-    const M = mat4.create()
-    const translation = vec3.fromValues(x, y, z)
-    const rotation = quat.create()
-    mat4.fromRotationTranslation(M, rotation, translation)
+    const M = mat4.fromTranslation(mat4.create(), vec3.fromValues(x, y, z))
 
-    const MVP = mat4.create()
-    mat4.mul(MVP, VP, M)
-    prog.uniform.MVP = MVP
-    prog.uniform.hue = i / 7.5
-
-    const depthMVP = mat4.create()
-    mat4.mul(depthMVP, depthVP, M)
-    prog.uniform.depthMVP = depthMVP
-
-    prog.draw(ballGeom)
+    shader.uniform.modelMat = mat4.mul(mat4.create(), modelVP, M)
+    shader.uniform.depthMat = mat4.mul(mat4.create(), depthVP, M)
+    shader.uniform.hue = i / 7.5
+    shader.draw(ballGeom)
   }
 }
 
-const camera = gl.createCamera = gl.createCamera({fov: 45, near: 0.1, far: 100, z: 20})
-
-// マウス制御処理を作成
-gl.mouse = gl.createMouse({
-  delay: 0.9,
-})
+gl.camera = gl.createCamera = gl.createCamera({ fov: 45, near: 0.1, far: 100, z: 20 })
+gl.mouse = gl.createMouse({ delay: 0.9 })
 
 ;(function loop(time) {
   requestAnimationFrame(loop)
   gl.mouse.update()
 
-  let VP = camera({pan: gl.mouse.dispX * 180, tilt: gl.mouse.dispY * -90, roll: 0})
-  const M = mat4.fromRotation(mat4.create(), -Math.PI / 2, vec3.fromValues(1, 0, 0)) // Y軸とZ軸を入れ替え
-  VP = mat4.mul(mat4.create(), VP, M)
+  const VP = gl.camera({pan: gl.mouse.dispX * 180, tilt: gl.mouse.dispY * -90, roll: 0})
+  mat4.mul(VP, VP, mat4.fromRotation(mat4.create(), -Math.PI / 2, vec3.fromValues(1, 0, 0))) // Y軸とZ軸を入れ替え
 
   gl.bindFramebuffer(gl.mainShader.uniform.shadowMap)
-  gl.enable(gl.CULL_FACE)
   gl.clearColor(1, 1, 1, 1)
-  gl.gl.clearDepth(1)
   gl.clear()
   drawGeoms(gl.shadowShader, VP, time)
-  //gl.disable(gl.CULL_FACE)
 
   gl.bindFramebuffer(null)
-  //gl.enable(gl.CULL_FACE)
   gl.clearColor(0.4, 0.3, 0.2, 1)
-  gl.gl.clearDepth(1)
   gl.clear()
   drawGeoms(gl.mainShader, VP, time)
-  gl.disable(gl.CULL_FACE)
 }(0))
 
     </script>

@@ -208,7 +208,7 @@ function createBufferInfos (programs) {
       }
       if (infos[name]) {
         if (infos[name].type !== type || infos[name].size !== size) {
-          throw new Error()
+          throw new Error('Same attribute name but different type: ' + name)
         }
         continue
       }
