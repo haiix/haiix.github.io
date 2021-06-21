@@ -1,4 +1,4 @@
-import Gls from '../../assets/Gls.mjs';
+import Gls from '../../../assets/Gls.mjs';
 
 ////////////////////////////////////////////////////////////
 // Mouse
