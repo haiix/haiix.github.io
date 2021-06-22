@@ -84,8 +84,8 @@ export default class App extends TComponent {
     gl.mainShader.uniform.shadowMap = gl.createFramebuffer({
       width: 512,
       height: 512,
-      //depth: true,
-      texture: gl.LINEAR_CLAMP,
+      // depth: true,
+      texture: gl.LINEAR_CLAMP
     })
 
     // 光源
@@ -165,7 +165,7 @@ export default class App extends TComponent {
     const gl = this.gl
     gl.mouse.update()
 
-    const VP = gl.camera({pan: gl.mouse.dispX * 180, tilt: gl.mouse.dispY * -90, roll: 0})
+    const VP = gl.camera({ pan: gl.mouse.dispX * 180, tilt: gl.mouse.dispY * -90, roll: 0 })
     mat4.mul(VP, VP, mat4.fromRotation(mat4.create(), -Math.PI / 2, vec3.fromValues(1, 0, 0))) // Y軸とZ軸を入れ替え
 
     gl.bindFramebuffer(gl.mainShader.uniform.shadowMap)

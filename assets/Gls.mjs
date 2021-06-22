@@ -1,39 +1,40 @@
-export const VERSION = '0.4.0';
+export const VERSION = '0.4.0'
 
 const replaceAll = String.prototype.replaceAll ? String.prototype.replaceAll : function (a, b) { return this.split(a).join(b) }
 
-const GL = WebGLRenderingContext || {}
+const GL = window.WebGLRenderingContext || {}
 
 const ATTRIBUTE_TYPE = {
-  [GL.FLOAT]:      { type: GL.FLOAT, size:  1, fn: '1f',  ftype: 'primitive' },
-  [GL.FLOAT_VEC2]: { type: GL.FLOAT, size:  2, fn: '2fv', ftype: 'primitive' },
-  [GL.FLOAT_VEC3]: { type: GL.FLOAT, size:  3, fn: '3fv', ftype: 'primitive' },
-  [GL.FLOAT_VEC4]: { type: GL.FLOAT, size:  4, fn: '4fv', ftype: 'primitive' },
-  [GL.FLOAT_MAT2]: { type: GL.FLOAT, size:  4, fn: '2fv', ftype: 'matrix' },
-  [GL.FLOAT_MAT3]: { type: GL.FLOAT, size:  9, fn: '3fv', ftype: 'matrix' },
+  [GL.FLOAT]: { type: GL.FLOAT, size: 1, fn: '1f', ftype: 'primitive' },
+  [GL.FLOAT_VEC2]: { type: GL.FLOAT, size: 2, fn: '2fv', ftype: 'primitive' },
+  [GL.FLOAT_VEC3]: { type: GL.FLOAT, size: 3, fn: '3fv', ftype: 'primitive' },
+  [GL.FLOAT_VEC4]: { type: GL.FLOAT, size: 4, fn: '4fv', ftype: 'primitive' },
+  [GL.FLOAT_MAT2]: { type: GL.FLOAT, size: 4, fn: '2fv', ftype: 'matrix' },
+  [GL.FLOAT_MAT3]: { type: GL.FLOAT, size: 9, fn: '3fv', ftype: 'matrix' },
   [GL.FLOAT_MAT4]: { type: GL.FLOAT, size: 16, fn: '4fv', ftype: 'matrix' },
   [GL.SAMPLER_2D]: { type: GL.SAMPLER_2D, size: 1, fn: '1i', ftype: 'texture' }
 }
 
 const EX_ATTRIBUTE_TYPE = {
-  byte4:   { glslType: 'vec4', type: GL.BYTE },
-  ubyte4:  { glslType: 'vec4', type: GL.UNSIGNED_BYTE },
-  short2:  { glslType: 'vec2', type: GL.SHORT },
+  byte4: { glslType: 'vec4', type: GL.BYTE },
+  ubyte4: { glslType: 'vec4', type: GL.UNSIGNED_BYTE },
+  short2: { glslType: 'vec2', type: GL.SHORT },
   ushort2: { glslType: 'vec2', type: GL.UNSIGNED_SHORT }
 }
 
 const TYPE_BYTE = {
-  [GL.BYTE]:           { byte: 1, name: 'Int8' },
-  [GL.UNSIGNED_BYTE]:  { byte: 1, name: 'Uint8' },
-  [GL.SHORT]:          { byte: 2, name: 'Int16' },
+  [GL.BYTE]: { byte: 1, name: 'Int8' },
+  [GL.UNSIGNED_BYTE]: { byte: 1, name: 'Uint8' },
+  [GL.SHORT]: { byte: 2, name: 'Int16' },
   [GL.UNSIGNED_SHORT]: { byte: 2, name: 'Uint16' },
-  [GL.INT]:            { byte: 4, name: 'Int32' },
-  [GL.UNSIGNED_INT]:   { byte: 4, name: 'Uint32' },
-  [GL.FLOAT]:          { byte: 4, name: 'Float32' }
+  [GL.INT]: { byte: 4, name: 'Int32' },
+  [GL.UNSIGNED_INT]: { byte: 4, name: 'Uint32' },
+  [GL.FLOAT]: { byte: 4, name: 'Float32' }
 }
 
-////////////////////////////////////////////////////////////
+// ---------------------------------------------------------
 // Shader
+// ---------------------------------------------------------
 
 function createShader (gl, type, name, source) {
   const shader = gl.createShader(type)
@@ -63,8 +64,8 @@ function getShaderSourceExAttributeTypes (source) {
   const tmp = ';' + replaceAll.call(source, ';', ';;') + ';'
   const re = /;\s*attribute\s+\[\[(\w+)\]\]\s+(\w+)\s*;/g
   const types = Object.create(null)
-  for (let result; result = re.exec(tmp); ) {
-    let [_, type, name] = result
+  for (let result; (result = re.exec(tmp));) {
+    const [, type, name] = result
     if (!EX_ATTRIBUTE_TYPE[type]) continue
     types[name] = type
   }
@@ -96,8 +97,9 @@ export class GlsFragmentShader {
   }
 }
 
-////////////////////////////////////////////////////////////
+// ---------------------------------------------------------
 // Program
+// ---------------------------------------------------------
 
 function createProgram (gl, vertexShader, fragmentShader) {
   const program = gl.createProgram()
@@ -160,13 +162,15 @@ export class GlsProgram {
     this.uniformInfos = getUniformInfos(gls.gl, this.program)
     this.uniform = createUniform(this.uniformInfos)
   }
+
   draw (buffer) {
     buffer.drawBy(this)
   }
 }
 
-////////////////////////////////////////////////////////////
+// ---------------------------------------------------------
 // Buffer
+// ---------------------------------------------------------
 
 function getBufferAttribute (buffer, offset, name) {
   const info = buffer.infos[name]
@@ -198,7 +202,7 @@ function createBufferInfos (programs) {
   const infos = Object.create(null)
   let offset = 0
   for (const program of programs) {
-    for (const [index, info] of program.attributeInfos.entries()) {
+    for (const [, info] of program.attributeInfos.entries()) {
       const { name } = info
       let { type, size } = ATTRIBUTE_TYPE[info.type]
       let bytes = size * 4
@@ -232,21 +236,24 @@ export class GlsBuffer {
     this.ibo = null
     this.vao = new Map()
   }
+
   getVertex (offset) {
     return getBufferVertex(this, offset)
   }
+
   drawBy (program) {
     if (!this.programs.includes(program)) {
       throw new Error('Using a program with a different buffer')
     }
-    drawProgramBuffer(program, buffer)
+    drawProgramBuffer(program, this)
   }
 }
 
-////////////////////////////////////////////////////////////
+// ---------------------------------------------------------
 // Bind program and buffer
+// ---------------------------------------------------------
 
-function createArrayBuffer(gl, srcData, usage) {
+function createArrayBuffer (gl, srcData, usage) {
   const curr = gl.getParameter(gl.ARRAY_BUFFER_BINDING)
   const buffer = gl.createBuffer()
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
@@ -302,7 +309,9 @@ function bindProgramUniform (gls, gl, program, uniform, uniformInfos) {
 }
 
 function drawProgramBuffer (program, buffer) {
-  const gls = program.gls, gl = gls.gl, oesvao = gls._oesvao
+  const gls = program.gls
+  const gl = gls.gl
+  const oesvao = gls._oesvao
   if (!buffer.vbo) {
     buffer.vbo = createArrayBuffer(gl, buffer.vertexes.buffer, buffer.usage)
     buffer.ibo = createElementArrayBuffer(gl, buffer.indices.buffer, buffer.usage)
@@ -317,8 +326,9 @@ function drawProgramBuffer (program, buffer) {
   }
 }
 
-////////////////////////////////////////////////////////////
+// ---------------------------------------------------------
 // Attribute
+// ---------------------------------------------------------
 
 export class GlsAttribute {
   constructor (view, typeName, offset, byte, size) {
@@ -330,86 +340,111 @@ export class GlsAttribute {
     this.size = size
     this.littleEndian = true
   }
+
   get 0 () {
     return this.view[this.getterName](this.offset, this.littleEndian)
   }
+
   set 0 (v) {
     this.view[this.setterName](this.offset, v, this.littleEndian)
   }
+
   get 1 () {
     return this.view[this.getterName](this.offset + this.byte, this.littleEndian)
   }
+
   set 1 (v) {
     this.view[this.setterName](this.offset + this.byte, v, this.littleEndian)
   }
+
   get 2 () {
     if (this.size <= 2) return
     return this.view[this.getterName](this.offset + this.byte * 2, this.littleEndian)
   }
+
   set 2 (v) {
     if (this.size <= 2) return
     this.view[this.setterName](this.offset + this.byte * 2, v, this.littleEndian)
   }
+
   get 3 () {
     if (this.size <= 3) return
     return this.view[this.getterName](this.offset + this.byte * 3, this.littleEndian)
   }
+
   set 3 (v) {
     if (this.size <= 3) return
     this.view[this.setterName](this.offset + this.byte * 3, v, this.littleEndian)
   }
+
   get x () {
     return this[0]
   }
+
   set x (v) {
     this[0] = v
   }
+
   get y () {
     return this[1]
   }
+
   set y (v) {
     this[1] = v
   }
+
   get z () {
     return this[2]
   }
+
   set z (v) {
     this[2] = v
   }
+
   get w () {
     return this[3]
   }
+
   set w (v) {
     this[3] = v
   }
+
   get r () {
     return this[0]
   }
+
   set r (v) {
     this[0] = v
   }
+
   get g () {
     return this[1]
   }
+
   set g (v) {
     this[1] = v
   }
+
   get b () {
     return this[2]
   }
+
   set b (v) {
     this[2] = v
   }
+
   get a () {
     return this[3]
   }
+
   set a (v) {
     this[3] = v
   }
 }
 
-////////////////////////////////////////////////////////////
+// ---------------------------------------------------------
 // Geometry
+// ---------------------------------------------------------
 
 const MAX_BUFFER_SIZE = 65536
 function createMesh (buffer, vertexOffset, indexOffset, ucount, vcount, callback, i, attrName = 'position') {
@@ -432,6 +467,18 @@ function createMesh (buffer, vertexOffset, indexOffset, ucount, vcount, callback
     idx[n++] = vertexOffset + (umax - 1) + (v + 1) * umax
   }
 }
+function buildGlsGeometry (geom) {
+  if (geom.currentVertexOffset > 0) {
+    const buffer = new GlsBuffer(geom.programs, geom.currentVertexOffset, geom.currentIndexOffset, geom.mode, geom.usage)
+    for (const [callback, vertexOffset, vertexSize, indexOffset, indexSize] of geom.callbacks) {
+      callback(buffer, vertexOffset, vertexSize, indexOffset, indexSize)
+    }
+    geom.buffers.push(buffer)
+  }
+  geom.currentVertexOffset = 0
+  geom.currentIndexOffset = 0
+  geom.callbacks.length = 0
+}
 export class GlsGeometry {
   constructor (programs, mode, usage) {
     this.programs = programs
@@ -442,20 +489,23 @@ export class GlsGeometry {
     this.currentIndexOffset = 0
     this.callbacks = []
   }
+
   allocate (vertexSize, indexSize, callback) {
     if (vertexSize > MAX_BUFFER_SIZE) {
       throw new RangeError('The size you tried to allocate exceeds the maximum value.')
     }
     if (this.currentVertexOffset + vertexSize > MAX_BUFFER_SIZE) {
-      GlsGeometry_build(this)
+      buildGlsGeometry(this)
     }
     this.callbacks.push([callback, this.currentVertexOffset, this.currentIndexOffset])
     this.currentVertexOffset += vertexSize
     this.currentIndexOffset += indexSize
   }
+
   addMesh (ucount = 1, vcount = 1, callback = null, attrName = 'position') {
     this.addMeshes(ucount, vcount, 1, callback, attrName)
   }
+
   addMeshes (ucount = 1, vcount = 1, count = 1, callback = null, attrName = 'position') {
     const vertexSize = (ucount + 1) * (vcount + 1)
     const indexSize = (ucount * 2 + 4) * vcount
@@ -471,31 +521,21 @@ export class GlsGeometry {
       })
     }
   }
+
   drawBy (program) {
     if (!this.programs.includes(program)) {
       throw new Error('Using a program with a different buffer')
     }
-    GlsGeometry_build(this)
+    buildGlsGeometry(this)
     for (const buffer of this.buffers) {
       drawProgramBuffer(program, buffer)
     }
   }
 }
-function GlsGeometry_build (self) {
-  if (self.currentVertexOffset > 0) {
-    const buffer = new GlsBuffer(self.programs, self.currentVertexOffset, self.currentIndexOffset, self.mode, self.usage)
-    for (const [callback, vertexOffset, vertexSize, indexOffset, indexSize] of self.callbacks) {
-      callback(buffer, vertexOffset, vertexSize, indexOffset, indexSize)
-    }
-    self.buffers.push(buffer)
-  }
-  self.currentVertexOffset = 0
-  self.currentIndexOffset = 0
-  self.callbacks.length = 0
-}
 
-////////////////////////////////////////////////////////////
+// ---------------------------------------------------------
 // TextureBinder
+// ---------------------------------------------------------
 
 export class TextureBinder {
   constructor (gl) {
@@ -503,49 +543,50 @@ export class TextureBinder {
     this.max = Math.max(2, gl.getParameter(gl.MAX_COMBINED_TEXTURE_IMAGE_UNITS))
     this.units = [] // [{ number, locations[], texture }, ...]
   }
+
   bind (location, texture) {
-    let unit = TextureBinder_fetchByLocation(this, location)
+    let unit = TextureBinderFetchByLocation(this, location)
     if (unit) {
       if (unit.texture === texture) {
-        return TextureBinder_moveToLast(this, unit)
+        return TextureBinderMoveToLast(this, unit)
       }
-      TextureBinder_unbind(this, unit, location)
+      TextureBinderUnbind(this, unit, location)
     }
     if (!texture) return
-    unit = TextureBinder_fetchByTexture(this, texture) || TextureBinder_bindTexture(this, texture)
-    TextureBinder_bindLocation(this, unit, location)
-    TextureBinder_moveToLast(this, unit)
+    unit = TextureBinderFetchByTexture(this, texture) || TextureBinderBindTexture(this, texture)
+    TextureBinderBindLocation(this, unit, location)
+    TextureBinderMoveToLast(this, unit)
   }
 }
 
-function TextureBinder_fetchByLocation (self, location) {
+function TextureBinderFetchByLocation (self, location) {
   return self.units.find(unit => unit.locations.includes(location))
 }
 
-function TextureBinder_fetchByTexture (self, texture) {
+function TextureBinderFetchByTexture (self, texture) {
   return self.units.find(unit => unit.texture === texture)
 }
 
-function TextureBinder_bindTexture (self, texture) {
-  const number = TextureBinder_newNumber(self)
+function TextureBinderBindTexture (self, texture) {
+  const number = TextureBinderNewNumber(self)
   self.gl.activeTexture(self.gl['TEXTURE' + number])
   self.gl.bindTexture(self.gl.TEXTURE_2D, texture)
   return { number, locations: [], texture }
 }
 
-function TextureBinder_newNumber (self) {
+function TextureBinderNewNumber (self) {
   const fs = new Array(self.max).fill(false)
   self.units = self.units.slice(1 - self.max)
   for (const unit of self.units) fs[unit.number] = true
   return fs.indexOf(false)
 }
 
-function TextureBinder_bindLocation (self, unit, location) {
+function TextureBinderBindLocation (self, unit, location) {
   self.gl.uniform1i(location, unit.number)
   unit.locations.push(location)
 }
 
-function TextureBinder_unbind (self, unit, location) {
+function TextureBinderUnbind (self, unit, location) {
   if (unit.locations.length === 1) {
     self.units.splice(self.units.indexOf(unit), 1)
   } else {
@@ -553,14 +594,15 @@ function TextureBinder_unbind (self, unit, location) {
   }
 }
 
-function TextureBinder_moveToLast (self, unit) {
+function TextureBinderMoveToLast (self, unit) {
   const n = self.units.indexOf(unit)
   if (n >= 0) self.units.splice(n, 1)
   self.units.push(unit)
 }
 
-////////////////////////////////////////////////////////////
+// ---------------------------------------------------------
 // Texture
+// ---------------------------------------------------------
 
 function setTextureParameters (gl, parameter) {
   let mipmap = !parameter.MIN_FILTER
@@ -584,10 +626,11 @@ function createImageTexture (gl, img, parameter) {
   return texture
 }
 
-////////////////////////////////////////////////////////////
+// ---------------------------------------------------------
 // Framebuffer
+// ---------------------------------------------------------
 
-function createFramebuffer(gl, param) {
+function createFramebuffer (gl, param) {
   const currentFramebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING)
   const framebuffer = gl.createFramebuffer()
   gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
@@ -625,99 +668,113 @@ export class GlsFramebuffer {
   }
 }
 
-////////////////////////////////////////////////////////////
+// ---------------------------------------------------------
 // Gls
+// ---------------------------------------------------------
 
 export default class Gls {
   constructor (canvas, contextAttributes) {
     this.canvas = typeof canvas === 'string' ? document.querySelector(canvas) : canvas
-    contextAttributes = Object.assign({preserveDrawingBuffer: true}, contextAttributes)
+    contextAttributes = Object.assign({ preserveDrawingBuffer: true }, contextAttributes)
     this.gl = this.canvas.getContext('webgl', contextAttributes) || this.canvas.getContext('experimental-webgl', contextAttributes)
     this._oesvao = this.gl.getExtension('OES_vertex_array_object')
     this._textureBinder = null
-    this._clearMask = this.gl.COLOR_BUFFER_BIT
-      | (contextAttributes.depth ? this.gl.DEPTH_BUFFER_BIT : 0)
-      | (contextAttributes.stencil ? this.gl.STENCIL_BUFFER_BIT : 0)
+    this._clearMask = this.gl.COLOR_BUFFER_BIT |
+      (contextAttributes.depth ? this.gl.DEPTH_BUFFER_BIT : 0) |
+      (contextAttributes.stencil ? this.gl.STENCIL_BUFFER_BIT : 0)
     if (contextAttributes.depth !== false) {
       this.gl.enable(this.gl.DEPTH_TEST)
       this.gl.clearDepth(1)
     }
   }
+
   createVertexShader (src) {
     return new GlsVertexShader(this, src)
   }
+
   createFragmentShader (src) {
     return new GlsFragmentShader(this, src)
   }
+
   createProgram (vertexShader, fragmentShader) {
     return new GlsProgram(this, vertexShader, fragmentShader)
   }
+
   createBuffer (programs, vertexSize, indexSize, mode = this.gl.TRIANGLE_STRIP, usage = this.gl.DYNAMIC_DRAW) {
     return new GlsBuffer(programs, vertexSize, indexSize, mode, usage)
   }
+
   createGeometry (programs, mode = this.gl.TRIANGLE_STRIP, usage = this.gl.DYNAMIC_DRAW) {
     return new GlsGeometry(programs, mode, usage)
   }
+
   createTexture (img, parameter) {
     return createImageTexture(this.gl, img, parameter)
   }
+
   createFramebuffer (param = null) {
     return new GlsFramebuffer(this, param)
   }
+
   bindFramebuffer (framebuffer) {
     if (framebuffer) {
-      this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, framebuffer.framebuffer);
-      this.gl.viewport(0, 0, framebuffer.width, framebuffer.height);
+      this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, framebuffer.framebuffer)
+      this.gl.viewport(0, 0, framebuffer.width, framebuffer.height)
     } else {
-      this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
-      this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+      this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null)
+      this.gl.viewport(0, 0, this.canvas.width, this.canvas.height)
     }
   }
+
   clear (mask = this._clearMask) {
     this.gl.clear(mask)
   }
 }
 
-////////////////////////////////////////////////////////////
+// ---------------------------------------------------------
 // constant values
+// ---------------------------------------------------------
 
 Gls.prototype.NEAREST_CLAMP = {
-    MIN_FILTER: 'NEAREST',
-    MAG_FILTER: 'NEAREST',
-    WRAP_S: 'CLAMP_TO_EDGE',
-    WRAP_T: 'CLAMP_TO_EDGE'
-};
-Gls.prototype.LINEAR_CLAMP = {
-    MIN_FILTER: 'LINEAR',
-    MAG_FILTER: 'LINEAR',
-    WRAP_S: 'CLAMP_TO_EDGE',
-    WRAP_T: 'CLAMP_TO_EDGE'
-};
-Gls.prototype.NEAREST_REPEAT = {
-    MIN_FILTER: 'NEAREST',
-    MAG_FILTER: 'NEAREST',
-    WRAP_S: 'REPEAT',
-    WRAP_T: 'REPEAT'
-};
-Gls.prototype.LINEAR_REPEAT = {
-    MIN_FILTER: 'LINEAR',
-    MAG_FILTER: 'LINEAR',
-    WRAP_S: 'REPEAT',
-    WRAP_T: 'REPEAT'
-};
-
-////////////////////////////////////////////////////////////
-// WebGL methods and properties
-
-const methodNames = ['clearColor', 'enable', 'disable', 'blendFunc', 'blendFuncSeparate', 'viewport']
-for (const name of methodNames) {
-  Gls.prototype[name] = function (...args) { return this.gl[name](...args) }
+  MIN_FILTER: 'NEAREST',
+  MAG_FILTER: 'NEAREST',
+  WRAP_S: 'CLAMP_TO_EDGE',
+  WRAP_T: 'CLAMP_TO_EDGE'
 }
-const propertyNames = [
-  'POINTS', 'LINES', 'LINE_STRIP', 'TRIANGLES','TRIANGLE_STRIP',
-  'CULL_FACE',
-  'BLEND', 'SRC_ALPHA', 'ONE_MINUS_SRC_ALPHA', 'ONE', 'ZERO',
-]
-for (const name of propertyNames) {
-  Gls[name] = Gls.prototype[name] = GL[name];
+Gls.prototype.LINEAR_CLAMP = {
+  MIN_FILTER: 'LINEAR',
+  MAG_FILTER: 'LINEAR',
+  WRAP_S: 'CLAMP_TO_EDGE',
+  WRAP_T: 'CLAMP_TO_EDGE'
+}
+Gls.prototype.NEAREST_REPEAT = {
+  MIN_FILTER: 'NEAREST',
+  MAG_FILTER: 'NEAREST',
+  WRAP_S: 'REPEAT',
+  WRAP_T: 'REPEAT'
+}
+Gls.prototype.LINEAR_REPEAT = {
+  MIN_FILTER: 'LINEAR',
+  MAG_FILTER: 'LINEAR',
+  WRAP_S: 'REPEAT',
+  WRAP_T: 'REPEAT'
+}
+
+// ---------------------------------------------------------
+// WebGL methods and properties
+// ---------------------------------------------------------
+
+{
+  const methodNames = ['clearColor', 'enable', 'disable', 'blendFunc', 'blendFuncSeparate', 'viewport']
+  for (const name of methodNames) {
+    Gls.prototype[name] = function (...args) { return this.gl[name](...args) }
+  }
+  const propertyNames = [
+    'POINTS', 'LINES', 'LINE_STRIP', 'TRIANGLES', 'TRIANGLE_STRIP',
+    'CULL_FACE',
+    'BLEND', 'SRC_ALPHA', 'ONE_MINUS_SRC_ALPHA', 'ONE', 'ZERO'
+  ]
+  for (const name of propertyNames) {
+    Gls[name] = Gls.prototype[name] = GL[name]
+  }
 }
