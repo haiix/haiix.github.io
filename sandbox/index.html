@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<meta charset="UTF-8" />
+<script type="module">
+import TComponent from '../TComponent/TComponent.mjs'
+import style from '../assets/style.mjs'
+
+const execCode = (() => {
+  const createWorker = ({ oncreate, onmessage, options }) => {
+    const objectURL = URL.createObjectURL(new Blob([`'use strict';(postMessage=>{(${oncreate})();addEventListener('message',${onmessage})})(postMessage.bind(self))`], { type: 'text/javascript' }))
+    return [objectURL, new Worker(objectURL, options)]
+  }
+
+  const createExecWorker = () => createWorker({
+    options: { type: 'classic', credentials: 'omit' },
+    oncreate: () => {
+      // (function () {})['constructor']('return self') のような記述でのグローバルへのアクセスを防ぐ
+      delete Function.prototype.constructor
+      delete Object.getPrototypeOf(function * () {}).constructor
+      delete Object.getPrototypeOf(async function () {}).constructor
+      delete Object.getPrototypeOf(async function * () {}).constructor
+
+      // setTimeout, setInterval の第一引数に文字列を渡せなくする (グローバルへのアクセスを防ぐ)
+      for (const fn of ['setTimeout', 'setInterval']) {
+        const tmp = self[fn]
+        self[fn] = (func, delay, ...args) => {
+          if (func != null && typeof func !== 'function') throw new Error(`The callback of ${fn} must be a function`)
+          return tmp(func, delay, ...args)
+        }
+        self[fn].toString = () => tmp.toString()
+      }
+
+      // グローバル変数のうち、許可する変数のリスト
+      const whitelist = [
+        'Object', 'Function', 'Array', 'Number', 'Boolean', 'String', 'Symbol', 'Date', 'Promise', 'RegExp', 'JSON', 'Math', 'BigInt',
+        'parseFloat', 'parseInt', 'Infinity', 'NaN', 'undefined', 'isFinite', 'isNaN',
+        'Error', 'AggregateError', 'EvalError', 'RangeError', 'ReferenceError', 'SyntaxError', 'TypeError', 'URIError',
+        'ArrayBuffer', 'Uint8Array', 'Int8Array', 'Uint16Array', 'Int16Array', 'Uint32Array', 'Int32Array', 'Float32Array', 'Float64Array', 'Uint8ClampedArray', 'BigUint64Array', 'BigInt64Array', 'DataView',
+        'Map', 'Set', 'WeakMap', 'WeakSet',
+        'decodeURI', 'decodeURIComponent', 'encodeURI', 'encodeURIComponent', 'escape', 'unescape',
+        'setTimeout', 'setInterval', 'clearInterval', 'clearTimeout', 'requestAnimationFrame',
+        'atob', 'btoa',
+        //'console' // debug
+      ]
+
+      const hiddenVariableNames = Object.create(null)
+      // グローバル変数のうち、削除可能なものは削除し、削除できないものは隠す変数に追加
+      for (const [name, descriptor] of Object.entries(Object.getOwnPropertyDescriptors(self))) {
+        if (whitelist.includes(name)) continue
+        if (descriptor.configurable) {
+          delete self[name]
+        } else {
+          hiddenVariableNames[name] = true
+        }
+      }
+      // プロトタイプ継承されたグローバル変数を列挙し、隠す変数に追加
+      for (let curr = self; curr = Object.getPrototypeOf(curr); ) {
+        for (const name of Object.getOwnPropertyNames(curr)) {
+          if (whitelist.includes(name)) continue
+          hiddenVariableNames[name] = true
+        }
+      }
+      // その他の隠す変数
+      for (const name of ['Function', 'hiddenVariableNames']) {
+        hiddenVariableNames[name] = true
+      }
+      self.hiddenVariableNames = Object.keys(hiddenVariableNames)
+
+      //console.log(hiddenVariableNames) // debug
+    },
+
+    onmessage: async function (event) {
+      try {
+        // 禁止ワード: import
+        // importはキーワードであり変数の置き換えができないが、動的インポート「import('url')」を防ぐ必要がある
+        const fw = ['import'].filter(s => event.data.indexOf(s) >= 0)
+        if (fw.length > 0) throw new Error('Forbidden word(s): ' + fw.join())
+        // 実行
+        const obj = await new Function(...self.hiddenVariableNames, '"use strict";' + event.data)()
+        const retVal = '' + JSON.stringify(obj, (key, val) => typeof val === 'function' ? val + '' : val)
+        postMessage(['resolve', retVal.length < 1000 ? retVal : retVal.slice(0, 997) + '...'])
+      } catch (error) {
+        const retVal = '[' + error.name + '] ' + error.message
+        postMessage(['reject', retVal.length < 1000 ? retVal : retVal.slice(0, 997) + '...'])
+      }
+    }
+  })
+
+  {
+    let proc = null, objectURL, worker, timeout
+    function initialize () {
+      if (worker) return
+      ;[objectURL, worker] = createExecWorker()
+      worker.onmessage = event => {
+        clearTimeout(timeout)
+        const [type, value] = event.data
+        if (!proc) return
+        const [resolve, reject] = proc
+        proc = null
+        if (type === 'resolve') {
+          resolve(value)
+        } else {
+          reject(new Error(value))
+        }
+      }
+    }
+
+    function terminate (message) {
+      clearTimeout(timeout)
+      if (!worker) return
+      worker.terminate()
+      worker = null
+      URL.revokeObjectURL(objectURL)
+      const [resolve, reject] = proc
+      proc = null
+      reject(new Error(message))
+    }
+
+    return (code, option = null) => new Promise((resolve, reject) => {
+      if (proc) throw new Error('Currently working.')
+      proc = [resolve, reject]
+      initialize()
+      if (option && option.timeout) {
+        timeout = setTimeout(() => terminate('Timeout.'), option.timeout)
+      }
+      if (option && option.signal) {
+        option.signal.addEventListener('abort', event => terminate('Worker terminated by the abort signal.'))
+      }
+      worker.postMessage(code)
+    })
+  }
+})()
+
+
+
+class App extends TComponent {
+  template () {
+    style(`
+      pre {
+        background: #EEE;
+        color: #000;
+        border: 1px solid #999;
+        margin: 0;
+        padding: 4px;
+      }
+      textarea {
+        width: 400px;
+        height: 200px;
+      }
+    `)
+    return `
+      <div>
+        <div>Code:</div>
+        <pre>function () {
+  <textarea id="code" oninput="this.handleInputCode(event)" onchange="this.handleInputCode(event)">return 'Hello, World!'</textarea>
+}</pre>
+        <div>Result:</div>
+        <pre id="result"></pre>
+      </div>
+    `
+  }
+
+  constructor (attr = {}, nodes = []) {
+    super()
+    this.delayTid = null
+    this.prevCode = null
+    this.prevAbortController = null
+    this.run()
+  }
+
+  async run () {
+    if (this.prevCode === this.code.value) return
+    this.prevCode = this.code.value
+    if (this.prevAbortController) this.prevAbortController.abort()
+    const abortController = new AbortController()
+    this.prevAbortController = abortController
+    const mtid = setTimeout(() => {
+      this.result.textContent = 'Processing...'
+      this.result.style.color = '#000'
+    }, 100)
+    try {
+      this.result.textContent = await execCode(this.code.value, { signal: abortController.signal, timeout: 10000 })
+      this.result.style.color = '#000'
+    } catch (error) {
+      this.result.textContent = error.message
+      this.result.style.color = '#F00'
+    } finally {
+      clearTimeout(mtid)
+      if (this.prevAbortController === abortController) {
+        this.prevAbortController = null
+      }
+    }
+  }
+
+  handleInputCode (event) {
+    clearTimeout(this.delayTid)
+    this.delayTid = setTimeout(() => this.run(), 100)
+  }
+}
+
+const app = new App()
+document.body.appendChild(app.element)
+if (app.init) app.init()
+if (app.loop) {
+  ;(function loop (t) {
+    window.requestAnimationFrame(loop)
+    app.loop(t)
+  }(0))
+}
+window.app = app
+</script>
+<script nomodule src="/assets/nomodule.js"></script>
