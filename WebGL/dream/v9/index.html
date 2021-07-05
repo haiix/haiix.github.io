@@ -10,6 +10,7 @@
   <body>
     <script type="module">
 import Gls from '../../../assets/Gls.mjs'
+import style from '../../../assets/style.mjs'
 import TComponent from '../../../TComponent/TComponent.mjs'
 
 function Math_mod (a, b) {
@@ -26,12 +27,14 @@ class XorShift32star {
     this.y = seed >>> 0
     if (this.y === 0) this.y = 0x7d68d45f
   }
+
   next () {
     this.y ^= this.y << 13
     this.y ^= this.y >>> 17
     this.y ^= this.y << 15
     return ((this.y >>> 0) * 0x92F8B >>> 0) / 0x100000000
   }
+
   irand (min, max) {
     return Math.floor(this.next() * (max - min + 1) + min)
   }
@@ -45,6 +48,7 @@ class MyRand {
       Array(6).fill().reduce(s => s + xos.next(), 0) - 3
     )
   }
+
   next () {
     if (++this.counter >= this.arr.length) this.counter -= this.m
     return this.arr[this.counter]
@@ -60,10 +64,12 @@ class MyNoise {
     this.reso = reso
     this.draw(0, 0, 1, 0)
   }
+
   getPixel (x, y) {
     const p = Math_mod(Math.floor(x), this.reso) + Math_mod(Math.floor(y), this.reso) * this.reso
     return this.arr[p]
   }
+
   draw (x, y, s, n) {
     if (s >= this.reso) {
       const tmp = Math.log(n) / Math.LN2 + 1
@@ -77,8 +83,8 @@ class MyNoise {
       )
       const sigma = Math.sqrt(a * a + b * b)
       const val = this.rand.next() * sigma + mean
-      if (this.min > val) this.min = val
-      if (this.max < val) this.max = val
+      this.min = Math.min(this.min, val)
+      this.max = Math.max(this.max, val)
       this.arr[x + y * this.reso] = val
       return
     }
@@ -88,6 +94,7 @@ class MyNoise {
     this.draw(x + s, y, s2, n4 + 2)
     this.draw(x, y + s, s2, n4 + 3)
   }
+
   getVal (i) {
     return (this.arr[i] - this.min) / (this.max - this.min)
   }
@@ -112,42 +119,35 @@ class Main {
       uniform float vyOffset;
       uniform vec2  lightnessOffset;
 
-      vec4 hsla(vec4 c) {
-          float s = clamp(c.y, 0.0, 1.0);
-          float l = clamp(c.z, 0.0, 1.0);
-
-          vec2 range = vec2(-1.0, 1.0) * s + 1.0;
-          if (l < 0.5) {
-              range = l * range;
-          } else {
-              range = 1.0 - (l - 1.0) * (range - 2.0);
-          }
-
-          vec3 rgb = clamp(abs(fract(c.x + hue) * 6.0 - 3.0) - 1.0, 0.0, 1.0);
-          return vec4(rgb * (range.y - range.x) + range.x, c.w);
+      vec3 hsv2rgb(float h, float s, float v) {
+        vec3 rgb = h * 6. + vec3(2., 0., 4.);
+        rgb = clamp(2. - abs(mod(rgb, 6.) - 2.), 0., 1.);
+        rgb = mix(vec3(1.), rgb, s) * v;
+        return clamp(rgb, 0., 1.);
       }
 
       float getVal(vec2 p) {
-          p += gl_FragCoord.xy * vec2(1.0, -1.0) / reso;
-          vec2 c = texture2D(texture, p).rg;
-          return c.g + c.r / 256.0;
+        p += gl_FragCoord.xy * vec2(1.0, -1.0) / reso;
+        vec2 c = texture2D(texture, p).rg;
+        return c.g + c.r / 256.0;
       }
 
       void main() {
-          float vx = getVal(vec2(vxOffset, 0.0));
-          float vy = getVal(vec2(0.0, vyOffset));
+        float vx = getVal(vec2(vxOffset, 0.0));
+        float vy = getVal(vec2(0.0, vyOffset));
 
-          float hue = getVal(vec2(vx, vy)) + hueOffset;
-          float lightness = sin(getVal(vec2(vx, vy) + lightnessOffset) * 10.0) / 4.0 + 0.9;
+        float hue = getVal(vec2(vx, vy)) + hueOffset;
+        float lightness = sin(getVal(vec2(vx, vy) + lightnessOffset) * 10.0) / 4.0 + 0.9;
 
-          gl_FragColor = hsla(vec4(hue, 0.65, lightness, 1.0));
-          //gl_FragColor = hsla(vec4(0.7, 0.5, getVal(vec2(0.0)), 1.0));
+        gl_FragColor = vec4(hsv2rgb(hue, mix(1.5, 0., lightness), mix(lightness, 1., 0.65)), 1.0);
+        //gl_FragColor = vec4(hsv2rgb(0.7, 0.5, getVal(vec2(0.0))), 1.0);
       }
     `)
     this.geom = this.gl.createGeometry([this.program])
     this.geom.addMesh(1, 1)
     this.gl.clear()
   }
+
   draw (reso, seed) {
     const begin = Date.now()
 
@@ -167,6 +167,7 @@ class Main {
     const end = Date.now()
     console.log(end - begin + ' ms')
   }
+
   _createTexture (reso, xos) {
     const imageData = document.createElement('canvas').getContext('2d').createImageData(reso, reso)
     const d = new Uint32Array(imageData.data.buffer)
@@ -181,7 +182,7 @@ class Main {
 
 function saveBlob (blob, filename = blob.name) {
   if (navigator.msSaveBlob) {
-      navigator.msSaveBlob(blob, filename)
+    navigator.msSaveBlob(blob, filename)
   } else {
     const url = URL.createObjectURL(blob)
     document.body.insertAdjacentHTML('beforeend', `<a href="${url}" download="${filename}" hidden></a>`)
@@ -190,28 +191,6 @@ function saveBlob (blob, filename = blob.name) {
     document.body.removeChild(a)
     setTimeout(URL.revokeObjectURL.bind(URL), 0, url)
   }
-}
-
-// http://stackoverflow.com/questions/4998908/convert-data-uri-to-file-then-append-to-formdata
-function dataURItoBlob (dataURI) {
-  let byteString
-  if (dataURI.split(',')[0].indexOf('base64') >= 0) {
-    byteString = atob(dataURI.split(',')[1])
-  } else {
-    byteString = unescape(dataURI.split(',')[1])
-  }
-  const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0]
-  const ia = new Uint8Array(byteString.length)
-  for (let i = 0; i < byteString.length; i++) {
-    ia[i] = byteString.charCodeAt(i)
-  }
-  return new Blob([ia], {type: mimeString})
-}
-
-function style (text) {
-  const elem = document.createElement('style')
-  elem.textContent = text
-  document.head.appendChild(elem)
 }
 
 class App extends TComponent {
@@ -252,37 +231,46 @@ class App extends TComponent {
       </div>
     `
   }
+
   constructor () {
     super()
     this.main = new Main(this.view)
     this.tid = null
   }
+
   init () {
     this.update()
   }
+
   setSeed (seed) {
     this.seedInput.value = Math.min(Math.max(parseInt(this.seedInput.min), parseInt(seed)), parseInt(this.seedInput.max))
   }
+
   getSeed () {
     return parseInt(this.seedInput.value)
   }
+
   getReso () {
     return parseInt(this.resoSelect.value)
   }
+
   handlePrevButton (event) {
     this.setSeed(this.getSeed() - 1)
     this.update()
   }
+
   handleNextButton (event) {
     this.setSeed(this.getSeed() + 1)
     this.update()
   }
-  handleSaveButton (event) {
-    const blob = dataURItoBlob(this.view.toDataURL())
+
+  async handleSaveButton (event) {
+    const blob = this.view.toBlob ? (await new Promise(resolve => this.view.toBlob(resolve))) : this.view.msToBlob()
     const seed = this.getSeed()
     const reso = this.getReso()
     saveBlob(blob, seed + '-' + reso + '.png')
   }
+
   update () {
     if (this.tid != null) clearTimeout(this.tid)
     this.tid = setTimeout(() => {

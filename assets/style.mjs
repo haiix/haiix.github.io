@@ -1,16 +1,16 @@
 class Style {
-  constructor (text, options = null) {
-    this.elem = document.createElement('style')
-    this.elem.textContent = text
+  constructor (text, options) {
+    this._elem = document.createElement('style')
+    this._elem.textContent = text
     if (!(options && options.disabled)) this.enable()
   }
 
   enable () {
-    document.head.appendChild(this.elem)
+    document.head.appendChild(this._elem)
   }
 
   disable () {
-    document.head.removeChild(this.elem)
+    document.head.removeChild(this._elem)
   }
 }
 

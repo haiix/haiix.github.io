@@ -30,7 +30,7 @@ export default class App extends TComponent {
       varying float vColor;
 
       void main() {
-        gl_Position =  modelMat * vec4(position, 1.0);
+        gl_Position = modelMat * vec4(position, 1.0);
         shadowCoord = (depthMat * vec4(position, 1.0)) * 0.5 + 0.5;
         vColor = clamp(dot(normal, lightInvDir), 0.0, 1.0) * 0.75 + ${shadowColor};
       }
@@ -43,13 +43,10 @@ export default class App extends TComponent {
       varying float vColor;
 
       vec3 hsv2rgb(float h, float s, float v) {
-        s = clamp(s, 0., 1.);
-        v = clamp(v, 0., 1.);
         vec3 rgb = h * 6. + vec3(2., 0., 4.);
         rgb = clamp(2. - abs(mod(rgb, 6.) - 2.), 0., 1.);
-        rgb = rgb * s + (1. - s);
-        rgb = rgb * v;
-        return rgb;
+        rgb = mix(vec3(1.), rgb, s) * v;
+        return clamp(rgb, 0., 1.);
       }
 
       void main() {
