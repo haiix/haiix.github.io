@@ -79,6 +79,9 @@ style(`
     flex: auto;
   }
 
+  .overlap {
+    overflow: auto;
+  }
   .overlap > * {
     display: none;
   }
@@ -122,12 +125,14 @@ export default class App extends TComponent {
     item.iconColor = '#69C'
     this._tree.appendChild(item)
     if (item.isExpandable) item.expand()
+    this._tree.current = item
   }
   _handleChangeTab (event) {
     const value = event.detail.value;
     if (value === 'tree') {
       try {
         this.updateTree(JSON.parse(this._textarea.value))
+        requestAnimationFrame(() => this._tree.focus())
       } catch (error) {
         alert(error.message)
         this._tab.value = 'text'

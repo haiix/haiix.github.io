@@ -8,21 +8,22 @@ export class TUl extends TComponent {
   }
   constructor (attr = {}, nodes = []) {
     super()
-    this.disabled = attr.disabled === 'disabled' || attr.disabled === true
-    this._parentClass = attr['parent-class'] || ''
+    for (const node of nodes) {
+      let li = node
+      if (!(node instanceof HTMLLIElement)) {
+        li = document.createElement('li')
+        li.appendChild(node)
+      }
+      this.element.appendChild(li)
+      if (TComponent.from(li) == null) new TLi({}, li)
+    }
     for (const [key, value] of Object.entries(attr)) {
-      if (key === 'disabled' || key === 'parent-class') continue
-      if (typeof value === 'function') {
+      if (key === 'disabled') {
+        this[key] = value === key || value === true
+      } else if (typeof value === 'function') {
         this.element[key] = value
       } else {
         this.element.setAttribute(key, value)
-      }
-    }
-    for (const node of nodes) {
-      if (TComponent.from(node) instanceof TLi) {
-        this.element.appendChild(node)
-      } else {
-        this.element.appendChild(new TLi({}, [node]).element)
       }
     }
     this._current = this.items.find(item => item.current)
@@ -78,29 +79,39 @@ export class TUl extends TComponent {
 
 export class TLi extends TComponent {
   template () {
-    return '<li></li>'
+    return null
   }
   constructor (attr = {}, nodes = []) {
     super()
+    if (nodes instanceof HTMLLIElement) {
+      TComponent.bindElement(this, nodes)
+    } else {
+      TComponent.bindElement(this, document.createElement('li'))
+      for (const node of nodes) {
+        this.element.appendChild(node)
+      }
+    }
     this.value = (attr.value || '') + ''
     for (const [key, value] of Object.entries(attr)) {
       if (key === 'value') {
-      } else if (key === 'current' || key === 'selected' || key === 'disabled') {
-        this[key] = attr[key] === value || attr[key] === true
+      } else if (key === 'disabled' || key === 'current' || key === 'selected') {
+        this[key] = value === key || value === true
       } else if (typeof value === 'function') {
         this.element[key] = value
       } else {
         this.element.setAttribute(key, value)
       }
     }
-    for (const node of nodes) {
-      this.element.appendChild(node)
-      const tUl = TComponent.from(node)
-      if (!(tUl instanceof TUl) || !tUl._parentClass) continue
-      for (const className of tUl._parentClass.split(' ')) {
-        this.element.classList.add(className)
-      }
+  }
+  set disabled (v) {
+    if (v) {
+      this.element.classList.add('disabled')
+    } else {
+      this.element.classList.remove('disabled')
     }
+  }
+  get disabled () {
+    return this.element.classList.contains('disabled')
   }
   set current (v) {
     if (v) {
@@ -122,14 +133,5 @@ export class TLi extends TComponent {
   get selected () {
     return this.element.classList.contains('selected')
   }
-  set disabled (v) {
-    if (v) {
-      this.element.classList.add('disabled')
-    } else {
-      this.element.classList.remove('disabled')
-    }
-  }
-  get disabled () {
-    return this.element.classList.contains('disabled')
-  }
 }
+
