@@ -91,6 +91,14 @@ class TreeItem extends TComponent {
     return this._text.textContent
   }
 
+  set html (v) {
+    this._text.innerHTML = v
+  }
+
+  get html () {
+    return this._text.innerHTML
+  }
+
   set icon (v) {
     this._icon.textContent = v
   }
@@ -127,11 +135,13 @@ class TreeItem extends TComponent {
     }
     this._expandIcon.textContent = 'expand_more'
     this._list.style.display = ''
+    this._item.classList.add('expanded')
   }
 
   async collapse () {
     this._expandIcon.textContent = 'chevron_right'
     this._list.style.display = 'none'
+    this._item.classList.remove('expanded')
     const tree = this.getRootNode()
     if (tree.current && this._item.contains(tree.current._item)) {
       tree.current = this

@@ -61,6 +61,14 @@ style(`
     height: 100%;
   }
 
+  .tree small {
+    font-size: inherit;
+    color: #939;
+  }
+  .tree li.expanded > div > span > small {
+    display: none;
+  }
+
   .composition,
   .composition .column,
   .composition .row {
@@ -112,10 +120,12 @@ export default class App extends TComponent {
       </div>
     `
   }
+
   constructor () {
     super()
     this.rootObj = null
   }
+
   updateTree (obj) {
     this.rootObj = obj
     this._tree._list.innerHTML = ''
@@ -127,6 +137,7 @@ export default class App extends TComponent {
     if (item.isExpandable) item.expand()
     this._tree.current = item
   }
+
   _handleChangeTab (event) {
     const value = event.detail.value;
     if (value === 'tree') {
@@ -141,6 +152,7 @@ export default class App extends TComponent {
     }
     this._view.value = value
   }
+
   _handleTreeExpand (event) {
     const item = event.detail
     if (item.isLoaded) return
@@ -176,14 +188,33 @@ export default class App extends TComponent {
 
     item.isLoaded = true
   }
+
   _createChildItem (key, val) {
     const isExpandable = typeof val === 'object' && val != null
     const item = new Tree.Item()
-    const _val = (typeof val === 'string') ? '"' + val + '"' : val
-    item.text = key + (isExpandable ? (Array.isArray(val) ? '[]' : '') : ': ' + _val)
+    if (isExpandable && Array.isArray(val)) {
+      item.html = key + '<small>: [ ' + val.map(this._toS).join(', ') + ' ]</small>'
+    } else if (isExpandable) {
+      item.html = key + '<small>: { ' + Object.entries(val).map(([k, v]) => k + ': ' + this._toS(v)).join(', ') + ' }</small>'
+    } else {
+      item.html = key + '<small>: ' + this._toS(val) + '</small>'
+    }
     item.key = key
     item.isLoaded = false
     item.isExpandable = isExpandable
     return item
+  }
+
+  _toS (val) {
+    if (Array.isArray(val)) {
+      return '[ ... ]'
+    }
+    if (typeof val === 'object' && val != null) {
+      return '{ ... }'
+    }
+    if (typeof val === 'string') {
+      return '"' + val + '"'
+    }
+    return '' + val
   }
 }
