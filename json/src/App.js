@@ -130,9 +130,7 @@ export default class App extends TComponent {
     this.rootObj = obj
     this._tree._list.innerHTML = ''
 
-    const item = this._createChildItem('ルート', obj)
-    item.icon = 'desktop_windows'
-    item.iconColor = '#69C'
+    const item = this._createTreeItem('ルート', obj, true)
     this._tree.appendChild(item)
     if (item.isExpandable) item.expand()
     this._tree.current = item
@@ -178,21 +176,16 @@ export default class App extends TComponent {
 
     const ite = Array.isArray(curr) ? curr.entries() : Object.entries(curr)
     for (const [key, val] of ite) {
-      const citem = this._createChildItem(key, val)
-      if (!citem.isExpandable) {
-        citem.icon = 'insert_drive_file'
-        citem.iconColor = '#CCC'
-      }
-      item.appendChild(citem)
+      item.appendChild(this._createTreeItem(key, val))
     }
 
     item.isLoaded = true
   }
 
-  _createChildItem (key, val) {
+  _createTreeItem (key, val, isRoot = false) {
     const isExpandable = typeof val === 'object' && val != null
     const item = new Tree.Item()
-    if (isExpandable && Array.isArray(val)) {
+    if (Array.isArray(val)) {
       item.html = key + '<small>: [ ' + val.map(this._toS).join(', ') + ' ]</small>'
     } else if (isExpandable) {
       item.html = key + '<small>: { ' + Object.entries(val).map(([k, v]) => k + ': ' + this._toS(v)).join(', ') + ' }</small>'
@@ -202,6 +195,13 @@ export default class App extends TComponent {
     item.key = key
     item.isLoaded = false
     item.isExpandable = isExpandable
+    if (isRoot) {
+      item.icon = 'desktop_windows'
+      item.iconColor = '#69C'
+    } else if (!isExpandable) {
+      item.icon = 'insert_drive_file'
+      item.iconColor = '#CCC'
+    }
     return item
   }
 

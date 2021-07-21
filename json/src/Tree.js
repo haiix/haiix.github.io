@@ -103,8 +103,16 @@ class TreeItem extends TComponent {
     this._icon.textContent = v
   }
 
+  get icon () {
+    return this._icon.textContent
+  }
+
   set iconColor (v) {
     this._icon.style.color = v
+  }
+
+  get iconColor () {
+    return this._icon.style.color
   }
 
   appendChild (item) {
