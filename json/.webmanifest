@@ -1,0 +1,21 @@
+{
+  "name": "JSON Viewer",
+  "short_name": "JSON Viewer",
+  "description": "JSONテキストを解析してツリー表示します。",
+  "icons": [
+    {
+      "src": "icons/icon-32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#9CF",
+  "background_color": "#FFF"
+}
