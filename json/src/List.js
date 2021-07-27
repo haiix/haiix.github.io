@@ -6,6 +6,7 @@ export class TUl extends TComponent {
   template () {
     return '<ul></ul>'
   }
+
   constructor (attr = {}, nodes = []) {
     super()
     for (const node of nodes) {
@@ -29,6 +30,7 @@ export class TUl extends TComponent {
     this._current = this.items.find(item => item.current)
     this.element.addEventListener('mousedown', this._handleMouseDown.bind(this))
   }
+
   set items (items) {
     this.element.innerHTML = ''
     for (const item of items) {
@@ -36,9 +38,11 @@ export class TUl extends TComponent {
       this.element.appendChild(item.element)
     }
   }
+
   get items () {
     return seq(this.element.childNodes).map(node => TComponent.from(node))
   }
+
   set current (item) {
     if (item != null) {
       if (this.items.indexOf(item) < 0 || this.current === item) return
@@ -47,15 +51,19 @@ export class TUl extends TComponent {
     if (this.current) this.current.current = false
     this._current = item
   }
+
   get current () {
     return this._current
   }
+
   set value (v) {
     this.current = this.items.find(item => item.value === v)
   }
+
   get value () {
     return this.current == null ? '' : this.current.value
   }
+
   set disabled (v) {
     if (v) {
       this.element.classList.add('disabled')
@@ -63,9 +71,11 @@ export class TUl extends TComponent {
       this.element.classList.remove('disabled')
     }
   }
+
   get disabled () {
     return this.element.classList.contains('disabled')
   }
+
   _handleMouseDown (event) {
     if (this.disabled || event.button !== 0) return
     const item = this.items.find(item => item.element.contains(event.target))
@@ -81,6 +91,7 @@ export class TLi extends TComponent {
   template () {
     return null
   }
+
   constructor (attr = {}, nodes = []) {
     super()
     if (nodes instanceof HTMLLIElement) {
@@ -103,6 +114,7 @@ export class TLi extends TComponent {
       }
     }
   }
+
   set disabled (v) {
     if (v) {
       this.element.classList.add('disabled')
@@ -110,9 +122,11 @@ export class TLi extends TComponent {
       this.element.classList.remove('disabled')
     }
   }
+
   get disabled () {
     return this.element.classList.contains('disabled')
   }
+
   set current (v) {
     if (v) {
       this.element.classList.add('current')
@@ -120,9 +134,11 @@ export class TLi extends TComponent {
       this.element.classList.remove('current')
     }
   }
+
   get current () {
     return this.element.classList.contains('current')
   }
+
   set selected (v) {
     if (v) {
       this.element.classList.add('selected')
@@ -130,8 +146,8 @@ export class TLi extends TComponent {
       this.element.classList.remove('selected')
     }
   }
+
   get selected () {
     return this.element.classList.contains('selected')
   }
 }
-

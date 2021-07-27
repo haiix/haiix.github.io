@@ -203,7 +203,7 @@ export default class Tree extends TComponent {
   constructor (attr, nodes) {
     super()
 
-    //this.current = this.first
+    // this.current = this.first
     this.current = null
     this.onexpand = null
 
@@ -233,7 +233,7 @@ export default class Tree extends TComponent {
     this._lastCurrent = item
     if (item) {
       item._item.classList.add('current')
-      item._container.scrollIntoView({block: 'nearest', inline: 'nearest'})
+      item._container.scrollIntoView({ block: 'nearest', inline: 'nearest' })
     }
     this._list.dispatchEvent(new CustomEvent('change', { detail: item }))
   }
@@ -245,9 +245,9 @@ export default class Tree extends TComponent {
     return this._lastCurrent
   }
 
-  //get first () {
-  //  return this._tree.firstChild && this._tree.firstChild.firstChild
-  //}
+  // get first () {
+  //   return this._tree.firstChild && this._tree.firstChild.firstChild
+  // }
 
   focus () {
     this._tree.focus()
@@ -262,7 +262,6 @@ export default class Tree extends TComponent {
     const item = TComponent.from(elem)
 
     if (event.target === item._expandIcon && item.isExpandable) {
-      const ul = item._list
       if (item.isExpanded) {
         await item.collapse()
       } else {
@@ -276,70 +275,70 @@ export default class Tree extends TComponent {
   async _handleTreeKeydown (event) {
     if (!this.current) return
     switch (event.keyCode) {
-      case 8:  // Back Space
-      {
-        event.preventDefault()
-        if (this.current.parentNode !== this) {
-          this.current = this.current.parentNode
+      case 8: // Back Space
+        {
+          event.preventDefault()
+          if (this.current.parentNode !== this) {
+            this.current = this.current.parentNode
+          }
         }
-      }
-      break
+        break
       case 37: // Left
-      {
-        event.preventDefault()
-        if (this.current.isExpanded) {
-          await this.current.collapse()
-        } else {
-          if (this.current.parentNode !== this) {
-            this.current = this.current.parentNode
+        {
+          event.preventDefault()
+          if (this.current.isExpanded) {
+            await this.current.collapse()
+          } else {
+            if (this.current.parentNode !== this) {
+              this.current = this.current.parentNode
+            }
           }
         }
-      }
-      break
+        break
       case 38: // Up
-      {
-        event.preventDefault()
-        if (this.current._item.previousSibling) {
-          let item = TComponent.from(this.current._item.previousSibling)
-          while (item.isExpanded && item._list.lastChild) {
-            item = TComponent.from(item._list.lastChild)
-          }
-          this.current = item
-        } else {
-          if (this.current.parentNode !== this) {
-            this.current = this.current.parentNode
+        {
+          event.preventDefault()
+          if (this.current._item.previousSibling) {
+            let item = TComponent.from(this.current._item.previousSibling)
+            while (item.isExpanded && item._list.lastChild) {
+              item = TComponent.from(item._list.lastChild)
+            }
+            this.current = item
+          } else {
+            if (this.current.parentNode !== this) {
+              this.current = this.current.parentNode
+            }
           }
         }
-      }
-      break
+        break
       case 39: // Right
-      {
-        event.preventDefault()
-        if (this.current.isExpandable && !this.current.isExpanded) {
-          await this.current.expand()
-        } else {
-          if (this.current._list.firstChild) {
-            this.current = TComponent.from(this.current._list.firstChild)
+        {
+          event.preventDefault()
+          if (this.current.isExpandable && !this.current.isExpanded) {
+            await this.current.expand()
+          } else {
+            if (this.current._list.firstChild) {
+              this.current = TComponent.from(this.current._list.firstChild)
+            }
           }
         }
-      }
-      break
+        break
       case 40: // Down
-      {
-        event.preventDefault()
-        if (this.current.isExpanded && this.current._list.firstChild) {
-          this.current = TComponent.from(this.current._list.firstChild)
-        } else {
-          let item = this.current
-          while (item !== this && !item._item.nextSibling) {
-            item = item.parentNode
-          }
-          if (item !== this) {
-            this.current = TComponent.from(item._item.nextSibling)
+        {
+          event.preventDefault()
+          if (this.current.isExpanded && this.current._list.firstChild) {
+            this.current = TComponent.from(this.current._list.firstChild)
+          } else {
+            let item = this.current
+            while (item !== this && !item._item.nextSibling) {
+              item = item.parentNode
+            }
+            if (item !== this) {
+              this.current = TComponent.from(item._item.nextSibling)
+            }
           }
         }
-      }
-      break
+        break
     }
   }
 }

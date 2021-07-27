@@ -137,7 +137,7 @@ export default class App extends TComponent {
   }
 
   _handleChangeTab (event) {
-    const value = event.detail.value;
+    const value = event.detail.value
     if (value === 'tree') {
       try {
         this.updateTree(JSON.parse(this._textarea.value))
