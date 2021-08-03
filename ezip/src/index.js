@@ -1,3 +1,4 @@
+import { nextFocusable } from './assets/focus.mjs'
 import App from './App.mjs'
 
 ;(async function () {
@@ -6,6 +7,8 @@ import App from './App.mjs'
     app = new App()
     document.body.appendChild(app.element)
     window.app = app
+    const firstElem = nextFocusable(null, app.element)
+    if (firstElem) firstElem.focus()
     if (app.main) await app.main()
     if (app.loop) {
       ;(async function loop (t) {

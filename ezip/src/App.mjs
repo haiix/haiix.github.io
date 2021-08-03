@@ -1,10 +1,15 @@
 import TComponent from '@haiix/TComponent'
 import * as zip from '@zip.js/zip.js'
-import style from '/assets/style.mjs'
-import hold from '/assets/hold.mjs'
+import style from './assets/style.mjs'
+import hold from './assets/hold.mjs'
 import { Dialog, createDialog, alert, confirm, passwordPrompt, openFile, ContextMenu } from './dialog.mjs'
 
 const EXT = '.ezip'
+
+function isMobile () {
+  const regexp = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i
+  return (window.navigator.userAgent.search(regexp) !== -1)
+}
 
 const saveDialog = createDialog(class extends Dialog {
   titleTemplate () {
@@ -49,16 +54,8 @@ const saveDialog = createDialog(class extends Dialog {
     `
   }
 
-  main () {
-    this.fileNameInput.focus()
-  }
-
   handleOK (event) {
-    this.resolve(Array.from(this.form.elements).reduce((obj, elem) => (obj[elem.name] = elem.value, obj), {}))
-  }
-
-  handleCancel (event) {
-    this.resolve(null)
+    this.resolve(Array.from(this.form.elements).reduce((obj, elem) => ((obj[elem.name] = elem.value), obj), {}))
   }
 })
 
@@ -75,7 +72,7 @@ const fileListContextMenu = createDialog(class extends ContextMenu {
 
 class FileListItem extends TComponent {
   template () {
-    return `<li></li>`
+    return '<li></li>'
   }
 
   constructor (attr = {}, nodes = []) {
@@ -102,7 +99,7 @@ class FileListItem extends TComponent {
 
 export default class App extends TComponent {
   template () {
-    const ukey = 'my-app';
+    const ukey = 'my-app'
     style(`
       .flex.row {
         display: flex;
@@ -235,12 +232,10 @@ export default class App extends TComponent {
     `
   }
 
-  constructor (attr = {}, nodes = []) {
-    super()
-  }
-
   main () {
-    this.fileListContainer.focus()
+    if (isMobile()) {
+      alert('モバイル端末には対応していません。')
+    }
   }
 
   handleMenuMouseDown (event) {
@@ -279,7 +274,7 @@ export default class App extends TComponent {
     const password = await passwordPrompt('パスワードを入力してください。')
     if (password == null) return
 
-    const files = await this.readEncryptedZipFile (zipFile, password)
+    const files = await this.readEncryptedZipFile(zipFile, password)
     this.addFiles(files)
   }
 
@@ -331,7 +326,7 @@ export default class App extends TComponent {
       jpg: 'image/jpeg',
       pdf: 'application/pdf',
       png: 'image/png',
-      zip: 'application/x-zip-compressed',
+      zip: 'application/x-zip-compressed'
     }[ext] || ''
     return mine
   }
@@ -398,7 +393,7 @@ export default class App extends TComponent {
   }
 
   async handleFileListKeyDown (event) {
-    //event.stopPropagation()
+    // event.stopPropagation()
     const curr = this.getCurrent()
     switch (event.keyCode) {
       case 38: // Up
@@ -433,9 +428,11 @@ export default class App extends TComponent {
       case 'rename':
         break
       case 'delete':
-        const selected = this.fileList.querySelectorAll('.selected')
-        if (selected.length > 0 && await confirm('選択されたファイルを削除しますか?')) {
-          this.deleteFiles(selected)
+        {
+          const selected = this.fileList.querySelectorAll('.selected')
+          if (selected.length > 0 && await confirm('選択されたファイルを削除しますか?')) {
+            this.deleteFiles(selected)
+          }
         }
         break
     }
@@ -503,9 +500,9 @@ export default class App extends TComponent {
 
   handleFileListResize (event) {
     const target = event.target.parentElement
-    const ox = event.pageX - getComputedStyle(target).width.slice(0, -2)
+    const ox = event.pageX - window.getComputedStyle(target).width.slice(0, -2)
     hold({
-      cursor: getComputedStyle(event.target).cursor,
+      cursor: window.getComputedStyle(event.target).cursor,
       ondrag (px) {
         target.style.width = Math.max(0, px - ox) + 'px'
       }

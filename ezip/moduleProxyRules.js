@@ -2,9 +2,9 @@ importScripts('../assets/moduleProxy.js')
 
 moduleProxy.rules = [
   {
-    nameStartsWith: '/assets/',
+    nameStartsWith: './assets/',
     url (src) {
-      return '../..' + src
+      return '../.' + src
     }
   },
   {
@@ -19,9 +19,9 @@ moduleProxy.rules = [
     url (src) {
       const module = src.slice(this.nameStartsWith.length)
       return `https://raw.githubusercontent.com/gildas-lormeau/${module}/master/index.js`
-      //return `https://unpkg.com/${src}@2.3.8/index.js`
-      //return `https://cdn.jsdelivr.net/npm/${src}`
-      //return `https://cdn.skypack.dev/${src}`
+      // return `https://unpkg.com/${src}@2.3.8/index.js`
+      // return `https://cdn.jsdelivr.net/npm/${src}`
+      // return `https://cdn.skypack.dev/${src}`
     }
   }
 ]

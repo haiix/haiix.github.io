@@ -6,12 +6,12 @@ export default function hold ({ ondrag = null, ondragend = null, cursor = '', bi
     if (ondrag) ondrag.call(bind, event.pageX, event.pageY, modal)
   }
   const handleMouseup = event => {
-    removeEventListener('mousemove', handleMousemove)
-    removeEventListener('mouseup', handleMouseup)
+    window.removeEventListener('mousemove', handleMousemove)
+    window.removeEventListener('mouseup', handleMouseup)
     container.removeChild(modal)
     if (ondragend) ondragend.call(bind, event.pageX, event.pageY, modal)
   }
   container.appendChild(modal)
-  addEventListener('mousemove', handleMousemove)
-  addEventListener('mouseup', handleMouseup)
+  window.addEventListener('mousemove', handleMousemove)
+  window.addEventListener('mouseup', handleMouseup)
 }

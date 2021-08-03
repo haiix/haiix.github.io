@@ -1,5 +1,6 @@
 import TComponent from '@haiix/TComponent'
-import style from '/assets/style.mjs'
+import style from './assets/style.mjs'
+import { nextFocusable } from './assets/focus.mjs'
 
 export class Dialog extends TComponent {
   template () {
@@ -71,15 +72,15 @@ export class Dialog extends TComponent {
   }
 
   titleTemplate () {
-    return ``
+    return ''
   }
 
   bodyTemplate () {
-    return ``
+    return ''
   }
 
   buttonsTemplate () {
-    return ``
+    return ''
   }
 
   constructor (attr = {}, nodes = []) {
@@ -87,19 +88,25 @@ export class Dialog extends TComponent {
     this.resolve = attr.resolve
   }
 
+  handleOK (event) {
+    this.resolve(null)
+  }
+
+  handleCancel (event) {
+    this.resolve(null)
+  }
+
   handleKeyDown (event) {
     event.stopPropagation()
     switch (event.keyCode) {
       case 13: // Enter
         if (event.target.tagName !== 'BUTTON' && typeof this.handleOK === 'function') {
-          // イベントの連続実行を防ぐため requestAnimationFrame を挟む
-          requestAnimationFrame(t => this.handleOK(event))
+          this.handleOK(event)
         }
         break
       case 27: // Esc
         if (typeof this.handleCancel === 'function') {
-          // イベントの連続実行を防ぐため requestAnimationFrame を挟む
-          requestAnimationFrame(t => this.handleCancel(event))
+          this.handleCancel(event)
         }
         break
       // TODO Up, Left, Right, Bottom でもボタンフォーカス移動
@@ -109,18 +116,20 @@ export class Dialog extends TComponent {
 }
 
 export function createDialog (DialogClass) {
-  return (...args) => {
+  return async function (...args) {
     const lastFocused = document.activeElement
     let dialog
-    return new Promise(resolve => {
+    const result = await new Promise(resolve => {
       dialog = new DialogClass(Object.assign({ resolve }, { arguments: args }))
       document.body.appendChild(dialog.element)
+      const firstElem = nextFocusable(null, dialog.element)
+      if (firstElem) firstElem.focus()
       if (dialog.main) dialog.main()
-    }).then(result => {
-      document.body.removeChild(dialog.element)
-      lastFocused.focus()
-      return result
     })
+    document.body.removeChild(dialog.element)
+    lastFocused.focus()
+    // await new Promise(resolve => requestAnimationFrame(resolve))
+    return result
   }
 }
 
@@ -143,18 +152,6 @@ export const alert = createDialog(class extends Dialog {
     this.title.textContent = title
     this.text.textContent = text
   }
-
-  main () {
-    this.okButton.focus()
-  }
-
-  handleOK (event) {
-    this.resolve()
-  }
-
-  handleCancel (event) {
-    this.resolve()
-  }
 })
 
 export const confirm = createDialog(class extends Dialog {
@@ -176,10 +173,6 @@ export const confirm = createDialog(class extends Dialog {
     const [text = '', title = '確認'] = attr.arguments
     this.title.textContent = title
     this.text.textContent = text
-  }
-
-  main () {
-    this.okButton.focus()
   }
 
   handleOK (event) {
@@ -216,29 +209,21 @@ export const passwordPrompt = createDialog(class extends Dialog {
     this.passwordInput.value = value
   }
 
-  main () {
-    this.passwordInput.focus()
-  }
-
   handleOK (event) {
     this.resolve(this.passwordInput.value)
-  }
-
-  handleCancel (event) {
-    this.resolve(null)
   }
 })
 
 export async function openFile (accept = '', multiple = false) {
-  //focus()
-  //await new Promise(resolve => setTimeout(resolve, 100))
+  // focus()
+  // await new Promise(resolve => setTimeout(resolve, 100))
   return await new Promise(resolve => {
     const input = TComponent.createElement(`<input type="file" accept="${accept}" ${multiple ? 'multiple' : ''} hidden />`)
     input.onchange = event => {
       resolve(multiple ? input.files : input.files[0])
     }
-    addEventListener('focus', function callee (event) {
-      removeEventListener('focus', callee)
+    window.addEventListener('focus', function callee (event) {
+      window.removeEventListener('focus', callee)
       setTimeout(resolve, 1000, null)
     })
     document.body.appendChild(input)
@@ -312,49 +297,52 @@ export class ContextMenu extends TComponent {
           this.resolve(null)
           break
         case 38: // Up
-          const last = this.contextMenu.lastElementChild
-          if (curr) {
-            const prev = curr.previousElementSibling
-            curr.classList.remove('current')
-            if (prev) {
-              prev.classList.add('current')
+          {
+            const last = this.contextMenu.lastElementChild
+            if (curr) {
+              const prev = curr.previousElementSibling
+              curr.classList.remove('current')
+              if (prev) {
+                prev.classList.add('current')
+              } else {
+                last.classList.add('current')
+              }
             } else {
               last.classList.add('current')
             }
-          } else {
-            last.classList.add('current')
           }
           break
         case 40: // Down
-          const first = this.contextMenu.firstElementChild
-          if (curr) {
-            const next = curr.nextElementSibling
-            curr.classList.remove('current')
-            if (next) {
-              next.classList.add('current')
+          {
+            const first = this.contextMenu.firstElementChild
+            if (curr) {
+              const next = curr.nextElementSibling
+              curr.classList.remove('current')
+              if (next) {
+                next.classList.add('current')
+              } else {
+                first.classList.add('current')
+              }
             } else {
               first.classList.add('current')
             }
-          } else {
-            first.classList.add('current')
           }
           break
       }
     }
 
     this.resolve = value => {
-      removeEventListener('mousedown', handleMouseDown, true)
-      removeEventListener('mousemove', handleMouseMove, true)
-      removeEventListener('blur', handleBlur, true)
-      removeEventListener('keydown', handleKeyDown, true)
-      // イベントの連続実行を防ぐため requestAnimationFrame を挟む
-      requestAnimationFrame(t => this._resolve(value))
+      window.removeEventListener('mousedown', handleMouseDown, true)
+      window.removeEventListener('mousemove', handleMouseMove, true)
+      window.removeEventListener('blur', handleBlur, true)
+      window.removeEventListener('keydown', handleKeyDown, true)
+      this._resolve(value)
     }
 
-    addEventListener('mousedown', handleMouseDown, true)
-    addEventListener('mousemove', handleMouseMove, true)
-    addEventListener('blur', handleBlur, true)
-    addEventListener('keydown', handleKeyDown, true)
+    window.addEventListener('mousedown', handleMouseDown, true)
+    window.addEventListener('mousemove', handleMouseMove, true)
+    window.addEventListener('blur', handleBlur, true)
+    window.addEventListener('keydown', handleKeyDown, true)
   }
 
   get current () {
