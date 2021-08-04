@@ -1,6 +1,6 @@
 import TComponent from '@haiix/TComponent'
 import style from './assets/style.mjs'
-import { nextFocusable } from './assets/focus.mjs'
+import { isFocusable, nextFocusable, previousFocusable } from './assets/focus.mjs'
 
 export class Dialog extends TComponent {
   template () {
@@ -15,6 +15,7 @@ export class Dialog extends TComponent {
         display: flex;
         justify-content: center;
         align-items: center;
+        outline: none;
       }
       .${ukey} > .background {
         /*
@@ -119,14 +120,48 @@ export function createDialog (DialogClass) {
   return async function (...args) {
     const lastFocused = document.activeElement
     let dialog
+    let tabHandler = null
     const result = await new Promise(resolve => {
       dialog = new DialogClass(Object.assign({ resolve }, { arguments: args }))
       document.body.appendChild(dialog.element)
       const firstElem = nextFocusable(null, dialog.element)
-      if (firstElem) firstElem.focus()
+      if (firstElem) {
+        const lastElem = previousFocusable(null, dialog.element)
+        tabHandler = TComponent.createElement('<div style="position: absolute; overflow: hidden; width: 0;"><input onfocus="this.handleFocus(event)" /></div>', {
+          handleFocus (event) {
+            firstElem.focus()
+          }
+        })
+        document.body.insertBefore(tabHandler, document.body.firstChild)
+        dialog.element.addEventListener('keydown', event => {
+          if (isFocusable(event.target)) return
+          if (event.keyCode === 9 && event.ctrlKey === false && event.altKey === false) {
+            event.preventDefault()
+            if (event.shiftKey) {
+              lastElem.focus()
+            } else {
+              firstElem.focus()
+            }
+          }
+        })
+        firstElem.addEventListener('keydown', event => {
+          if (event.keyCode === 9 && event.shiftKey === true && event.ctrlKey === false && event.altKey === false) {
+            event.preventDefault()
+            lastElem.focus()
+          }
+        })
+        lastElem.addEventListener('keydown', event => {
+          if (event.keyCode === 9 && event.shiftKey === false && event.ctrlKey === false && event.altKey === false) {
+            event.preventDefault()
+            firstElem.focus()
+          }
+        })
+        firstElem.focus()
+      }
       if (dialog.main) dialog.main()
     })
     document.body.removeChild(dialog.element)
+    if (tabHandler) document.body.removeChild(tabHandler)
     lastFocused.focus()
     // await new Promise(resolve => requestAnimationFrame(resolve))
     return result
