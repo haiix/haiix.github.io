@@ -99,6 +99,7 @@ export class Dialog extends TComponent {
 
   handleKeyDown (event) {
     event.stopPropagation()
+    let elem = document.activeElement
     switch (event.keyCode) {
       case 13: // Enter
         if (event.target.tagName !== 'BUTTON' && typeof this.handleOK === 'function') {
@@ -110,8 +111,22 @@ export class Dialog extends TComponent {
           this.handleCancel(event)
         }
         break
-      // TODO Up, Left, Right, Bottom でもボタンフォーカス移動
-      // TODO Buttonにフォーカスがあたっているときの Space は Enter と同じ(?)
+      case 37: // Left
+      case 38: // Up
+        if (elem.tagName === 'BUTTON' && this.buttons.contains(elem)) {
+          elem = previousFocusable(elem, this.buttons)
+          if (!elem) elem = previousFocusable(elem, this.buttons)
+          if (elem) elem.focus()
+        }
+        break
+      case 39: // Right
+      case 40: // Bottom
+        if (elem.tagName === 'BUTTON' && this.buttons.contains(elem)) {
+          elem = nextFocusable(elem, this.buttons)
+          if (!elem) elem = nextFocusable(elem, this.buttons)
+          if (elem) elem.focus()
+        }
+        break
     }
   }
 }
@@ -127,33 +142,22 @@ export function createDialog (DialogClass) {
       const firstElem = nextFocusable(null, dialog.element)
       if (firstElem) {
         const lastElem = previousFocusable(null, dialog.element)
-        tabHandler = TComponent.createElement('<div style="position: absolute; overflow: hidden; width: 0;"><input onfocus="this.handleFocus(event)" /></div>', {
+        tabHandler = TComponent.createElement('<div style="position: absolute; overflow: hidden; width: 0;"><input onfocus="this.handleFocus(event)" tabindex="1" /></div>', {
           handleFocus (event) {
             firstElem.focus()
           }
         })
         document.body.insertBefore(tabHandler, document.body.firstChild)
         dialog.element.addEventListener('keydown', event => {
-          if (isFocusable(event.target)) return
           if (event.keyCode === 9 && event.ctrlKey === false && event.altKey === false) {
-            event.preventDefault()
-            if (event.shiftKey) {
+            const f = isFocusable(event.target)
+            if (event.shiftKey && (!f || event.target === firstElem)) {
+              event.preventDefault()
               lastElem.focus()
-            } else {
+            } else if (!event.shiftKey && (!f || event.target === lastElem)) {
+              event.preventDefault()
               firstElem.focus()
             }
-          }
-        })
-        firstElem.addEventListener('keydown', event => {
-          if (event.keyCode === 9 && event.shiftKey === true && event.ctrlKey === false && event.altKey === false) {
-            event.preventDefault()
-            lastElem.focus()
-          }
-        })
-        lastElem.addEventListener('keydown', event => {
-          if (event.keyCode === 9 && event.shiftKey === false && event.ctrlKey === false && event.altKey === false) {
-            event.preventDefault()
-            firstElem.focus()
           }
         })
         firstElem.focus()
