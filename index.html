@@ -8,15 +8,116 @@
     <title>スクリプト置き場</title>
   </head>
   <body>
-    <h1>スクリプト置き場</h1>
-    <ul>
-      <li><a href="./WebGL/lifegame/">ライフゲーム</a></li>
-      <li><a href="./WebGL/dream/v9/">模様生成</a></li>
-      <li><a href="./WebGL/tree/">木</a></li>
-      <li><a href="./WebGL/tree3/">森</a></li>
-      <li><a href="./WebGL/shadow/v2/">影</a></li>
-      <li><a href="./WebGL/box/">箱</a></li>
-      <li><a href="./json/">JSON Viewer</a></li>
-    </ul>
+    <script type="module">
+import TComponent from './TComponent/TComponent.mjs'
+
+class App extends TComponent {
+  template () {
+    return `
+      <section>
+        <h1 id="h1"></h1>
+        <ul id="list"></ul>
+      </section>
+    `
+  }
+
+  constructor () {
+    super()
+    this._tree = Object.create(null)
+  }
+
+  async main () {
+    window.addEventListener('hashchange', event => this.load())
+    await this.load()
+  }
+
+  async load () {
+    const path = (location.hash || '#').slice(1)
+    const tree = await this.getTree(('/' + path).slice(0, -1))
+    if (path !== '' && tree.some(item => item.path === 'index.html')) {
+      return location.replace(`https://haiix.github.io/${path}`)
+    }
+    this.h1.textContent = (document.title + '/' + path).slice(0, -1).split('/').join(' > ')
+    this.list.innerHTML = tree
+      .filter(item => !(
+        item.path[0] === '.' ||
+        item.path[0] === '_' ||
+        item.path === 'favicon.ico' ||
+        item.path === 'index.html' ||
+        item.path === 'assets' ||
+        (item.type !== 'tree' && item.type !== 'blob')
+      ))
+      .map(item => (
+        item.type === 'tree' ?
+          `<li><a href="#${path}${item.path}/" data-sha="${item.sha}">${item.path}</a></li>`
+        :
+          `<li><a href="https://haiix.github.io/${path}${item.path}">${item.path}</a></li>`
+      ))
+      .join('')
+  }
+
+  async getTree (path) {
+    if (!this._tree[path]) {
+      let sha
+      if (!path) {
+        sha = (await this.githubApi('commits'))[0].sha
+      } else {
+        const n = path.lastIndexOf('/')
+        const parentPath = path.slice(0, n)
+        const name = path.slice(n + 1)
+        const parentTree = await this.getTree(parentPath)
+        sha = parentTree.find(item => item.path === name).sha
+      }
+      this._tree[path] = (await this.githubApi(`git/trees/${sha}`)).tree
+    }
+    return this._tree[path]
+  }
+
+  async githubApi (path) {
+    const res = await fetch('https://api.github.com/repos/haiix/haiix.github.io/' + path)
+    if (res.status !== 200) throw new Error(res.status + ' ' + res.statusText)
+    return await res.json()
+  }
+
+  onerror (error) {
+    alert(error.message)
+    throw error
+  }
+}
+
+;(async function initApp (App) {
+  let app = null
+  try {
+    app = new App()
+    document.body.appendChild(app.element)
+    window.app = app
+    if (app.main) await app.main()
+    if (app.loop) {
+      ;(async function loop (t) {
+        try {
+          await app.loop(t)
+        } catch (error) {
+          if (app.onerror) {
+            await app.onerror(error)
+          } else {
+            throw error
+          }
+        }
+        window.requestAnimationFrame(loop)
+      }(0))
+    }
+  } catch (error) {
+    if (app && app.onerror) {
+      app.onerror(error)
+    } else if (App.prototype.onerror) {
+      App.prototype.onerror.call(null, error)
+    } else {
+      throw error
+    }
+  }
+}(App))
+    </script>
+    <script nomodule src="https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.4/fetch.min.js"></script>
+    <script nomodule src="/assets/nomodule.js"></script>
   </body>
 </html>
