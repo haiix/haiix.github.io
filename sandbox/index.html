@@ -4,6 +4,18 @@
 import TComponent from '../TComponent/TComponent.mjs'
 import style from '../assets/style.mjs'
 
+/**
+ * Run the JavaScript code on the worker.
+ *
+ * @async
+ * @function execCode
+ * @param {string} code - The JavaScript code.
+ * @param {Object} [option] - Options.
+ * @param {AbortSignal} [option.signal] - The AbortSignal.
+ * @param {number} [option.timeout] - Timeout (ms).
+ * @return {Promise<string>} The resulting string.
+ * @throws {Error}
+ */
 const execCode = (() => {
   const createWorker = ({ oncreate, onmessage, options }) => {
     const objectURL = URL.createObjectURL(new Blob([`'use strict';(postMessage=>{(${oncreate})();addEventListener('message',${onmessage})})(postMessage.bind(self))`], { type: 'text/javascript' }))
