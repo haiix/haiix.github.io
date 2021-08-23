@@ -2,6 +2,7 @@ import TComponent from '@haiix/TComponent'
 import * as zip from '@zip.js/zip.js'
 import style from './assets/style.mjs'
 import hold from './assets/hold.mjs'
+import List from './List.mjs'
 import { Dialog, createDialog, alert, confirm, passwordPrompt, openFile, ContextMenu } from './dialog.mjs'
 
 const EXT = '.ezip'
@@ -100,6 +101,7 @@ class FileListItem extends TComponent {
 export default class App extends TComponent {
   template () {
     const ukey = 'my-app'
+    this.uses(List)
     style(`
       .flex.row {
         display: flex;
@@ -155,7 +157,6 @@ export default class App extends TComponent {
         border: 1px solid #BDF;
       }
       .${ukey} .file-list-container {
-        outline: none;
         border-right: 1px solid #CCC;
         position: relative;
         width: 200px;
@@ -166,6 +167,7 @@ export default class App extends TComponent {
         overflow: hidden;
       }
       .${ukey} ul.file-list {
+        outline: none;
         line-height: 22px;
         height: 0;
         min-height: 100%;
@@ -181,13 +183,13 @@ export default class App extends TComponent {
       .${ukey} ul.file-list > li:hover {
         background: #DEF;
       }
-      .${ukey} .file-list-container:focus ul.file-list > li.current {
+      .${ukey} ul.file-list:focus > li.current {
         border: 1px solid #9CF;
       }
-      .${ukey} .file-list-container ul.file-list > li.selected {
+      .${ukey} ul.file-list > li.selected {
         background: #CCC;
       }
-      .${ukey} .file-list-container:focus ul.file-list > li.selected {
+      .${ukey} ul.file-list:focus > li.selected {
         background: #BDF;
       }
       .${ukey} .file-list-resize-handle {
@@ -215,13 +217,11 @@ export default class App extends TComponent {
           <li data-value="save">暗号化して保存</li>
         </ul>
         <div class="flex stretch row" style="position: relative; z-index: 0;">
-          <div id="fileListContainer" class="file-list-container" tabindex="0"
-            onkeydown="return this.handleFileListKeyDown(event)"
-            onmousedown="return this.handleFileListMouseDown(event)"
+          <div id="fileListContainer" class="file-list-container"
             oncontextmenu="return this.handleFileListContextMenu(event)"
           >
             <p id="placeholder" class="file-list-placeholder">ここにファイルをドラッグ&ドロップするか、右クリックメニューよりファイルを追加してください。</p>
-            <ul id="fileList" class="file-list"></ul>
+            <list id="fileList" class="file-list" onchange="return this.handleFileListChange()" />
             <div class="file-list-resize-handle" onmousedown="return this.handleFileListResize(event)"></div>
           </div>
           <div id="view" class="flex stretch" style="position: relative;">
@@ -254,7 +254,7 @@ export default class App extends TComponent {
   }
 
   async handleNew (event) {
-    if (this.fileList.childElementCount > 0) {
+    if (this.fileList.children.length > 0) {
       if (!await confirm('現在のファイルを閉じますか?')) return
     }
 
@@ -262,7 +262,7 @@ export default class App extends TComponent {
   }
 
   async handleOpen (event) {
-    if (this.fileList.childElementCount > 0) {
+    if (this.fileList.children.length > 0) {
       if (!await confirm('現在のファイルを閉じて、別のファイルを開きますか?')) return
     }
 
@@ -348,40 +348,16 @@ export default class App extends TComponent {
     return await blobWriter.getData()
   }
 
-  handleFileListMouseDown (event) {
-    const targetIsItem = event.target !== this.fileList && this.fileList.contains(event.target)
-    const targetIsSelected = event.target.classList.contains('selected')
-
-    if (!event.ctrlKey && (!targetIsItem || !targetIsSelected)) {
-      const selectedElems = this.fileList.querySelectorAll('li.selected')
-      for (const elem of selectedElems) {
-        elem.classList.remove('selected')
-      }
-    }
-
-    if (targetIsItem) {
-      // TODO mouseupで処理？
-      if (event.ctrlKey && targetIsSelected) {
-        event.target.classList.remove('selected')
-      } else {
-        event.target.classList.add('selected')
-      }
-
-      this.setCurrent(event.target)
+  async deleteSelected () {
+    const selected = this.fileList.getSelected()
+    if (selected.length > 0 && await confirm('選択されたファイルを削除しますか?')) {
+      this.deleteFiles(selected)
     }
   }
 
-  getCurrent () {
-    return this.fileList.querySelector('li.current')
-  }
-
-  setCurrent (elem) {
-    const curr = this.getCurrent()
-    if (elem && elem === curr) return
-    if (curr) curr.classList.remove('current')
-    if (elem) {
-      elem.classList.add('current')
-      const item = TComponent.from(elem)
+  handleFileListChange () {
+    if (this.fileList.current) {
+      const item = TComponent.from(this.fileList.current)
       if (item.file.type === '' || item.file.type === 'application/x-zip-compressed') {
         throw new Error('表示できません')
       }
@@ -389,29 +365,6 @@ export default class App extends TComponent {
       this.iframe.src = url
     } else {
       this.iframe.src = 'about:blank'
-    }
-  }
-
-  async handleFileListKeyDown (event) {
-    // event.stopPropagation()
-    const curr = this.getCurrent()
-    switch (event.keyCode) {
-      case 38: // Up
-        if (curr) {
-          const prev = curr.previousElementSibling
-          if (prev) this.setCurrent(prev)
-        } else {
-          this.setCurrent(this.fileList.firstElementChild)
-        }
-        break
-      case 40: // Down
-        if (curr) {
-          const next = curr.nextElementSibling
-          if (next) this.setCurrent(next)
-        } else {
-          this.setCurrent(this.fileList.lastElementChild)
-        }
-        break
     }
   }
 
@@ -423,17 +376,12 @@ export default class App extends TComponent {
         this.addFiles(await openFile('', true))
         break
       case 'save':
-        await this.downloadFiles(Array.from(this.fileList.querySelectorAll('.selected')).map(li => TComponent.from(li).file))
+        await this.downloadFiles(this.fileList.getSelected().map(li => TComponent.from(li).file))
         break
       case 'rename':
         break
       case 'delete':
-        {
-          const selected = this.fileList.querySelectorAll('.selected')
-          if (selected.length > 0 && await confirm('選択されたファイルを削除しますか?')) {
-            this.deleteFiles(selected)
-          }
-        }
+        this.deleteSelected()
         break
     }
   }
@@ -448,6 +396,10 @@ export default class App extends TComponent {
   }
 
   handleKeyDown (event) {
+    if (event.keyCode === 46) { // Delete
+      this.deleteSelected()
+      return
+    }
     if (!event.ctrlKey) return
     switch (event.keyCode) {
       case 78: // n
@@ -460,6 +412,17 @@ export default class App extends TComponent {
         event.preventDefault()
         return this.handleSave(event)
     }
+  }
+
+  handleFileListResize (event) {
+    const target = event.target.parentElement
+    const ox = event.pageX - window.getComputedStyle(target).width.slice(0, -2)
+    hold({
+      cursor: window.getComputedStyle(event.target).cursor,
+      ondrag (px) {
+        target.style.width = Math.max(0, px - ox) + 'px'
+      }
+    })
   }
 
   async downloadFiles (files) {
@@ -477,36 +440,21 @@ export default class App extends TComponent {
       item = new FileListItem({ file })
       this.fileList.appendChild(item.element)
     }
-    if (this.fileList.childElementCount > 0) {
+    if (this.fileList.children.length > 0) {
       this.placeholder.style.display = 'none'
     }
-    if (item) this.setCurrent(item.element)
     this.fileListContainer.focus()
   }
 
   deleteFiles (list) {
-    let curr = this.getCurrent()
     for (const li of Array.from(list)) {
       TComponent.from(li).destructor()
-      if (curr === li) curr = curr.nextSibling
-      li.parentNode.removeChild(li)
+      this.fileList.removeChild(li)
     }
-    if (this.fileList.childElementCount === 0) {
+    if (this.fileList.children.length === 0) {
       this.placeholder.style.display = ''
     }
-    this.setCurrent(curr || this.fileList.lastChild)
     this.fileListContainer.focus()
-  }
-
-  handleFileListResize (event) {
-    const target = event.target.parentElement
-    const ox = event.pageX - window.getComputedStyle(target).width.slice(0, -2)
-    hold({
-      cursor: window.getComputedStyle(event.target).cursor,
-      ondrag (px) {
-        target.style.width = Math.max(0, px - ox) + 'px'
-      }
-    })
   }
 
   onerror (error) {

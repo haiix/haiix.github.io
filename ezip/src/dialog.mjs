@@ -167,7 +167,7 @@ export function createDialog (DialogClass) {
     document.body.removeChild(dialog.element)
     if (tabHandler) document.body.removeChild(tabHandler)
     lastFocused.focus()
-    // await new Promise(resolve => requestAnimationFrame(resolve))
+    await new Promise(resolve => requestAnimationFrame(resolve)) // keydownイベントが連続実行されるのを防ぐ
     return result
   }
 }
