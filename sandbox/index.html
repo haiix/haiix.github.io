@@ -3,6 +3,7 @@
 <script type="module">
 import TComponent from '../TComponent/TComponent.mjs'
 import style from '../assets/style.mjs'
+import initApp from '../assets/initApp.mjs'
 
 /**
  * Run the JavaScript code on the worker.
@@ -71,23 +72,33 @@ const execCode = (() => {
           hiddenVariableNames[name] = true
         }
       }
-      // その他の隠す変数
-      for (const name of ['Function', 'hiddenVariableNames']) {
-        hiddenVariableNames[name] = true
-      }
-      self.hiddenVariableNames = Object.keys(hiddenVariableNames)
+      const hiddenVariableNamesArr = Object.keys(hiddenVariableNames)
+      //console.log(hiddenVariableNamesArr) // debug
 
-      //console.log(hiddenVariableNames) // debug
+      // Function を置き換える
+      const _Function = self.Function
+      self.Function = function (...args) {
+        const code = args.length > 0 ? (args.pop() + '') : ''
+        if (code !== '') {
+          // 禁止ワード: import
+          // importはキーワードであり変数の置き換えができないが、動的インポート「import('url')」を防ぐ必要がある
+          const fw = ['import'].filter(s => (code).indexOf(s) >= 0)
+          if (fw.length > 0) throw new Error('Forbidden word(s): ' + fw.join())
+        }
+        const dummyFunc = _Function(...args, code)
+        const func = _Function(...(args.concat(hiddenVariableNamesArr)), '"use strict";' + code)
+        func.toString = dummyFunc.toString.bind(dummyFunc)
+        return func
+      }
+      self.Function.constructor = _Function.constructor
+      self.Function.toString = _Function.toString.bind(_Function)
+      _Function.prototype.constructor = self.Function
     },
 
     onmessage: async function (event) {
       try {
-        // 禁止ワード: import
-        // importはキーワードであり変数の置き換えができないが、動的インポート「import('url')」を防ぐ必要がある
-        const fw = ['import'].filter(s => event.data.indexOf(s) >= 0)
-        if (fw.length > 0) throw new Error('Forbidden word(s): ' + fw.join())
         // 実行
-        const obj = await new Function(...self.hiddenVariableNames, '"use strict";' + event.data)()
+        const obj = await new Function(event.data)()
         const retVal = '' + JSON.stringify(obj, (key, val) => typeof val === 'function' ? val + '' : val)
         postMessage(['resolve', retVal.length < 1000 ? retVal : retVal.slice(0, 997) + '...'])
       } catch (error) {
@@ -209,15 +220,6 @@ class App extends TComponent {
   }
 }
 
-const app = new App()
-document.body.appendChild(app.element)
-if (app.init) app.init()
-if (app.loop) {
-  ;(function loop (t) {
-    window.requestAnimationFrame(loop)
-    app.loop(t)
-  }(0))
-}
-window.app = app
+initApp(App)
 </script>
 <script nomodule src="/assets/nomodule.js"></script>
