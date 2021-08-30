@@ -1,3 +1,12 @@
+/*
+ * TComponent.mjs
+ *
+ * Copyright (c) 2021 haiix
+ *
+ * This module is released under the MIT license:
+ * https://opensource.org/licenses/MIT
+ */
+
 const etbl = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'.split('').map(c => c.charCodeAt(0))
 const dtbl = Array(256).fill(0).map((v, i) => Math.max(0, etbl.indexOf(i)))
 
@@ -9,8 +18,15 @@ const dtbl = Array(256).fill(0).map((v, i) => Math.max(0, etbl.indexOf(i)))
  */
 export function encode (buf) {
   const src = new Uint8Array(buf)
-  const dst = new Uint8Array(Math.ceil(src.length / 3) * 4)
-  for (let i = 0, j = 0; i < src.length; ) {
+  let l = Math.ceil(src.length / 3) * 4
+  l += Math.floor(Math.max(0, l - 1) / 76) * 2
+  const dst = new Uint8Array(l)
+  for (let i = 0, j = 0, k = 0; i < src.length; k++) {
+    if (k === 19) {
+      dst[j++] = 13
+      dst[j++] = 10
+      k = 0
+    }
     const t = src[i++] << 16 | src[i++] << 8 | src[i++] << 0
     dst[j++] = etbl[(t >>> 18) & 63]
     dst[j++] = etbl[(t >>> 12) & 63]
@@ -31,14 +47,16 @@ export function encode (buf) {
  */
 export function decode (b64) {
   const src = new TextEncoder().encode(b64)
-  let l = Math.floor(src.length / 4 * 3)
-  for (let p = src.length - 1; src[p] === 61; p--) l--
-  const dst = new Uint8Array(l)
-  for (let i = 0, j = 0; i < src.length; ) {
+  const dst = new Uint8Array(Math.ceil(src.length / 4 * 3))
+  let j = 0
+  for (let i = 0; i < src.length; ) {
+    if (src[i] === 13) i++
+    if (src[i] === 10) i++
     const t = dtbl[src[i++]] << 18 | dtbl[src[i++]] << 12 | dtbl[src[i++]] << 6 | dtbl[src[i++]] << 0
     dst[j++] = (t >>> 16) & 255
     dst[j++] = (t >>> 8) & 255
     dst[j++] = (t >>> 0) & 255
   }
-  return dst.buffer
+  for (let p = src.length - 1; src[p] === 61; p--) j--
+  return dst.buffer.slice(0, j)
 }
