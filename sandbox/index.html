@@ -14,7 +14,7 @@ import initApp from '../assets/initApp.mjs'
  * @param {Object} [option] - Options.
  * @param {AbortSignal} [option.signal] - The AbortSignal.
  * @param {number} [option.timeout] - Timeout (ms).
- * @return {Promise<string>} The resulting string.
+ * @return {Promise<string|ImageData>} The resulting string or ImageData.
  * @throws {Error}
  */
 const execCode = (() => {
@@ -49,13 +49,14 @@ const execCode = (() => {
         'Error', 'AggregateError', 'EvalError', 'RangeError', 'ReferenceError', 'SyntaxError', 'TypeError', 'URIError',
         'ArrayBuffer', 'Uint8Array', 'Int8Array', 'Uint16Array', 'Int16Array', 'Uint32Array', 'Int32Array', 'Float32Array', 'Float64Array', 'Uint8ClampedArray', 'BigUint64Array', 'BigInt64Array', 'DataView',
         'Map', 'Set', 'WeakMap', 'WeakSet',
-        'decodeURI', 'decodeURIComponent', 'encodeURI', 'encodeURIComponent', 'escape', 'unescape',
+        'decodeURI', 'decodeURIComponent', 'encodeURI', 'encodeURIComponent',
         'setTimeout', 'setInterval', 'clearInterval', 'clearTimeout', 'requestAnimationFrame',
         'atob', 'btoa',
         'Intl', 'Proxy', 'Reflect',
-        'TextEncoderStream', 'TextEncoder', 'TextDecoderStream', 'TextDecoder',
+        'TextEncoder', 'TextDecoder',
         'FileReaderSync', 'FileReader', 'FileList', 'File', 'Blob',
         'Crypto', 'CryptoKey', 'SubtleCrypto', 'crypto',
+        'ImageData',
         //'console' // debug
       ]
 
@@ -97,14 +98,29 @@ const execCode = (() => {
       self.Function.constructor = _Function.constructor
       self.Function.toString = _Function.toString.bind(_Function)
       _Function.prototype.constructor = self.Function
+
+      // グローバル変数凍結
+      for (const name of whitelist) {
+        if (name in self) {
+          Object.freeze(self[name])
+          if (name !== 'undefined') Object.freeze(self[name].prototype)
+        }
+      }
     },
 
     onmessage: async function (event) {
       try {
         // 実行
-        const obj = await new Function(event.data)()
-        const retVal = '' + JSON.stringify(obj, (key, val) => typeof val === 'function' ? val + '' : val)
-        postMessage(['resolve', retVal.length < 1000 ? retVal : retVal.slice(0, 997) + '...'])
+        let retVal = await new Function(event.data)()
+        if (retVal instanceof ImageData) {
+          if (retVal.width > 256 || retVal.height > 256) {
+            throw new Error('Too large ImageData')
+          }
+        } else {
+          retVal = '' + JSON.stringify(retVal, (key, val) => typeof val === 'function' ? val + '' : val)
+          retVal = retVal.length < 1000 ? retVal : retVal.slice(0, 997) + '...'
+        }
+        postMessage(['resolve', retVal])
       } catch (error) {
         const retVal = '[' + error.name + '] ' + error.message
         postMessage(['reject', retVal.length < 1000 ? retVal : retVal.slice(0, 997) + '...'])
@@ -191,25 +207,36 @@ class App extends TComponent {
     this.delayTid = null
     this.prevCode = null
     this.prevAbortController = null
-    this.run()
+    this.canvas = null
+    this.ctx = null
   }
 
-  async run () {
+  async main () {
     if (this.prevCode === this.code.value) return
     this.prevCode = this.code.value
     if (this.prevAbortController) this.prevAbortController.abort()
     const abortController = new AbortController()
     this.prevAbortController = abortController
     const mtid = setTimeout(() => {
-      this.result.textContent = 'Processing...'
-      this.result.style.color = '#000'
+      this.setText('Processing...')
     }, 100)
     try {
-      this.result.textContent = await execCode(this.code.value, { signal: abortController.signal, timeout: 10000 })
-      this.result.style.color = '#000'
+      const retVal = await execCode(this.code.value, { signal: abortController.signal, timeout: 10000 })
+      if (retVal instanceof ImageData) {
+        if (!this.canvas) {
+          this.setText('')
+          this.canvas = document.createElement('canvas')
+          this.result.appendChild(this.canvas)
+          this.ctx = this.canvas.getContext('2d')
+        }
+        this.canvas.width = retVal.width
+        this.canvas.height = retVal.height
+        this.ctx.putImageData(retVal, 0, 0)
+      } else {
+        this.setText(retVal)
+      }
     } catch (error) {
-      this.result.textContent = error.message
-      this.result.style.color = '#F00'
+      this.setText(error.message, '#F00')
     } finally {
       clearTimeout(mtid)
       if (this.prevAbortController === abortController) {
@@ -218,9 +245,16 @@ class App extends TComponent {
     }
   }
 
+  setText (text, color = '#000') {
+    this.result.textContent = text
+    this.canvas = null
+    this.ctx = null
+    this.result.style.color = color
+  }
+
   handleInputCode (event) {
     clearTimeout(this.delayTid)
-    this.delayTid = setTimeout(() => this.run(), 100)
+    this.delayTid = setTimeout(() => this.main(), 100)
   }
 }
 
