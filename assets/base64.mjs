@@ -1,5 +1,5 @@
 /*
- * TComponent.mjs
+ * base64.mjs
  *
  * Copyright (c) 2021 haiix
  *
@@ -35,7 +35,7 @@ export function encode (buf) {
   }
   const m = src.length % 3, p = dst.length
   if (m === 1) dst[p - 2] = 61
-  if (m >= 1) dst[p - 1] = 61
+  if (m !== 0) dst[p - 1] = 61
   return new TextDecoder().decode(dst)
 }
 
