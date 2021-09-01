@@ -19,29 +19,13 @@ import initApp from '../assets/initApp.mjs'
  */
 const execCode = (() => {
   const createWorker = ({ oncreate, onmessage, options }) => {
-    const objectURL = URL.createObjectURL(new Blob([`'use strict';(postMessage=>{(${oncreate})();addEventListener('message',${onmessage})})(postMessage.bind(self))`], { type: 'text/javascript' }))
+    const objectURL = URL.createObjectURL(new Blob([`'use strict';((self,postMessage,addEventListener)=>{(${oncreate})();addEventListener('message',${onmessage})})(self,postMessage.bind(self),addEventListener.bind(self))`], { type: 'text/javascript' }))
     return [objectURL, new Worker(objectURL, options)]
   }
 
   const createExecWorker = () => createWorker({
     options: { type: 'classic', credentials: 'omit' },
     oncreate: () => {
-      // (function () {})['constructor']('return self') のような記述でのグローバルへのアクセスを防ぐ
-      delete Function.prototype.constructor
-      delete Object.getPrototypeOf(function * () {}).constructor
-      delete Object.getPrototypeOf(async function () {}).constructor
-      delete Object.getPrototypeOf(async function * () {}).constructor
-
-      // setTimeout, setInterval の第一引数に文字列を渡せなくする (グローバルへのアクセスを防ぐ)
-      for (const fn of ['setTimeout', 'setInterval']) {
-        const tmp = self[fn]
-        self[fn] = (func, delay, ...args) => {
-          if (func != null && typeof func !== 'function') throw new Error(`The callback of ${fn} must be a function`)
-          return tmp(func, delay, ...args)
-        }
-        self[fn].toString = () => tmp.toString()
-      }
-
       // グローバル変数のうち、許可する変数のリスト
       const whitelist = [
         'Object', 'Function', 'Array', 'Number', 'Boolean', 'String', 'Symbol', 'Date', 'Promise', 'RegExp', 'JSON', 'Math', 'BigInt',
@@ -60,36 +44,35 @@ const execCode = (() => {
         //'console' // debug
       ]
 
+      // グローバル変数とプロトタイプ継承から、削除可能なものは削除し、削除できないものは隠す変数に追加
       const hiddenVariableNames = Object.create(null)
-      // グローバル変数のうち、削除可能なものは削除し、削除できないものは隠す変数に追加
-      for (const [name, descriptor] of Object.entries(Object.getOwnPropertyDescriptors(self))) {
-        if (whitelist.includes(name)) continue
-        if (descriptor.configurable) {
-          delete self[name]
-        } else {
-          hiddenVariableNames[name] = true
-        }
-      }
-      // プロトタイプ継承されたグローバル変数を列挙し、隠す変数に追加
-      for (let curr = self; curr = Object.getPrototypeOf(curr); ) {
-        for (const name of Object.getOwnPropertyNames(curr)) {
+      for (let curr = self; curr.constructor !== Object; curr = Object.getPrototypeOf(curr)) {
+        for (const [name, descriptor] of Object.entries(Object.getOwnPropertyDescriptors(curr))) {
           if (whitelist.includes(name)) continue
-          hiddenVariableNames[name] = true
+          if (descriptor.configurable) {
+            delete curr[name]
+          } else {
+            hiddenVariableNames[name] = true
+          }
         }
       }
       const hiddenVariableNamesArr = Object.keys(hiddenVariableNames)
       //console.log(hiddenVariableNamesArr) // debug
 
+      // (function () {})['constructor']('return self') のような記述によるグローバルへのアクセスを防ぐ
+      delete Function.prototype.constructor
+      delete Object.getPrototypeOf(function * () {}).constructor
+      delete Object.getPrototypeOf(async function () {}).constructor
+      delete Object.getPrototypeOf(async function * () {}).constructor
+
       // Function を置き換える
       const _Function = self.Function
       self.Function = function (...args) {
         const code = args.length > 0 ? (args.pop() + '') : ''
-        if (code !== '') {
-          // 禁止ワード: import
-          // importはキーワードであり変数の置き換えができないが、動的インポート「import('url')」を防ぐ必要がある
-          const fw = ['import'].filter(s => (code).indexOf(s) >= 0)
-          if (fw.length > 0) throw new Error('Forbidden word(s): ' + fw.join())
-        }
+        // 禁止ワード: import
+        // importはキーワードであり変数の置き換えができないが、動的インポート「import('url')」を防ぐ必要がある
+        const fw = ['import'].filter(s => (code).indexOf(s) >= 0)
+        if (fw.length > 0) throw new Error('Forbidden word(s): ' + fw.join())
         const dummyFunc = _Function(...args, code)
         const func = _Function(...(args.concat(hiddenVariableNamesArr)), '"use strict";' + code)
         func.toString = dummyFunc.toString.bind(dummyFunc)
@@ -99,12 +82,24 @@ const execCode = (() => {
       self.Function.toString = _Function.toString.bind(_Function)
       _Function.prototype.constructor = self.Function
 
+      // setTimeout, setInterval からグローバルへのアクセスを防ぐ
+      for (const fn of ['setTimeout', 'setInterval']) {
+        const tmp = self[fn]
+        self[fn] = (func, ...rest) => {
+          if (func != null) {
+            if (typeof func !== 'function') func = new Function(func)
+            func = func.bind(void 0)
+          }
+          return tmp(func, ...rest)
+        }
+        self[fn].toString = tmp.toString.bind(tmp)
+      }
+
       // グローバル変数凍結
       for (const name of whitelist) {
-        if (name in self) {
-          Object.freeze(self[name])
-          if (name !== 'undefined') Object.freeze(self[name].prototype)
-        }
+        if (!(name in self) || self[name] == null) continue
+        Object.freeze(self[name])
+        Object.freeze(self[name].prototype)
       }
     },
 
@@ -117,7 +112,7 @@ const execCode = (() => {
             throw new Error('Too large ImageData')
           }
         } else {
-          retVal = '' + JSON.stringify(retVal, (key, val) => typeof val === 'function' ? val + '' : val)
+          retVal = '' + JSON.stringify(retVal, (key, val) => typeof val === 'function' ? val + '' : (val != null && !Array.isArray(val) && typeof val !== 'string' && typeof val[Symbol.iterator] === 'function') ? Array.from(val) : val)
           retVal = retVal.length < 1000 ? retVal : retVal.slice(0, 997) + '...'
         }
         postMessage(['resolve', retVal])
