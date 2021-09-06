@@ -1,6 +1,6 @@
 import TComponent from '@haiix/TComponent'
-import style from './assets/style.mjs'
-import { isFocusable, nextFocusable, previousFocusable } from './assets/focus.mjs'
+import style from '/assets/style.mjs'
+import { isTabbable, nextTabbable, previousTabbable } from '/assets/focus.mjs'
 
 export class Dialog extends TComponent {
   template () {
@@ -114,16 +114,16 @@ export class Dialog extends TComponent {
       case 37: // Left
       case 38: // Up
         if (elem.tagName === 'BUTTON' && this.buttons.contains(elem)) {
-          elem = previousFocusable(elem, this.buttons)
-          if (!elem) elem = previousFocusable(elem, this.buttons)
+          elem = previousTabbable(elem, this.buttons)
+          if (!elem) elem = previousTabbable(elem, this.buttons)
           if (elem) elem.focus()
         }
         break
       case 39: // Right
       case 40: // Bottom
         if (elem.tagName === 'BUTTON' && this.buttons.contains(elem)) {
-          elem = nextFocusable(elem, this.buttons)
-          if (!elem) elem = nextFocusable(elem, this.buttons)
+          elem = nextTabbable(elem, this.buttons)
+          if (!elem) elem = nextTabbable(elem, this.buttons)
           if (elem) elem.focus()
         }
         break
@@ -139,9 +139,9 @@ export function createDialog (DialogClass) {
     const result = await new Promise(resolve => {
       dialog = new DialogClass(Object.assign({ resolve }, { arguments: args }))
       document.body.appendChild(dialog.element)
-      const firstElem = nextFocusable(null, dialog.element)
+      const firstElem = nextTabbable(null, dialog.element)
       if (firstElem) {
-        const lastElem = previousFocusable(null, dialog.element)
+        const lastElem = previousTabbable(null, dialog.element)
         tabHandler = TComponent.createElement('<div style="position: absolute; overflow: hidden; width: 0;"><input onfocus="this.handleFocus(event)" tabindex="1" /></div>', {
           handleFocus (event) {
             firstElem.focus()
@@ -150,7 +150,7 @@ export function createDialog (DialogClass) {
         document.body.insertBefore(tabHandler, document.body.firstChild)
         dialog.element.addEventListener('keydown', event => {
           if (event.keyCode === 9 && event.ctrlKey === false && event.altKey === false) {
-            const f = isFocusable(event.target)
+            const f = isTabbable(event.target)
             if (event.shiftKey && (!f || event.target === firstElem)) {
               event.preventDefault()
               lastElem.focus()

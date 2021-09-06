@@ -42,7 +42,7 @@
       for (var i = 0; i < window.moduleProxy.rules.length; i++) {
         var rule = window.moduleProxy.rules[i]
         if (!path.startsWith(rule.nameStartsWith) || !rule.url) continue
-        path = rule.url(path)
+        path = rule.url(path, window.moduleProxy.base)
         break
       }
     }

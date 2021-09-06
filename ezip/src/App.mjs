@@ -1,7 +1,7 @@
 import TComponent from '@haiix/TComponent'
 import * as zip from '@zip.js/zip.js'
-import style from './assets/style.mjs'
-import hold from './assets/hold.mjs'
+import style from '/assets/style.mjs'
+import hold from '/assets/hold.mjs'
 import List from './List.mjs'
 import { Dialog, createDialog, alert, confirm, passwordPrompt, openFile, ContextMenu } from './dialog.mjs'
 

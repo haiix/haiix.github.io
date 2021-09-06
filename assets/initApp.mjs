@@ -1,9 +1,13 @@
+import { nextTabbable } from './focus.mjs'
+
 export default async function initApp (App) {
   let app = null
   try {
     app = new App()
     document.body.appendChild(app.element)
     window.app = app
+    const firstElem = nextTabbable(null, app.element)
+    if (firstElem) firstElem.focus()
     if (app.main) await app.main()
     if (app.loop) {
       ;(async function loop (t) {

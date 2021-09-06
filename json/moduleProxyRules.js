@@ -2,10 +2,16 @@ importScripts('../assets/moduleProxy.js')
 
 moduleProxy.rules = [
   {
+    nameStartsWith: '/assets/',
+    url (src, base) {
+      return base + '..' + src
+    }
+  },
+  {
     nameStartsWith: '@haiix/',
-    url (src) {
+    url (src, base) {
       const module = src.slice(this.nameStartsWith.length)
-      return `https://raw.githubusercontent.com/haiix/${module}/master/${module}.mjs`
+      return base + `../${module}/${module}.mjs`
     }
   },
   {

@@ -42,7 +42,7 @@
             for (var i = 0; i < self.moduleProxy.rules.length; i++) {
               var rule = self.moduleProxy.rules[i]
               if (!src.startsWith(rule.nameStartsWith) || !rule.url) continue
-              return arguments[1] + rule.url(src) + arguments[3]
+              return arguments[1] + rule.url(src, self.moduleProxy.base) + arguments[3]
             }
             return arguments[1] + src + arguments[3]
           })

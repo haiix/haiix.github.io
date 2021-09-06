@@ -24,7 +24,7 @@ export function previousTreeElement (elem = null, root = null) {
   return elem
 }
 
-export function isFocusable (elem) {
+export function isTabbable (elem) {
   if (!(elem instanceof HTMLElement)) return false
   const tabIndex = elem.getAttribute('tabIndex')
   if (tabIndex == null) {
@@ -35,12 +35,12 @@ export function isFocusable (elem) {
   }
 }
 
-export function nextFocusable (elem = null, root = null) {
+export function nextTabbable (elem = null, root = null) {
   let minTabIndex = 1
   if (elem != null) {
     const tabIndex = Math.max(0, elem.tabIndex)
     while ((elem = nextTreeElement(elem, root))) {
-      if (isFocusable(elem) && elem.tabIndex === tabIndex) return elem
+      if (isTabbable(elem) && elem.tabIndex === tabIndex) return elem
     }
     if (tabIndex === 0) return null
     elem = null
@@ -49,7 +49,7 @@ export function nextFocusable (elem = null, root = null) {
   let foundTabIndex = Number.POSITIVE_INFINITY
   let foundElem = null
   while ((elem = nextTreeElement(elem, root))) {
-    if (!isFocusable(elem)) continue
+    if (!isTabbable(elem)) continue
     const tabIndex = elem.tabIndex || Number.MAX_SAFE_INTEGER
     if (tabIndex >= minTabIndex && foundTabIndex > tabIndex) {
       foundTabIndex = tabIndex
@@ -59,12 +59,12 @@ export function nextFocusable (elem = null, root = null) {
   return foundElem
 }
 
-export function previousFocusable (elem = null, root = null) {
+export function previousTabbable (elem = null, root = null) {
   let maxTabIndex = Number.POSITIVE_INFINITY
   if (elem != null) {
     const tabIndex = Math.max(0, elem.tabIndex)
     while ((elem = previousTreeElement(elem, root))) {
-      if (isFocusable(elem) && elem.tabIndex === tabIndex) return elem
+      if (isTabbable(elem) && elem.tabIndex === tabIndex) return elem
     }
     if (tabIndex === 1) return null
     elem = null
@@ -73,7 +73,7 @@ export function previousFocusable (elem = null, root = null) {
   let foundTabIndex = -1
   let foundElem = null
   while ((elem = previousTreeElement(elem, root))) {
-    if (!isFocusable(elem)) continue
+    if (!isTabbable(elem)) continue
     const tabIndex = elem.tabIndex || Number.POSITIVE_INFINITY
     if (tabIndex <= maxTabIndex && foundTabIndex < tabIndex) {
       foundTabIndex = tabIndex

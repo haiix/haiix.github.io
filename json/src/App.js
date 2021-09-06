@@ -1,5 +1,5 @@
 import TComponent from '@haiix/TComponent'
-import style from '../../assets/style.mjs'
+import style from '/assets/style.mjs'
 import { TUl, TLi } from './List.js'
 import Tree from './Tree.js'
 
