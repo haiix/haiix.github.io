@@ -322,6 +322,7 @@ export default class App extends TComponent {
     const mine = {
       htm: 'text/html',
       html: 'text/html',
+      txt: 'text/plain',
       jpeg: 'image/jpeg',
       jpg: 'image/jpeg',
       pdf: 'application/pdf',
@@ -359,7 +360,13 @@ export default class App extends TComponent {
     if (this.fileList.current) {
       const item = TComponent.from(this.fileList.current)
       if (item.file.type === '' || item.file.type === 'application/x-zip-compressed') {
-        throw new Error('表示できません')
+        //throw new Error('表示できません')
+        this.iframe.onload = () => {
+          this.iframe.onload = null
+          this.iframe.contentDocument.body.innerHTML = '<pre>表示できません</pre>'
+        }
+        this.iframe.src = 'about:blank'
+        return
       }
       const url = item.url
       this.iframe.src = url
