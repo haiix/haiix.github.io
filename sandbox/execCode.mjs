@@ -20,10 +20,10 @@ export default function execCode (code, option = null) {
 function createWorker ({ oncreate, onmessage, options }) {
   const objectURL = URL.createObjectURL(new Blob([`
     'use strict'
-    ;((self, postMessage, addEventListener) => {
+    ;((Object, self, postMessage, addEventListener) => {
       ;(${oncreate})()
       addEventListener('message', ${onmessage})
-    })(self, postMessage.bind(self), addEventListener.bind(self))
+    })(Object, self, postMessage.bind(self), addEventListener.bind(self))
   `], { type: 'text/javascript' }))
   return [objectURL, new Worker(objectURL, options)]
 }
@@ -97,6 +97,7 @@ function createExecWorker () {
       // setTimeout, setInterval からグローバルへのアクセスを防ぐ
       for (const fn of ['setTimeout', 'setInterval']) {
         const tmp = self[fn]
+        if (!tmp) continue
         self[fn] = (func, ...rest) => {
           if (func != null) {
             if (typeof func !== 'function') func = new Function(func)
