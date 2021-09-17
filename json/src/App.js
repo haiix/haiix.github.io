@@ -1,7 +1,8 @@
 import TComponent from '@haiix/TComponent'
 import style from '/assets/style.mjs'
+import Tree from '/assets/ui/Tree.mjs'
 import { TUl, TLi } from './List.js'
-import Tree from './Tree.js'
+import * as customEventPolyfill from 'custom-event-polyfill'
 
 style(`
   .app {
@@ -128,7 +129,7 @@ export default class App extends TComponent {
 
   updateTree (obj) {
     this.rootObj = obj
-    this._tree._list.innerHTML = ''
+    this._tree.textContent = ''
 
     const item = this._createTreeItem('ルート', obj, true)
     this._tree.appendChild(item)

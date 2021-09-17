@@ -1,7 +1,7 @@
-import TComponent from '@haiix/TComponent'
-import seq from '@haiix/seq'
-import style from '/assets/style.mjs'
-import * as customEventPolyfill from 'custom-event-polyfill'
+import TComponent from '../../TComponent/TComponent.mjs'
+import seq from '../../seq/seq.mjs'
+import style from '../style.mjs'
+//import * as customEventPolyfill from 'custom-event-polyfill'
 
 const CLASS_NAME = 't-component-ui-tree'
 
@@ -218,6 +218,15 @@ export default class Tree extends TComponent {
     }
 
     this._tree.classList.add(CLASS_NAME)
+  }
+
+  set textContent (value) {
+    if (value !== '') throw new Error('Only empty string can be set.')
+    this._list.textContent = ''
+  }
+
+  get textContent () {
+    return this.element.textContent
   }
 
   appendChild (item) {
