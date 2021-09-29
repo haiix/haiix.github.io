@@ -3,7 +3,7 @@ import * as zip from '@zip.js/zip.js'
 import style from '/assets/style.mjs'
 import hold from '/assets/hold.mjs'
 import List from './List.mjs'
-import { Dialog, createDialog, alert, confirm, passwordPrompt, openFile, ContextMenu } from './dialog.mjs'
+import { Dialog, createDialog, alert, confirm, passwordPrompt, openFile, createContextMenu } from './dialog.mjs'
 
 const EXT = '.ezip'
 
@@ -60,16 +60,12 @@ const saveDialog = createDialog(class extends Dialog {
   }
 })
 
-const fileListContextMenu = createDialog(class extends ContextMenu {
-  menuTemplate () {
-    return `
-      <a data-value="add">ファイル追加</a>
-      <a data-value="save">保存</a>
-      <!-- <a data-value="rename">名前の変更</a> -->
-      <a data-value="delete">削除</a>
-    `
-  }
-})
+const fileListContextMenu = createContextMenu(`
+  <a data-value="add">ファイル追加</a>
+  <a data-value="save">保存</a>
+  <!-- <a data-value="rename">名前の変更</a> -->
+  <a data-value="delete">削除</a>
+`)
 
 class FileListItem extends TComponent {
   template () {

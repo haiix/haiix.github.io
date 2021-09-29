@@ -223,12 +223,12 @@ export const confirm = createDialog(class extends Dialog {
   }
 })
 
-export const passwordPrompt = createDialog(class extends Dialog {
+class Prompt extends Dialog {
   bodyTemplate () {
     return `
       <form onsubmit="event.preventDefault()">
         <p id="text" style="white-space: pre-wrap;"></p>
-        <input id="passwordInput" type="password" name="password" autocomplete="none" />
+        <input id="input" />
       </form>
     `
   }
@@ -245,13 +245,28 @@ export const passwordPrompt = createDialog(class extends Dialog {
     const [text = '', value = '', title = '入力'] = attr.arguments
     this.title.textContent = title
     this.text.textContent = text
-    this.passwordInput.value = value
+    this.input.value = value
   }
 
   handleOK (event) {
-    this.resolve(this.passwordInput.value)
+    this.resolve(this.input.value)
   }
-})
+}
+
+export const prompt = createDialog(Prompt)
+
+class PasswordPrompt extends Prompt {
+  bodyTemplate () {
+    return `
+      <form onsubmit="event.preventDefault()">
+        <p id="text" style="white-space: pre-wrap;"></p>
+        <input id="input" type="password" name="password" autocomplete="none" />
+      </form>
+    `
+  }
+}
+
+export const passwordPrompt = createDialog(PasswordPrompt)
 
 export async function openFile (accept = '', multiple = false) {
   // focus()
@@ -271,7 +286,7 @@ export async function openFile (accept = '', multiple = false) {
   })
 }
 
-export class ContextMenu extends TComponent {
+class ContextMenu extends TComponent {
   template () {
     const ukey = 'my-flie-list-context-menu'
     style(`
@@ -282,14 +297,14 @@ export class ContextMenu extends TComponent {
         border: 1px solid #999;
         box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
       }
-      .${ukey} > a {
+      .${ukey} > * {
         display: block;
         line-height: 22px;
         padding: 0 10px;
         border: 1px solid transparent;
         white-space: nowrap;
       }
-      .${ukey} > a.current {
+      .${ukey} > .current {
         border: 1px solid #BDF;
         background: #DEF;
       }
@@ -400,4 +415,12 @@ export class ContextMenu extends TComponent {
     const curr = this.current
     if (curr) curr.classList.remove('current')
   }
+}
+
+export function createContextMenu(template) {
+  return createDialog(class extends ContextMenu {
+    menuTemplate () {
+      return template
+    }
+  })
 }

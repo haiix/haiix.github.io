@@ -211,7 +211,7 @@ export default class Tree extends TComponent {
       if (typeof value === 'string') {
         this._tree.setAttribute(key, value)
       } else if (key.slice(0, 2) === 'on' && key !== 'onexpand') {
-        this._list[key] = value
+        this._tree[key] = value
       } else {
         this[key] = value
       }
