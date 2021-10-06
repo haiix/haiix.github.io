@@ -189,6 +189,10 @@ class TreeItem extends TComponent {
     if (paddingLeft === '') return -1
     return paddingLeft.slice(0, -2) >> 0
   }
+
+  [Symbol.iterator]() {
+    return seq(this._list.childNodes).map(elem => TComponent.from(elem))[Symbol.iterator]()
+  }
 }
 
 export default class Tree extends TComponent {
@@ -360,7 +364,7 @@ export default class Tree extends TComponent {
   }
 
   [Symbol.iterator]() {
-    return seq(this._list.children).map(li => TComponent.from(li))[Symbol.iterator]()
+    return seq(this._list.childNodes).map(elem => TComponent.from(elem))[Symbol.iterator]()
   }
 }
 Tree.Item = TreeItem
