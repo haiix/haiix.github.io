@@ -680,7 +680,7 @@ export default class Gls {
     this._oesvao = this.gl.getExtension('OES_vertex_array_object')
     this._textureBinder = null
     this._clearMask = this.gl.COLOR_BUFFER_BIT |
-      (contextAttributes.depth ? this.gl.DEPTH_BUFFER_BIT : 0) |
+      (contextAttributes.depth !== false ? this.gl.DEPTH_BUFFER_BIT : 0) |
       (contextAttributes.stencil ? this.gl.STENCIL_BUFFER_BIT : 0)
     if (contextAttributes.depth !== false) {
       this.gl.enable(this.gl.DEPTH_TEST)

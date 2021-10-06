@@ -50,6 +50,7 @@ export class TUl extends TComponent {
     }
     if (this.current) this.current.current = false
     this._current = item
+    this.element.dispatchEvent(new CustomEvent('change', { detail: item }))
   }
 
   get current () {
@@ -83,7 +84,6 @@ export class TUl extends TComponent {
     event.stopPropagation()
     if (this.current === item || item.disabled) return
     this.current = item
-    this.element.dispatchEvent(new CustomEvent('change', { detail: item }))
   }
 }
 

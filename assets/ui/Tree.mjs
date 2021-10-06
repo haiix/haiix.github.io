@@ -116,8 +116,12 @@ class TreeItem extends TComponent {
   }
 
   appendChild (item) {
+    this.insertBefore(item, null)
+  }
+
+  insertBefore (item, ref = null) {
     if (!(item instanceof TreeItem)) throw new Error()
-    this._list.appendChild(item._item)
+    this._list.insertBefore(item._item, ref ? ref._item : null)
     const indent = this._getIndent()
     if (indent >= 0) item._setIndent(indent + 1)
   }
@@ -230,8 +234,12 @@ export default class Tree extends TComponent {
   }
 
   appendChild (item) {
+    this.insertBefore(item, null)
+  }
+
+  insertBefore (item, ref = null) {
     if (!(item instanceof TreeItem)) throw new Error()
-    this._list.appendChild(item._item)
+    this._list.insertBefore(item._item, ref ? ref._item : null)
     item._setIndent(0)
   }
 
@@ -349,6 +357,10 @@ export default class Tree extends TComponent {
         }
         break
     }
+  }
+
+  [Symbol.iterator]() {
+    return seq(this._list.children).map(li => TComponent.from(li))[Symbol.iterator]()
   }
 }
 Tree.Item = TreeItem
