@@ -214,11 +214,13 @@ export default class Tree extends TComponent {
     // this.current = this.first
     this.current = null
     this.onexpand = null
+    this.onmousedown = null
+    this.onkeydown = null
 
     for (const [key, value] of Object.entries(attr)) {
       if (typeof value === 'string') {
         this._tree.setAttribute(key, value)
-      } else if (key.slice(0, 2) === 'on' && key !== 'onexpand') {
+      } else if (key.slice(0, 2) === 'on' && key !== 'onexpand' && key !== 'onmousedown' && key !== 'onkeydown') {
         this._tree[key] = value
       } else {
         this[key] = value
@@ -275,6 +277,11 @@ export default class Tree extends TComponent {
   }
 
   async _handleTreeMousedown (event) {
+    if (typeof this.onmousedown === 'function') {
+      let result = this.onmousedown(event)
+      if (result === false || event.defaultPrevented) return
+    }
+
     let elem = event.target
     while (elem.tagName !== 'LI') {
       if (elem === this._tree) return
@@ -283,17 +290,26 @@ export default class Tree extends TComponent {
     const item = TComponent.from(elem)
 
     if (event.target === item._expandIcon && item.isExpandable) {
-      if (item.isExpanded) {
-        await item.collapse()
-      } else {
-        await item.expand()
+      if (event.button === 0) {
+        if (item.isExpanded) {
+          await item.collapse()
+        } else {
+          await item.expand()
+        }
       }
     } else {
-      this.current = item
+      if (event.button !== 1) {
+        this.current = item
+      }
     }
   }
 
   async _handleTreeKeydown (event) {
+    if (typeof this.onkeydown === 'function') {
+      let result = this.onkeydown(event)
+      if (result === false || event.defaultPrevented) return
+    }
+
     if (!this.current) return
     switch (event.keyCode) {
       case 8: // Back Space

@@ -1,17 +1,23 @@
-export default function hold ({ ondrag = null, ondragend = null, cursor = '', bind = null, container = document.body }) {
-  const modal = document.createElement('div')
-  modal.setAttribute('style', 'position: absolute; left: 0; top: 0; width: 100%; height: 100%;')
-  if (cursor) modal.style.cursor = cursor
+export default function hold ({ ondragstart = null, ondrag = null, ondragend = null, cursor = '', bind = null, container = document.body }) {
+  let modal = null
   const handleMousemove = event => {
+    if (!modal) {
+      modal = document.createElement('div')
+      modal.setAttribute('style', 'position: fixed; top: 0; left: 0; right: 0; bottom: 0;')
+      if (cursor) modal.style.cursor = cursor
+      container.appendChild(modal)
+      if (ondragstart) ondragstart.call(bind, event.pageX, event.pageY, modal)
+    }
     if (ondrag) ondrag.call(bind, event.pageX, event.pageY, modal)
   }
   const handleMouseup = event => {
     window.removeEventListener('mousemove', handleMousemove)
     window.removeEventListener('mouseup', handleMouseup)
-    container.removeChild(modal)
-    if (ondragend) ondragend.call(bind, event.pageX, event.pageY, modal)
+    if (modal) {
+      container.removeChild(modal)
+      if (ondragend) ondragend.call(bind, event.pageX, event.pageY, modal)
+    }
   }
-  container.appendChild(modal)
   window.addEventListener('mousemove', handleMousemove)
   window.addEventListener('mouseup', handleMouseup)
 }
