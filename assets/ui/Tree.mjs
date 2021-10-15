@@ -45,8 +45,8 @@ style(`
   }
   .${CLASS_NAME} .expand-icon {
     display: inline-block;
-    margin-right: 4px;
-    font-size: 20px;
+    margin-right: 2px;
+    font-size: 18px;
     color: #666;
     opacity: 0;
     transition: opacity .5s;
@@ -233,6 +233,7 @@ export default class Tree extends TComponent {
   set textContent (value) {
     if (value !== '') throw new Error('Only empty string can be set.')
     this._list.textContent = ''
+    this.current = null
   }
 
   get textContent () {
