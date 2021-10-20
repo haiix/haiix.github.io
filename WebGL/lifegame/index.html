@@ -56,8 +56,8 @@ gl.lifeShader = gl.createProgram(
 gl.frame1 = gl.createFramebuffer()
 gl.frame2 = gl.createFramebuffer()
 
-gl.geom = gl.createGeometry([gl.mainShader, gl.lifeShader])
-gl.geom.addMesh(1, 1)
+gl.buffer = gl.createBuffer([gl.mainShader, gl.lifeShader])
+gl.buffer.addMesh(1, 1)
 
 gl.bindFramebuffer(gl.frame1)
 gl.mainShader.uniform.texture = (() => {
@@ -70,18 +70,18 @@ gl.mainShader.uniform.texture = (() => {
   }
   return gl.createTexture(imageData, gl.NEAREST_REPEAT)
 })()
-gl.mainShader.draw(gl.geom)
+gl.mainShader.draw(gl.buffer)
 
 ;(function loop() {
   requestAnimationFrame(loop)
 
   gl.bindFramebuffer(gl.frame2)
   gl.lifeShader.uniform.texture = gl.frame1
-  gl.lifeShader.draw(gl.geom)
+  gl.lifeShader.draw(gl.buffer)
 
   gl.bindFramebuffer(null)
   gl.mainShader.uniform.texture = gl.frame2
-  gl.mainShader.draw(gl.geom)
+  gl.mainShader.draw(gl.buffer)
 
   ;[gl.frame1, gl.frame2] = [gl.frame2, gl.frame1]
 }())

@@ -98,8 +98,8 @@ const depthVP = (range => {
 })(15)
 
 // モデル作成
-const floorGeom = gl.createGeometry([gl.shadowShader, gl.mainShader], gl.TRIANGLE_STRIP)
-floorGeom.addMesh(1, 1, attribute => {
+const floorBuffer = gl.createBuffer([gl.shadowShader, gl.mainShader], gl.TRIANGLE_STRIP)
+floorBuffer.addMesh(1, 1, attribute => {
   // 床
   const p = attribute.position
   const n = attribute.normal
@@ -110,8 +110,8 @@ floorGeom.addMesh(1, 1, attribute => {
 
   n.z = 1
 })
-const ballGeom = gl.createGeometry([gl.shadowShader, gl.mainShader], gl.TRIANGLE_STRIP)
-ballGeom.addMesh(32, 32, attribute => {
+const ballBuffer = gl.createBuffer([gl.shadowShader, gl.mainShader], gl.TRIANGLE_STRIP)
+ballBuffer.addMesh(32, 32, attribute => {
   const p = attribute.position
   const n = attribute.normal
 
@@ -126,12 +126,12 @@ ballGeom.addMesh(32, 32, attribute => {
 })
 
 // モデル描画
-function drawGeoms(shader, modelVP, time) {
+function drawBuffers(shader, modelVP, time) {
   // 床
   shader.uniform.modelMat = modelVP
   shader.uniform.depthMat = depthVP
   shader.uniform.hue = 1 / 12
-  shader.draw(floorGeom)
+  shader.draw(floorBuffer)
 
   // ボール
   for (let i = 0; i < 16; i++) {
@@ -144,7 +144,7 @@ function drawGeoms(shader, modelVP, time) {
     shader.uniform.modelMat = mat4.mul(mat4.create(), modelVP, M)
     shader.uniform.depthMat = mat4.mul(mat4.create(), depthVP, M)
     shader.uniform.hue = i / 7.5
-    shader.draw(ballGeom)
+    shader.draw(ballBuffer)
   }
 }
 
@@ -161,12 +161,12 @@ gl.mouse = gl.createMouse({ delay: 0.9 })
   gl.bindFramebuffer(gl.mainShader.uniform.shadowMap)
   gl.clearColor(1, 1, 1, 1)
   gl.clear()
-  drawGeoms(gl.shadowShader, VP, time)
+  drawBuffers(gl.shadowShader, VP, time)
 
   gl.bindFramebuffer(null)
   gl.clearColor(0.4, 0.3, 0.2, 1)
   gl.clear()
-  drawGeoms(gl.mainShader, VP, time)
+  drawBuffers(gl.mainShader, VP, time)
 }(0))
 
     </script>

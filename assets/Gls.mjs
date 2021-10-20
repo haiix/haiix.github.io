@@ -1,4 +1,4 @@
-export const VERSION = '0.4.0'
+export const VERSION = '0.4.1'
 
 const replaceAll = String.prototype.replaceAll ? String.prototype.replaceAll : function (a, b) { return this.split(a).join(b) }
 
@@ -443,7 +443,7 @@ export class GlsAttribute {
 }
 
 // ---------------------------------------------------------
-// Geometry
+// BufferController
 // ---------------------------------------------------------
 
 const MAX_BUFFER_SIZE = 65536
@@ -467,7 +467,7 @@ function createMesh (buffer, vertexOffset, indexOffset, ucount, vcount, callback
     idx[n++] = vertexOffset + (umax - 1) + (v + 1) * umax
   }
 }
-function buildGlsGeometry (geom) {
+function buildGlsBufferController (geom) {
   if (geom.currentVertexOffset > 0) {
     const buffer = new GlsBuffer(geom.programs, geom.currentVertexOffset, geom.currentIndexOffset, geom.mode, geom.usage)
     for (const [callback, vertexOffset, vertexSize, indexOffset, indexSize] of geom.callbacks) {
@@ -479,7 +479,7 @@ function buildGlsGeometry (geom) {
   geom.currentIndexOffset = 0
   geom.callbacks.length = 0
 }
-export class GlsGeometry {
+export class GlsBufferController {
   constructor (programs, mode, usage) {
     this.programs = programs
     this.mode = mode
@@ -495,7 +495,7 @@ export class GlsGeometry {
       throw new RangeError('The size you tried to allocate exceeds the maximum value.')
     }
     if (this.currentVertexOffset + vertexSize > MAX_BUFFER_SIZE) {
-      buildGlsGeometry(this)
+      buildGlsBufferController(this)
     }
     this.callbacks.push([callback, this.currentVertexOffset, this.currentIndexOffset])
     this.currentVertexOffset += vertexSize
@@ -526,7 +526,7 @@ export class GlsGeometry {
     if (!this.programs.includes(program)) {
       throw new Error('Using a program with a different buffer')
     }
-    buildGlsGeometry(this)
+    buildGlsBufferController(this)
     for (const buffer of this.buffers) {
       drawProgramBuffer(program, buffer)
     }
@@ -700,12 +700,8 @@ export default class Gls {
     return new GlsProgram(this, vertexShader, fragmentShader)
   }
 
-  createBuffer (programs, vertexSize, indexSize, mode = this.gl.TRIANGLE_STRIP, usage = this.gl.DYNAMIC_DRAW) {
-    return new GlsBuffer(programs, vertexSize, indexSize, mode, usage)
-  }
-
-  createGeometry (programs, mode = this.gl.TRIANGLE_STRIP, usage = this.gl.DYNAMIC_DRAW) {
-    return new GlsGeometry(programs, mode, usage)
+  createBuffer (programs, mode = this.gl.TRIANGLE_STRIP, usage = this.gl.DYNAMIC_DRAW) {
+    return new GlsBufferController(programs, mode, usage)
   }
 
   createTexture (img, parameter) {

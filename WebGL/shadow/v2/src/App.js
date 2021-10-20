@@ -101,8 +101,8 @@ export default class App extends TComponent {
     })(15)
 
     // モデル作成
-    gl.floorGeom = gl.createGeometry([gl.shadowShader, gl.mainShader], gl.TRIANGLE_STRIP)
-    gl.floorGeom.addMesh(1, 1, attribute => {
+    gl.floorBuffer = gl.createBuffer([gl.shadowShader, gl.mainShader], gl.TRIANGLE_STRIP)
+    gl.floorBuffer.addMesh(1, 1, attribute => {
       // 床
       const p = attribute.position
       const n = attribute.normal
@@ -113,8 +113,8 @@ export default class App extends TComponent {
 
       n.z = 1
     })
-    gl.ballGeom = gl.createGeometry([gl.shadowShader, gl.mainShader], gl.TRIANGLE_STRIP)
-    gl.ballGeom.addMesh(24, 12, attribute => {
+    gl.ballBuffer = gl.createBuffer([gl.shadowShader, gl.mainShader], gl.TRIANGLE_STRIP)
+    gl.ballBuffer.addMesh(24, 12, attribute => {
       const p = attribute.position
       const n = attribute.normal
 
@@ -134,14 +134,14 @@ export default class App extends TComponent {
   }
 
   // モデル描画
-  drawGeoms (shader, modelVP, time) {
+  drawBuffers (shader, modelVP, time) {
     const gl = this.gl
 
     // 床
     shader.uniform.modelMat = modelVP
     shader.uniform.depthMat = gl.depthVP
     shader.uniform.hue = 1 / 12
-    shader.draw(gl.floorGeom)
+    shader.draw(gl.floorBuffer)
 
     // ボール
     for (let i = 0; i < 16; i++) {
@@ -154,7 +154,7 @@ export default class App extends TComponent {
       shader.uniform.modelMat = mat4.mul(mat4.create(), modelVP, M)
       shader.uniform.depthMat = mat4.mul(mat4.create(), gl.depthVP, M)
       shader.uniform.hue = i / 7.5
-      shader.draw(gl.ballGeom)
+      shader.draw(gl.ballBuffer)
     }
   }
 
@@ -168,11 +168,11 @@ export default class App extends TComponent {
     gl.bindFramebuffer(gl.mainShader.uniform.shadowMap)
     gl.clearColor(1, 1, 1, 1)
     gl.clear()
-    this.drawGeoms(gl.shadowShader, VP, time)
+    this.drawBuffers(gl.shadowShader, VP, time)
 
     gl.bindFramebuffer(null)
     gl.clearColor(0.4, 0.3, 0.2, 1)
     gl.clear()
-    this.drawGeoms(gl.mainShader, VP, time)
+    this.drawBuffers(gl.mainShader, VP, time)
   }
 }

@@ -59,12 +59,12 @@ export default class App extends TComponent {
     this.mouse = this.gl.createMouse({ delay: 0.9 })
     this.camera = this.gl.createCamera({ fov: 45, near: 0.1, far: 100, z: 10 })
 
-    this.geom = this.gl.createGeometry([this.shader])
-    // this.geom = this.gl.createGeometry([this.shader], this.gl.LINE_STRIP)
+    this.buffer = this.gl.createBuffer([this.shader])
+    // this.buffer = this.gl.createBuffer([this.shader], this.gl.LINE_STRIP)
 
     const ColorIds = seq(25).map(n => Math.random() * 3 | 0).toArray()
 
-    this.geom.addMeshes(5, 5, 25 * 6, (attribute, i) => {
+    this.buffer.addMeshes(5, 5, 25 * 6, (attribute, i) => {
       const modelId = Math.floor(i / 6)
       const faceId = i % 6
 
@@ -115,6 +115,6 @@ export default class App extends TComponent {
 
     this.shader.uniform.time = (new Date().getTime() / 1000 % (24 * 60 * 60))
     this.shader.uniform.mvp = this.camera({ pan: this.mouse.dispX * 180, tilt: this.mouse.dispY * -90 })
-    this.shader.draw(this.geom)
+    this.shader.draw(this.buffer)
   }
 }

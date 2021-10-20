@@ -16,14 +16,20 @@ class App extends TComponent {
   template () {
     return `
       <section>
-        <h1 id="h1"></h1>
-        <ul id="list"></ul>
+        <div id="message"></div>
+        <div id="contents">
+          <h1 id="h1"></h1>
+          <ul id="list"></ul>
+        </div>
       </section>
     `
   }
 
   constructor () {
     super()
+    const l = window.location
+    const p = l.pathname
+    this.base = l.protocol + '//' + l.host + '/' + p.slice(1, p.lastIndexOf('/'))
     this._tree = Object.create(null)
   }
 
@@ -35,8 +41,16 @@ class App extends TComponent {
   async load () {
     const path = (location.hash || '#').slice(1)
     const tree = await this.getTree(('/' + path).slice(0, -1))
+    if (!tree) {
+      this.message.textContent = 'Not found'
+      this.message.style.display = 'block'
+      this.contents.style.display = 'none'
+      return
+    }
+    this.message.style.display = 'none'
+    this.contents.style.display = 'block'
     if (path !== '' && tree.some(item => item.path === 'index.html')) {
-      return location.replace(`https://haiix.github.io/${path}`)
+      return location.replace(`${this.base}/${path}`)
     }
     this.h1.textContent = (document.title + '/' + path).slice(0, -1).split('/').join(' > ')
     this.list.innerHTML = tree
@@ -52,7 +66,7 @@ class App extends TComponent {
         item.type === 'tree' ?
           `<li><a href="#${path}${item.path}/" data-sha="${item.sha}">${item.path}</a></li>`
         :
-          `<li><a href="https://haiix.github.io/${path}${item.path}">${item.path}</a></li>`
+          `<li><a href="${this.base}/${path}${item.path}">${item.path}</a></li>`
       ))
       .join('')
   }
@@ -67,7 +81,10 @@ class App extends TComponent {
         const parentPath = path.slice(0, n)
         const name = path.slice(n + 1)
         const parentTree = await this.getTree(parentPath)
-        sha = parentTree.find(item => item.path === name).sha
+        if (!parentTree) return
+        const item = parentTree.find(item => item.path === name)
+        if (!item) return
+        sha = item.sha
       }
       this._tree[path] = (await this.githubApi(`git/trees/${sha}`)).tree
     }
@@ -89,6 +106,6 @@ class App extends TComponent {
 initApp(App)
     </script>
     <script nomodule src="https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.4/fetch.min.js"></script>
-    <script nomodule src="/assets/nomodule.js"></script>
+    <script nomodule src="./assets/nomodule.js"></script>
   </body>
 </html>

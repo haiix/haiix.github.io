@@ -147,8 +147,8 @@ class Main {
         //gl_FragColor = vec4(hsv2rgb(0.7, 0.5, getVal(vec2(0.0))), 1.0);
       }
     `)
-    this.geom = this.gl.createGeometry([this.program])
-    this.geom.addMesh(1, 1)
+    this.buffer = this.gl.createBuffer([this.program])
+    this.buffer.addMesh(1, 1)
     this.gl.clear()
   }
 
@@ -166,7 +166,7 @@ class Main {
     this.program.uniform.vxOffset = xos.next()
     this.program.uniform.vyOffset = xos.next()
     this.program.uniform.lightnessOffset = [xos.next(), xos.next()]
-    this.program.draw(this.geom)
+    this.program.draw(this.buffer)
 
     const end = Date.now()
     console.log(end - begin + ' ms')

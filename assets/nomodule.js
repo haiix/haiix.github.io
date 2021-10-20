@@ -79,24 +79,34 @@
     if (!document.head || !document.body) {
       return setTimeout(loop, 100);
     }
-    loadScript(cdnBabelPolyfill, function () {
-      loadScript(cdnBabelStandalone, function () {
-        var global = {};
-        new Function('global', Babel.buildExternalHelpers())(global);
-        babelHelpers = global.babelHelpers;
 
-        if (window.moduleProxy) {
-          window.importScripts = function () {};
-          require(window.moduleProxy.rulesUrl);
-        }
+    document.body.insertAdjacentHTML('afterbegin', '<div style="background: white; color: black; position: fixed;">Loading...</div>');
+    var loadingElem = document.body.firstChild;
 
-        var scripts = document.querySelectorAll('script[type="module"]'), i = 0, script;
-        while (script = scripts[i++]) {
-          if (script.src) require(script.getAttribute('src'));
-          else new Function('require', 'babelHelpers', Babel.transform(script.text, transformOptions).code)(require, babelHelpers);
-        }
+    setTimeout(function () {
+      loadScript(cdnBabelPolyfill, function () {
+        loadScript(cdnBabelStandalone, function () {
+          try {
+            var global = {};
+            new Function('global', Babel.buildExternalHelpers())(global);
+            babelHelpers = global.babelHelpers;
+
+            if (window.moduleProxy) {
+              window.importScripts = function () {};
+              require(window.moduleProxy.rulesUrl);
+            }
+
+            var scripts = document.querySelectorAll('script[type="module"]'), i = 0, script;
+            while (script = scripts[i++]) {
+              if (script.src) require(script.getAttribute('src'));
+              else new Function('require', 'babelHelpers', Babel.transform(script.text, transformOptions).code)(require, babelHelpers);
+            }
+          } finally {
+            if (loadingElem.parentNode) loadingElem.parentNode.removeChild(loadingElem);
+          }
+        });
       });
-    });
+    }, 100);
   }();
 
 }();
