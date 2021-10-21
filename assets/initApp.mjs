@@ -1,9 +1,13 @@
 import { nextTabbable } from './focus.mjs'
+import * as styleCtl from './style.mjs'
+
+styleCtl.lock()
 
 export default async function initApp (App) {
   let app = null
   try {
     app = new App()
+    styleCtl.unlock()
     document.body.appendChild(app.element)
     window.app = app
     const firstElem = nextTabbable(null, app.element)

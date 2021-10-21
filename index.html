@@ -29,7 +29,7 @@ class App extends TComponent {
     super()
     const l = window.location
     const p = l.pathname
-    this.base = l.protocol + '//' + l.host + '/' + p.slice(1, p.lastIndexOf('/'))
+    this.base = l.protocol + '//' + l.host + p.slice(0, p.lastIndexOf('/'))
     this._tree = Object.create(null)
   }
 
