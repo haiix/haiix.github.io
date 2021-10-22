@@ -7,8 +7,8 @@
  * https://opensource.org/licenses/MIT
  */
 
-const etbl = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'.split('').map(c => c.charCodeAt(0))
-const dtbl = Array(256).fill(0).map((v, i) => Math.max(0, etbl.indexOf(i)))
+const etbl = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'].map(c => c.charCodeAt(0))
+const dtbl = [...Array(256)].map((v, i) => Math.max(0, etbl.indexOf(i)))
 
 /**
  * Base64 encode the array buffer.

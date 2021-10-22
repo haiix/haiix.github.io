@@ -130,6 +130,22 @@ class TreeItem extends TComponent {
     return TComponent.from(this._item.parentNode.parentNode)
   }
 
+  get firstChild () {
+    return TComponent.from(this._list.firstChild)
+  }
+
+  get previousSibling () {
+    return TComponent.from(this._item.previousSibling)
+  }
+
+  get nextSibling () {
+    return TComponent.from(this._item.nextSibling)
+  }
+
+  get lastChild () {
+    return TComponent.from(this._list.lastChild)
+  }
+
   getRootNode () {
     let curr = this
     while (curr instanceof TreeItem) {
@@ -238,6 +254,14 @@ export default class Tree extends TComponent {
 
   get textContent () {
     return this.element.textContent
+  }
+
+  get firstChild () {
+    return TComponent.from(this._list.firstChild)
+  }
+
+  get lastChild () {
+    return TComponent.from(this._list.lastChild)
   }
 
   appendChild (item) {
