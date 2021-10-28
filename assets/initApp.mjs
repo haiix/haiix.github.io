@@ -18,6 +18,7 @@ export default async function initApp (App) {
         try {
           await app.loop(t)
         } catch (error) {
+          styleCtl.unlock()
           if (app.onerror) {
             await app.onerror(error)
           } else {
@@ -28,6 +29,7 @@ export default async function initApp (App) {
       }(0))
     }
   } catch (error) {
+    styleCtl.unlock()
     if (app && app.onerror) {
       app.onerror(error)
     } else if (App.prototype.onerror) {

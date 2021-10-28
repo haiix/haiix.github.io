@@ -2,8 +2,9 @@ import TComponent from '@haiix/TComponent'
 import * as zip from '@zip.js/zip.js'
 import style from '/assets/style.mjs'
 import hold from '/assets/hold.mjs'
+import { Dialog, createDialog, alert, confirm, prompt, Prompt, openFile } from '/assets/ui/dialog.mjs'
+import { createContextMenu } from './menu.mjs'
 import List from './List.mjs'
-import { Dialog, createDialog, alert, confirm, passwordPrompt, openFile, createContextMenu } from './dialog.mjs'
 
 const EXT = '.ezip'
 
@@ -11,6 +12,17 @@ function isMobile () {
   const regexp = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i
   return (window.navigator.userAgent.search(regexp) !== -1)
 }
+
+export const passwordPrompt = createDialog(class extends Prompt {
+  bodyTemplate () {
+    return `
+      <form onsubmit="event.preventDefault()">
+        <p id="text" style="white-space: pre-wrap;"></p>
+        <input id="input" type="password" name="password" autocomplete="none" />
+      </form>
+    `
+  }
+})
 
 const saveDialog = createDialog(class extends Dialog {
   titleTemplate () {
