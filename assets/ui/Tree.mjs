@@ -1,5 +1,5 @@
-import TComponent from '../../TComponent/TComponent.mjs'
-import seq from '../../seq/seq.mjs'
+import TComponent from '../TComponent.mjs'
+import seq from '../seq.mjs'
 import style from '../style.mjs'
 //import * as customEventPolyfill from 'custom-event-polyfill'
 
@@ -126,6 +126,15 @@ class TreeItem extends TComponent {
     if (indent >= 0) item._setIndent(indent + 1)
   }
 
+  removeChild (item) {
+    if (item.parentNode != this) throw new Error()
+    const tree = this.getRootNode()
+    if (tree.current && item._item.contains(tree.current._item)) {
+      tree.current = item.nextSibling || item.previousSibling || this
+    }
+    this._list.removeChild(item.element)
+  }
+
   get parentNode () {
     return TComponent.from(this._item.parentNode.parentNode)
   }
@@ -206,7 +215,7 @@ class TreeItem extends TComponent {
     return paddingLeft.slice(0, -2) >> 0
   }
 
-  [Symbol.iterator]() {
+  [Symbol.iterator] () {
     return seq(this._list.childNodes).map(elem => TComponent.from(elem))[Symbol.iterator]()
   }
 }
@@ -268,10 +277,23 @@ export default class Tree extends TComponent {
     this.insertBefore(item, null)
   }
 
+  getRootNode () {
+    return this
+  }
+
   insertBefore (item, ref = null) {
     if (!(item instanceof TreeItem)) throw new Error()
     this._list.insertBefore(item._item, ref ? ref._item : null)
     item._setIndent(0)
+  }
+
+  removeChild (item) {
+    if (item.parentNode != this) throw new Error()
+    const tree = this.getRootNode()
+    if (tree.current && item._item.contains(tree.current._item)) {
+      tree.current = item.nextSibling || item.previousSibling || null
+    }
+    this._list.removeChild(item.element)
   }
 
   set current (item) {
@@ -404,7 +426,7 @@ export default class Tree extends TComponent {
     }
   }
 
-  [Symbol.iterator]() {
+  [Symbol.iterator] () {
     return seq(this._list.childNodes).map(elem => TComponent.from(elem))[Symbol.iterator]()
   }
 }

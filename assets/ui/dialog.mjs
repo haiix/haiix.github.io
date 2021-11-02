@@ -1,6 +1,6 @@
-import TComponent from '/assets/TComponent.mjs'
-import style from '/assets/style.mjs'
-import { isTabbable, nextTabbable, previousTabbable } from '/assets/focus.mjs'
+import TComponent from '../TComponent.mjs'
+import style from '../style.mjs'
+import { isTabbable, nextTabbable, previousTabbable } from '../focus.mjs'
 
 export class Dialog extends TComponent {
   template () {
@@ -129,6 +129,7 @@ export class Dialog extends TComponent {
 
 export function createDialog (DialogClass) {
   return async function (...args) {
+    await new Promise(resolve => requestAnimationFrame(resolve)) // keydownイベントが連続実行されるのを防ぐ
     const lastFocused = document.activeElement
     let dialog
     let tabHandler = null

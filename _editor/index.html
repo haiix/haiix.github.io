@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Haiix Editor</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.62.3/lib/codemirror.css" />
+  </head>
+  <body>
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.62.3/lib/codemirror.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.62.3/mode/xml/xml.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.62.3/mode/javascript/javascript.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.62.3/mode/css/css.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.62.3/mode/htmlmixed/htmlmixed.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/gildas-lormeau/zip.js@2.3.18/dist/zip.min.js"></script>
+    <script type="module">
+      import initApp from '/assets/initApp.mjs'
+      import App from './src/App.mjs'
+      initApp(App)
+    </script>
+    <script nomodule src="https://cdn.jsdelivr.net/npm/custom-event-polyfill@1.0.7/polyfill.min.js"></script>
+    <script nomodule src="/assets/nomodule.js"></script>
+  </body>
+</html>
