@@ -609,6 +609,7 @@ export default class App extends TComponent {
    * ファイル名からMIMEタイプを取得
    * @param {string} name - ファイル名
    * @return {string|null} - MIMEタイプ
+   * TODO: sw.jsと共通化
    */
   getFileType (name) {
     const ext = name.slice(name.lastIndexOf('.') + 1)

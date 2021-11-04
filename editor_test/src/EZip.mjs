@@ -7,11 +7,18 @@ const EXT = '.zip'
 
 // TODO ちゃんとインスタンスに保存する
 let opendFileName = ''
+let opendFilePassword = ''
 
 const saveDialog = createDialog(class extends Dialog {
   constructor (attr = {}, nodes = []) {
     super(attr, nodes)
-    this.fileNameInput.value = attr.arguments[1]
+    this.form.name.value = attr.arguments[1]
+    const password = attr.arguments[2]
+    if (password) {
+      this.form['confirm-password'].value = password
+      this.form.password.value = password
+      this.details.open = true
+    }
   }
 
   titleTemplate () {
@@ -46,9 +53,9 @@ const saveDialog = createDialog(class extends Dialog {
       <form id="form" class="${ukey}" onsubmit="event.preventDefault()">
         <label>
           <span>ファイル名:</span>
-          <input name="name" id="fileNameInput" />
+          <input name="name" />
         </label>
-        <details>
+        <details id="details">
           <summary tabindex="-1">オプション</summary>
           <label>
             <span>パスワード:</span>
@@ -88,7 +95,7 @@ export const passwordPrompt = createDialog(class extends Prompt {
 
 export default class EZip {
   async save (callback) {
-    const formValues = await saveDialog('', opendFileName)
+    const formValues = await saveDialog('', opendFileName, opendFilePassword)
     if (!formValues) return
 
     if (formValues.password !== formValues['confirm-password']) {
@@ -100,17 +107,17 @@ export default class EZip {
 
     const inputFiles = await callback()
 
-    const zipFile = await this.createEncryptedZipFile(zipFileName, zipFilePassword, inputFiles)
+    const zipBlob = await this.createEncryptedZipBlob(zipFilePassword, inputFiles)
 
-    this.downloadFiles([zipFile])
+    this.downloadFile(zipFileName, zipBlob)
 
     opendFileName = zipFileName
+    opendFilePassword = zipFilePassword
   }
 
-  async createEncryptedZipFile (fileName, password, inputFiles) {
-    const innerZipBlob = await this.createZip(inputFiles)
-    const zipBlob = await this.createZip([{ path: 'encrypted.zip', file: innerZipBlob }], { password })
-    return new File([zipBlob], fileName, { type: zipBlob.type })
+  async createEncryptedZipBlob (password, inputFiles) {
+    const innerZipBlob = await this.createZip(inputFiles, { level: password ? 0 : 5 })
+    return password ? await this.createZip([{ path: 'encrypted.zip', file: innerZipBlob }], { password, level: 5 }) : innerZipBlob
   }
 
   async createZip (inputFiles, options) {
@@ -125,12 +132,10 @@ export default class EZip {
     return await blobWriter.getData()
   }
 
-  async downloadFiles (files) {
-    for (const file of files) {
-      const url = URL.createObjectURL(file)
-      TComponent.createElement(`<a href="${url}" download="${file.name}"></a>`).click()
-      URL.revokeObjectURL(url)
-    }
+  async downloadFile (name, blob) {
+    const url = URL.createObjectURL(blob)
+    TComponent.createElement(`<a href="${url}" download="${name}"></a>`).click()
+    URL.revokeObjectURL(url)
   }
 
 
@@ -146,8 +151,8 @@ export default class EZip {
 
   async readEncryptedZipFile (zipFile) {
     try {
-      const encryptedZip = (await this.readZip(zipFile))[0]
-      return await this.readZip(encryptedZip.file)
+      const files = await this.readZip(zipFile)
+      return files.length === 1 && files[0].path === 'encrypted.zip' ? await this.readZip(files[0].file) : files
     } catch (error) {
       throw new Error('ファイルを開けません:\n' + error.message)
     }
@@ -162,6 +167,7 @@ export default class EZip {
           const password = await passwordPrompt('パスワードを入力してください。')
           if (password == null) return
           options.password = password
+          opendFilePassword = password
         }
 
         const path = entry.filename.slice(-1) === '/' ? entry.filename.slice(0, -1) : entry.filename
