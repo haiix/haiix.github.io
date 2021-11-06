@@ -1,7 +1,7 @@
 import TComponent from '/assets/TComponent.mjs'
 import seq from '/assets/seq.mjs'
 import style from '/assets/style.mjs'
-import * as idb from '/assets/idb.mjs'
+//import * as idb from '/assets/idb.mjs'
 import hold from '/assets/hold.mjs'
 import Tree from '/assets/ui/Tree.mjs'
 import { TUl, TLi } from './List.mjs'
@@ -282,7 +282,7 @@ export default class App extends TComponent {
     //  idb.put(store, { key: 'base', value: this.base })
     //})
 
-    await window.navigator.serviceWorker.register('./sw.js', { type: 'module' })
+    await window.navigator.serviceWorker.register('./sw.js')
 
     await this.updateFileTree()
     if (this.firstTime) {

@@ -1,4 +1,5 @@
-import * as idb from '/assets/idb.mjs'
+//import * as idb from '/assets/idb.mjs'
+importScripts('./src/idb.js')
 
 class Main {
   constructor () {

@@ -1,7 +1,7 @@
 import TComponent from '/assets/TComponent.mjs'
 import style from '/assets/style.mjs'
 import { Dialog, createDialog, openFile, Prompt } from '/assets/ui/dialog.mjs'
-import * as idb from '/assets/idb.mjs'
+//import * as idb from '/assets/idb.mjs'
 
 const EXT = '.zip'
 
