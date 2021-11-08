@@ -7,7 +7,7 @@ export function lock () {
 
 export function unlock () {
   locked = false
-  if (styles.length == 0) return
+  if (styles.length === 0) return
   const elem = document.createElement('style')
   elem.textContent = styles.join('\n')
   document.head.appendChild(elem)

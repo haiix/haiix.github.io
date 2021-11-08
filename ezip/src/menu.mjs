@@ -133,11 +133,10 @@ class ContextMenu extends TComponent {
   }
 }
 
-export function createContextMenu(template) {
+export function createContextMenu (template) {
   return createDialog(class extends ContextMenu {
     menuTemplate () {
       return template
     }
   })
 }
-

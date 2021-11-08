@@ -1,7 +1,7 @@
 import TComponent from '../TComponent.mjs'
 import seq from '../seq.mjs'
 import style from '../style.mjs'
-//import * as customEventPolyfill from 'custom-event-polyfill'
+// import * as customEventPolyfill from 'custom-event-polyfill'
 
 const CLASS_NAME = 't-component-ui-tree'
 
@@ -127,7 +127,7 @@ class TreeItem extends TComponent {
   }
 
   removeChild (item) {
-    if (item.parentNode != this) throw new Error()
+    if (item.parentNode !== this) throw new Error()
     const tree = this.getRootNode()
     if (tree.current && item._item.contains(tree.current._item)) {
       tree.current = item.nextSibling || item.previousSibling || this
@@ -167,7 +167,7 @@ class TreeItem extends TComponent {
     const root = this.getRootNode()
     if (root.onexpand) {
       this._expandIcon.textContent = 'autorenew'
-      const event = new CustomEvent('expand', { detail: this })
+      const event = new window.CustomEvent('expand', { detail: this })
       await root.onexpand(event)
     }
     this._expandIcon.textContent = 'expand_more'
@@ -288,7 +288,7 @@ export default class Tree extends TComponent {
   }
 
   removeChild (item) {
-    if (item.parentNode != this) throw new Error()
+    if (item.parentNode !== this) throw new Error()
     const tree = this.getRootNode()
     if (tree.current && item._item.contains(tree.current._item)) {
       tree.current = item.nextSibling || item.previousSibling || null
@@ -305,7 +305,7 @@ export default class Tree extends TComponent {
       item._item.classList.add('current')
       item._container.scrollIntoView({ block: 'nearest', inline: 'nearest' })
     }
-    this._list.dispatchEvent(new CustomEvent('change', { detail: item }))
+    this._list.dispatchEvent(new window.CustomEvent('change', { detail: item }))
   }
 
   get current () {
@@ -325,7 +325,7 @@ export default class Tree extends TComponent {
 
   async _handleTreeMousedown (event) {
     if (typeof this.onmousedown === 'function') {
-      let result = this.onmousedown(event)
+      const result = this.onmousedown(event)
       if (result === false || event.defaultPrevented) return
     }
 
@@ -353,73 +353,63 @@ export default class Tree extends TComponent {
 
   async _handleTreeKeydown (event) {
     if (typeof this.onkeydown === 'function') {
-      let result = this.onkeydown(event)
+      const result = this.onkeydown(event)
       if (result === false || event.defaultPrevented) return
     }
 
     if (!this.current) return
     switch (event.keyCode) {
       case 8: // Back Space
-        {
-          event.preventDefault()
+        event.preventDefault()
+        if (this.current.parentNode !== this) {
+          this.current = this.current.parentNode
+        }
+        break
+      case 37: // Left
+        event.preventDefault()
+        if (this.current.isExpanded) {
+          await this.current.collapse()
+        } else {
           if (this.current.parentNode !== this) {
             this.current = this.current.parentNode
           }
         }
         break
-      case 37: // Left
-        {
-          event.preventDefault()
-          if (this.current.isExpanded) {
-            await this.current.collapse()
-          } else {
-            if (this.current.parentNode !== this) {
-              this.current = this.current.parentNode
-            }
-          }
-        }
-        break
       case 38: // Up
-        {
-          event.preventDefault()
-          if (this.current._item.previousSibling) {
-            let item = TComponent.from(this.current._item.previousSibling)
-            while (item.isExpanded && item._list.lastChild) {
-              item = TComponent.from(item._list.lastChild)
-            }
-            this.current = item
-          } else {
-            if (this.current.parentNode !== this) {
-              this.current = this.current.parentNode
-            }
+        event.preventDefault()
+        if (this.current._item.previousSibling) {
+          let item = TComponent.from(this.current._item.previousSibling)
+          while (item.isExpanded && item._list.lastChild) {
+            item = TComponent.from(item._list.lastChild)
+          }
+          this.current = item
+        } else {
+          if (this.current.parentNode !== this) {
+            this.current = this.current.parentNode
           }
         }
         break
       case 39: // Right
-        {
-          event.preventDefault()
-          if (this.current.isExpandable && !this.current.isExpanded) {
-            await this.current.expand()
-          } else {
-            if (this.current._list.firstChild) {
-              this.current = TComponent.from(this.current._list.firstChild)
-            }
+        event.preventDefault()
+        if (this.current.isExpandable && !this.current.isExpanded) {
+          await this.current.expand()
+        } else {
+          if (this.current._list.firstChild) {
+            this.current = TComponent.from(this.current._list.firstChild)
           }
         }
         break
       case 40: // Down
-        {
-          event.preventDefault()
-          if (this.current.isExpanded && this.current._list.firstChild) {
-            this.current = TComponent.from(this.current._list.firstChild)
-          } else {
-            let item = this.current
-            while (item !== this && !item._item.nextSibling) {
-              item = item.parentNode
-            }
-            if (item !== this) {
-              this.current = TComponent.from(item._item.nextSibling)
-            }
+        event.preventDefault()
+        if (this.current.isExpanded && this.current._list.firstChild) {
+          this.current = TComponent.from(this.current._list.firstChild)
+        } else {
+          let item = this.current
+          while (item !== this && !item._item.nextSibling) {
+            item = item.parentNode
+          }
+          if (item !== this) {
+            this.current = TComponent.from(item._item.nextSibling)
           }
         }
         break

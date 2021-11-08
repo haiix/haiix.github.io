@@ -198,5 +198,4 @@ export default class EZip {
       md: 'text/markdown',
     }[ext] || null
   }
-
 }

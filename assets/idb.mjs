@@ -1,6 +1,6 @@
-function idb_open({ name = '', version = 1, onupgradeneeded = null }) {
+function idbOpen ({ name = '', version = 1, onupgradeneeded = null }) {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(name, version)
+    const req = self.indexedDB.open(name, version)
     req.onupgradeneeded = event => {
       try {
         onupgradeneeded(req.result, req.transaction, event.oldVersion)
@@ -19,7 +19,7 @@ function idb_open({ name = '', version = 1, onupgradeneeded = null }) {
 
 export function deleteDatabase (name) {
   return new Promise((resolve, reject) => {
-    const req = window.indexedDB.deleteDatabase(name)
+    const req = self.indexedDB.deleteDatabase(name)
     req.onerror = event => {
       reject(event.target.error)
     }
@@ -30,21 +30,21 @@ export function deleteDatabase (name) {
 }
 
 export async function getVersion (name) {
-  const db = await idb_open({name})
+  const db = await idbOpen({ name })
   const version = db.version
   db.close()
   return version
 }
 
 export async function objectStoreNames (conf) {
-  const db = await idb_open(conf)
+  const db = await idbOpen(conf)
   const objectStoreNames = db.objectStoreNames
   db.close()
   return objectStoreNames
 }
 
 export async function tx (conf, osns, mode, fn) {
-  const db = await idb_open(conf)
+  const db = await idbOpen(conf)
   return await new Promise((resolve, reject) => {
     let val
     const tx = db.transaction(osns, mode)
@@ -128,7 +128,7 @@ export function count (os, key) {
 
 export function cursor ({ index, range = null, direction = 'next', forEach }) {
   return new Promise((resolve, reject) => {
-    let result = undefined
+    let result
     const req = index.openCursor(range, direction)
     req.onsuccess = event => {
       const cursor = req.result

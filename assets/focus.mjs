@@ -25,7 +25,7 @@ export function previousTreeElement (elem = null, root = null) {
 }
 
 export function isTabbable (elem) {
-  if (!(elem instanceof HTMLElement)) return false
+  if (!(elem instanceof window.HTMLElement)) return false
   const tabIndex = elem.getAttribute('tabIndex')
   if (tabIndex == null) {
     if (elem.tagName === 'A') return !!elem.href

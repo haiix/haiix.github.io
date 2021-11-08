@@ -1,4 +1,4 @@
-function call(bind, callback, args, onerror) {
+function call (bind, callback, args, onerror) {
   if (!callback) return
   let retVal
   try {
@@ -33,12 +33,9 @@ export default function hold ({ ondragstart = null, ondrag = null, ondragend = n
   const handleMouseup = event => {
     window.removeEventListener('mousemove', handleMousemove)
     window.removeEventListener('mouseup', handleMouseup)
-    if (modal) {
-      container.removeChild(modal)
-      call(bind, ondragend, [event.pageX, event.pageY, modal], onerror)
-    }
+    if (modal) container.removeChild(modal)
+    call(bind, ondragend, [event.pageX, event.pageY, modal], onerror)
   }
   window.addEventListener('mousemove', handleMousemove)
   window.addEventListener('mouseup', handleMouseup)
 }
-

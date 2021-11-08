@@ -27,7 +27,7 @@ export default class List extends TComponent {
   }
 
   set current (li) {
-    let prev = this.current
+    const prev = this.current
     if (li === prev) return
     if (prev) prev.classList.remove('current')
     if (li) li.classList.add('current')

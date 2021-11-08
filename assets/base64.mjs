@@ -33,7 +33,8 @@ export function encode (buf) {
     dst[j++] = etbl[(t >>> 6) & 63]
     dst[j++] = etbl[(t >>> 0) & 63]
   }
-  const m = src.length % 3, p = dst.length
+  const m = src.length % 3
+  const p = dst.length
   if (m === 1) dst[p - 2] = 61
   if (m !== 0) dst[p - 1] = 61
   return new TextDecoder().decode(dst)
@@ -49,7 +50,7 @@ export function decode (b64) {
   const src = new TextEncoder().encode(b64)
   const dst = new Uint8Array(Math.ceil(src.length / 4 * 3))
   let j = 0
-  for (let i = 0; i < src.length; ) {
+  for (let i = 0; i < src.length;) {
     if (src[i] === 13) i++
     if (src[i] === 10) i++
     const t = dtbl[src[i++]] << 18 | dtbl[src[i++]] << 12 | dtbl[src[i++]] << 6 | dtbl[src[i++]] << 0

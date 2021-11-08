@@ -16,7 +16,7 @@ export class TUl extends TComponent {
         li.appendChild(node)
       }
       this.element.appendChild(li)
-      if (TComponent.from(li) == null) new TLi({}, li)
+      if (TComponent.from(li) == null) li = new TLi({}, li)
     }
     for (const [key, value] of Object.entries(attr)) {
       if (key === 'disabled') {
@@ -90,7 +90,7 @@ export class TUl extends TComponent {
     this.current = item
   }
 
-  [Symbol.iterator]() {
+  [Symbol.iterator] () {
     return seq(this.element.children).map(elem => TComponent.from(elem))[Symbol.iterator]()
   }
 }

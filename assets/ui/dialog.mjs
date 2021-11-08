@@ -129,7 +129,7 @@ export class Dialog extends TComponent {
 
 export function createDialog (DialogClass) {
   return async function (...args) {
-    await new Promise(resolve => requestAnimationFrame(resolve)) // keydownイベントが連続実行されるのを防ぐ
+    await new Promise(resolve => window.requestAnimationFrame(resolve)) // keydownイベントが連続実行されるのを防ぐ
     const lastFocused = document.activeElement
     let dialog
     let tabHandler = null
@@ -158,14 +158,14 @@ export function createDialog (DialogClass) {
           }
         })
         firstElem.focus()
-        if (firstElem instanceof HTMLInputElement) firstElem.select()
+        if (firstElem instanceof window.HTMLInputElement) firstElem.select()
       }
       if (dialog.main) dialog.main()
     })
     document.body.removeChild(dialog.element)
     if (tabHandler) document.body.removeChild(tabHandler)
     lastFocused.focus()
-    await new Promise(resolve => requestAnimationFrame(resolve)) // keydownイベントが連続実行されるのを防ぐ
+    await new Promise(resolve => window.requestAnimationFrame(resolve)) // keydownイベントが連続実行されるのを防ぐ
     return result
   }
 }
@@ -272,4 +272,3 @@ export async function openFile (accept = '', multiple = false) {
     document.body.removeChild(input)
   })
 }
-

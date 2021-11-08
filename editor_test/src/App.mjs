@@ -5,7 +5,7 @@ import style from '/assets/style.mjs'
 import hold from '/assets/hold.mjs'
 import Tree from '/assets/ui/Tree.mjs'
 import { TUl, TLi } from './List.mjs'
-import { alert, confirm, prompt, Dialog, createDialog } from '/assets/ui/dialog.mjs'
+import { alert, confirm, prompt } from '/assets/ui/dialog.mjs'
 import { createContextMenu } from './menu.mjs'
 import EZip from './EZip.mjs'
 
@@ -256,11 +256,9 @@ export default class App extends TComponent {
       version: 1,
       onupgradeneeded: (db, tx, version) => {
         if (version < 1) {
-          {
-            this.firstTime = true
-            const store = db.createObjectStore('files', { keyPath: 'id', autoIncrement: true })
-            store.createIndex('path', 'path', { unique: true })
-          }
+          this.firstTime = true
+          const store = db.createObjectStore('files', { keyPath: 'id', autoIncrement: true })
+          store.createIndex('path', 'path', { unique: true })
         }
       }
     }
@@ -286,7 +284,9 @@ export default class App extends TComponent {
 
     await this.updateFileTree()
     if (this.firstTime) {
-      await this.addFile({ path: 'index.html', file: new Blob([`<!DOCTYPE html>
+      await this.addFile({
+        path: 'index.html',
+        file: new Blob([`<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -295,7 +295,8 @@ export default class App extends TComponent {
   <body>
     <p>Hello, World!</p>
   </body>
-</html>`], { type: 'text/html' }) })
+</html>`], { type: 'text/html' })
+      })
     }
 
     return this.openTab('index.html')
@@ -371,9 +372,9 @@ export default class App extends TComponent {
       // TODO fileListMoveの挿入処理と共通化
       //folder.appendChild(item)
       const ref = seq(folder).find(cItem => (
-        item.isExpandable ?
-        (!cItem.isExpandable || cItem.text > name) :
-        (!cItem.isExpandable && cItem.text > name)
+        item.isExpandable
+          ? (!cItem.isExpandable || cItem.text > name)
+          : (!cItem.isExpandable && cItem.text > name)
       ))
       folder.insertBefore(item, ref)
       if (folder.isExpandable) folder.expand()
@@ -430,7 +431,7 @@ export default class App extends TComponent {
     const { file } = await this.getFileFromIdb(path)
 
     //this.tabs
-    ;{
+    {
       const li = new EditorTab({ path, file })
       this.tabs.element.appendChild(li.element)
     }
@@ -489,7 +490,6 @@ export default class App extends TComponent {
     }
     this.tabs.value = selectValue
     this.views.value = selectValue
-
   }
 
   handleDragOver (event) {
@@ -690,7 +690,7 @@ export default class App extends TComponent {
       if (!name) return ''
 
       let msg = ''
-      if (seq('\/:*?"<>|').some(c => name.includes(c))) {
+      if (seq('\\/:*?"<>|').some(c => name.includes(c))) {
         msg = isFile + 'には次の文字は使えません:\n\\ / : * ? " < > |'
       } else if (name === '.' || name === '..') {
         msg = 'その' + isFile + 'を付けることはできません'
@@ -749,12 +749,12 @@ export default class App extends TComponent {
             cursor.update(value)
 
             // タブとエディタの更新
-            const tab = seq(app.tabs).find(tab => tab.path === _prev)
+            const tab = seq(this.tabs).find(tab => tab.path === _prev)
             if (tab) {
               tab.path = _new
               tab.label.textContent = tab.name
             }
-            const view = seq(app.views).find(view => view.value === _prev)
+            const view = seq(this.views).find(view => view.value === _prev)
             if (view) view.value = _new
           }
         }
@@ -770,9 +770,9 @@ export default class App extends TComponent {
 
       // TODO addFileの挿入処理と共通化
       const ref = seq(newParent).find(item => (
-        targetItem.isExpandable ?
-        (!item.isExpandable || item.text > newName) :
-        (!item.isExpandable && item.text > newName)
+        targetItem.isExpandable
+          ? (!item.isExpandable || item.text > newName)
+          : (!item.isExpandable && item.text > newName)
       ))
       newParent.insertBefore(targetItem, ref)
       if (newParent.isExpandable) newParent.expand()
@@ -842,7 +842,7 @@ export default class App extends TComponent {
           if (prevDropRect.item === targetItem) return
 
           const prevName = this.getFileTreePath(targetItem)
-          let newName = this.getFileTreeFolderPath(prevDropRect.item) + targetItem.text
+          const newName = this.getFileTreeFolderPath(prevDropRect.item) + targetItem.text
 
           return this.fileListMove(prevName, newName)
         }
