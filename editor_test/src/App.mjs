@@ -203,6 +203,9 @@ export default class App extends TComponent {
         color: #999;
         font-size: 9px;
       }
+      .CodeMirror-hints {
+        font-size: 14px;
+      }
     `)
     this.uses(Tree, TUl)
     return `
@@ -232,7 +235,7 @@ export default class App extends TComponent {
           <div class="splitter" onmousedown="return this.handleSplitter(event)"></div>
 
           <!-- タブとエディタ -->
-          <div class="flex column fit main-aria">
+          <div id="tabViews" class="flex column fit main-aria">
             <t-ul id="tabs" class="tabs"
               onchange="return this.handleTabChange(event)"
               onmousedown="return this.handleTabMouseDown(event)"
@@ -455,17 +458,27 @@ export default class App extends TComponent {
       li.element.appendChild(textarea)
       this.views.element.appendChild(li.element)
       requestAnimationFrame(() => {
-        const editor = CodeMirror.fromTextArea(textarea, {
+        const cm = CodeMirror.fromTextArea(textarea, {
           lineNumbers: true,
-          mode: file.type
-          //mode: 'htmlmixed'
+          extraKeys: { 'Ctrl-Space': 'autocomplete' },
+          mode: { name: file.type, globalVars: true },
         })
-        editor.on('change', event => {
+        cm.on('keydown', (cm, event) => {
+          switch (event.keyCode) {
+            // 改行時、右側スペースをトリムする
+            case 13:
+              const cursor = cm.getCursor()
+              const str = cm.getLine(cursor.line).slice(0, cursor.ch)
+              cm.replaceRange(str.trimRight(), { line: cursor.line, ch: 0 }, cursor)
+              break
+          }
+        })
+        cm.on('change', (cm, event) => {
           // タブのテキスト
           this.tabs.current.label.textContent = '*' + this.tabs.current.name
           this.tabs.current.isModified = true
         })
-        this.tabs.current.editor = editor
+        this.tabs.current.editor = cm
       })
     }
 
@@ -555,6 +568,7 @@ export default class App extends TComponent {
   }
 
   handleFileTreeDoubleClick (event) {
+    if (event.target.classList.contains('expand-icon')) return // ツリーの展開アイコン
     if (!this.fileTree.current || this.fileTree.current.isExpandable) return // フォルダー
     return this.openTab(this.getFileTreePath())
   }
@@ -672,7 +686,7 @@ export default class App extends TComponent {
       case 'delete':
         {
           const isFolder = this.fileTree.current.isExpandable
-          if (!await confirm('この' + (isFolder ? 'フォルダー' : 'ファイル') + 'を削除しますか?')) break
+          if (!await confirm((isFolder ? 'フォルダー' : 'ファイル') + ' "' + this.fileTree.current.text +'" を削除しますか?')) break
           return this.deleteCurrentFileOrFolder()
         }
         break
@@ -819,6 +833,9 @@ export default class App extends TComponent {
 
         dropRects.push({ item: this.fileTree, elem: this.fileTree.element, rect: this.fileTree.element.getBoundingClientRect() })
 
+        // エディタへのドロップ
+        dropRects.push({ item: null, elem: this.tabViews, rect: this.tabViews.getBoundingClientRect() })
+
         this.fileTree.element.blur()
       },
       ondrag: (px, py) => {
@@ -835,19 +852,24 @@ export default class App extends TComponent {
       },
       ondragend: (px, py) => {
         if (prevDropRect) {
-          this.fileTree.focus()
-
           prevDropRect.elem.classList.remove('drop-target')
 
+          // エディターへのドロップ
+          if (prevDropRect.elem === this.tabViews) {
+            if (!this.fileTree.current || this.fileTree.current.isExpandable) return // フォルダー
+            return this.openTab(this.getFileTreePath())
+          }
+
+          this.fileTree.focus()
+
+          // ドロップ元とドロップ先が同じ場合は何もしない
           if (prevDropRect.item === targetItem) return
 
+          // ファイル・フォルダ移動
           const prevName = this.getFileTreePath(targetItem)
           const newName = this.getFileTreeFolderPath(prevDropRect.item) + targetItem.text
-
           return this.fileListMove(prevName, newName)
         }
-
-        this.fileTree.element.focus()
       },
       onerror: error => {
         this.onerror(error)
@@ -863,6 +885,7 @@ export default class App extends TComponent {
     if (!tab) return
     this.views.value = tab.value
     document.title = tab.path + ' - ' + this.name
+    if (!tab.editor) return // CodeMirror以外 (画像)
     requestAnimationFrame(() => {
       tab.editor.refresh()
       tab.editor.focus()
