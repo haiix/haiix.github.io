@@ -39,6 +39,13 @@ style(`
   }
 `)
 
+function *ancestorNodes (node) {
+  while (node) {
+    yield node
+    node = node.parentNode
+  }
+}
+
 const fileTreeContextMenu = createContextMenu(`
   <div data-value="newFile">新規ファイル</div>
   <div data-value="newFolder">新規フォルダー</div>
@@ -50,7 +57,7 @@ class EditorTab extends TLi {
   template () {
     return `
       <li>
-        <span id="label"></span>
+        <span id="label" class="label"></span>
         <span id="closeButton" class="material-icons close-button">close</span>
       </li>
     `
@@ -58,12 +65,27 @@ class EditorTab extends TLi {
 
   constructor (attr = {}, nodes = []) {
     const sattr = Object.assign({}, attr)
+    delete sattr.view
     delete sattr.path
     delete sattr.file
     super(sattr, nodes)
+    this.view = attr.view
     this.path = attr.path
     this.file = attr.file
-    this.label.textContent = this.name
+    this.editor = null
+  }
+
+  get isModified () {
+    return this.element.classList.contains('modified')
+  }
+
+  set isModified (value) {
+    const classList = this.element.classList
+    if (value) {
+      classList.add('modified')
+    } else {
+      classList.remove('modified')
+    }
   }
 
   get path () {
@@ -72,6 +94,8 @@ class EditorTab extends TLi {
 
   set path (path) {
     this.value = path
+    this.label.textContent = this.name
+    this.view.value = path
   }
 
   get name () {
@@ -163,6 +187,9 @@ export default class App extends TComponent {
       .${ukey} .tabs > li > * {
         vertical-align: middle;
       }
+      .${ukey} .tabs > li.modified > .label::before {
+        content: '*'
+      }
       .${ukey} .tabs > li .close-button {
         border: 1px solid transparent;
         font-size: 12px;
@@ -180,6 +207,7 @@ export default class App extends TComponent {
         display: none;
         position: relative;
         z-index: 0;
+        overflow: auto;
       }
       .${ukey} .views > li.current {
         display: inline-block;
@@ -328,21 +356,10 @@ export default class App extends TComponent {
 
     // ファイルツリー
     this.fileTree.textContent = ''
-    for (const foldersAndFiles of [folders, files]) {
-      for (const file of foldersAndFiles) {
-        const [folder, fileName] = this.getFileTreeFolderAndName(file.path)
-
-        // TODO addFileの項目作成と共通化
-        const item = new Tree.Item()
-        item.text = fileName
-        if (file.file) {
-          item.isExpandable = false
-          item.icon = 'insert_drive_file'
-          item.iconColor = '#CCC'
-        }
-
-        folder.appendChild(item)
-      }
+    for (const fileData of [...folders, ...files]) {
+      const [folder, fileName] = this.getFileTreeFolderAndName(fileData.path)
+      const item = this.createFileTreeItem(fileName, !fileData.file)
+      folder.appendChild(item)
     }
   }
 
@@ -362,29 +379,23 @@ export default class App extends TComponent {
     let item = null
     for (const fileData of fileDataList) {
       const [folder, name] = this.getFileTreeFolderAndName(fileData.path)
-
-      // TODO updateFileTreeの項目作成と共通化
-      item = new Tree.Item()
-      item.text = name
-      if (fileData.file) {
-        item.isExpandable = false
-        item.icon = 'insert_drive_file'
-        item.iconColor = '#CCC'
-      }
-
-      // TODO fileListMoveの挿入処理と共通化
-      //folder.appendChild(item)
-      const ref = seq(folder).find(cItem => (
-        item.isExpandable
-          ? (!cItem.isExpandable || cItem.text > name)
-          : (!cItem.isExpandable && cItem.text > name)
-      ))
-      folder.insertBefore(item, ref)
-      if (folder.isExpandable) folder.expand()
+      item = this.createFileTreeItem(name, !fileData.file)
+      this.fileTreeInsert(folder, item)
     }
     if (item) this.fileTree.current = item
 
     //await this.updateFileTree()
+  }
+
+  createFileTreeItem (name, isFolder) {
+    const item = new Tree.Item()
+    item.text = name
+    if (!isFolder) {
+      item.isExpandable = false
+      item.icon = 'insert_drive_file'
+      item.iconColor = '#CCC'
+    }
+    return item
   }
 
   /**
@@ -424,39 +435,28 @@ export default class App extends TComponent {
    */
   async openTab (path) {
     // すでにタブが開いている場合はそれを選択する
-    if (seq(this.tabs).find(tab => tab.value === path)) {
+    if (seq(this.tabs).find(tab => tab.path === path)) {
       this.tabs.value = path
-      this.views.value = path
       return
     }
 
     // IDBからロード
     const { file } = await this.getFileFromIdb(path)
 
-    //this.tabs
-    {
-      const li = new EditorTab({ path, file })
-      this.tabs.element.appendChild(li.element)
-    }
+    const view = new TLi({ value: path })
+    const tab = new EditorTab({ view, path, file })
 
-    // Editor
     if (file.type.slice(0, 6) === 'image/') {
+      // 画像
       const image = document.createElement('img')
       image.src = URL.createObjectURL(file) // TODO close時にrevoke
-
-      const li = new TLi()
-      li.value = path
-      li.element.appendChild(image)
-      li.element.style.overflow = 'auto'
-      this.views.element.appendChild(li.element)
+      view.element.appendChild(image)
     } else {
+      // Editor
       const textarea = document.createElement('textarea')
       textarea.value = await file.text()
+      view.element.appendChild(textarea)
 
-      const li = new TLi()
-      li.value = path
-      li.element.appendChild(textarea)
-      this.views.element.appendChild(li.element)
       requestAnimationFrame(() => {
         const cm = CodeMirror.fromTextArea(textarea, {
           lineNumbers: true,
@@ -474,35 +474,54 @@ export default class App extends TComponent {
           }
         })
         cm.on('change', (cm, event) => {
-          // タブのテキスト
-          this.tabs.current.label.textContent = '*' + this.tabs.current.name
           this.tabs.current.isModified = true
         })
-        this.tabs.current.editor = cm
+        tab.editor = cm
       })
     }
 
+    this.tabs.element.appendChild(tab.element)
+    this.views.element.appendChild(view.element)
     this.tabs.value = path
-    this.views.value = path
   }
 
   /**
    * タブを閉じる
    */
   closeTab (...tabs) {
-    let selectTabElem
+    let elem = this.tabs.current.element
     for (const tab of tabs) {
-      selectTabElem = tab.element.previousElementSibling || tab.element.nextElementSibling
-      this.tabs.element.removeChild(this.tabs.get(tab.value).element)
-      this.views.element.removeChild(this.views.get(tab.value).element)
+      if (tab === this.tabs.current) {
+        elem = tab.element.previousElementSibling || tab.element.nextElementSibling
+      }
+      this.tabs.element.removeChild(tab.element)
+      this.views.element.removeChild(tab.view.element)
     }
+    this.tabs.value = elem ? TComponent.from(elem).value : null
+  }
 
-    let selectValue = null
-    if (selectTabElem) {
-      selectValue = TComponent.from(selectTabElem).value
+  /**
+   * エディターの内容をIDBに保存する
+   */
+  async saveTab (...tabs) {
+    for (const tab of tabs) {
+      if (!tab.isModified) continue
+      const prevFile = tab.file
+      // 保存
+      const file = new Blob([tab.editor.getValue()], { type: prevFile.type })
+      const path = tab.path
+      await idb.tx(this.dbSchema, ['files'], 'readwrite', tx => {
+        return idb.cursor({
+          index: tx.objectStore('files').index('path'),
+          range: IDBKeyRange.only(path),
+          forEach (value, cursor) {
+            value.file = file
+            cursor.update(value)
+          }
+        })
+      })
+      tab.isModified = false
     }
-    this.tabs.value = selectValue
-    this.views.value = selectValue
   }
 
   handleDragOver (event) {
@@ -514,23 +533,22 @@ export default class App extends TComponent {
     return this.addFile(...seq(event.dataTransfer.files).map(file => ({ path: file.name, file: new Blob([file], { type: file.type }) })))
   }
 
-  async handleKeyDown (event) {
+  handleKeyDown (event) {
     //console.log('KeyCode: ' + event.keyCode)
     switch (event.keyCode) {
       case 83: // s
         if (event.ctrlKey) {
           event.preventDefault()
-          this.save(this.tabs.current)
+          return this.saveTab(this.tabs.current)
         }
         break
       case 116: // F5
         event.preventDefault()
-        this.handleRun(event)
-        break
+        return this.run()
     }
   }
 
-  async handleFileTreeKeyDown (event) {
+  handleFileTreeKeyDown (event) {
     //console.log('KeyCode: ' + event.keyCode)
     switch (event.keyCode) {
       case 13: // Enter
@@ -542,35 +560,16 @@ export default class App extends TComponent {
     }
   }
 
-  /**
-   * エディターの内容をIDBに保存する
-   */
-  async save (tab) {
-    if (tab.isModified) {
-      const prevFile = tab.file
-      // 保存
-      const file = new Blob([tab.editor.getValue()], { type: prevFile.type })
-      const path = tab.value
-      await idb.tx(this.dbSchema, ['files'], 'readwrite', tx => {
-        return idb.cursor({
-          index: tx.objectStore('files').index('path'),
-          range: IDBKeyRange.only(path),
-          forEach (value, cursor) {
-            value.file = file
-            cursor.update(value)
-          }
-        })
-      })
-      // タブのテキスト
-      tab.label.textContent = tab.name
-      tab.isModified = false
-    }
-  }
-
   handleFileTreeDoubleClick (event) {
     if (event.target.classList.contains('expand-icon')) return // ツリーの展開アイコン
     if (!this.fileTree.current || this.fileTree.current.isExpandable) return // フォルダー
     return this.openTab(this.getFileTreePath())
+  }
+
+  async handleFileTreeContextMenu (event) {
+    event.preventDefault()
+    const value = await fileTreeContextMenu(event)
+    if (value) await this.command(value)
   }
 
   /**
@@ -643,12 +642,6 @@ export default class App extends TComponent {
       txt: 'text/plain',
       md: 'text/markdown',
     }[ext] || null
-  }
-
-  async handleFileTreeContextMenu (event) {
-    event.preventDefault()
-    const value = await fileTreeContextMenu(event)
-    if (value) await this.command(value)
   }
 
   async command (value) {
@@ -762,14 +755,9 @@ export default class App extends TComponent {
             }
             cursor.update(value)
 
-            // タブとエディタの更新
+            // タブのパスを更新
             const tab = seq(this.tabs).find(tab => tab.path === _prev)
-            if (tab) {
-              tab.path = _new
-              tab.label.textContent = tab.name
-            }
-            const view = seq(this.views).find(view => view.value === _prev)
-            if (view) view.value = _new
+            if (tab) tab.path = _new
           }
         }
       })
@@ -777,36 +765,34 @@ export default class App extends TComponent {
 
     // ファイルツリー
     {
-      const [newParent, newName] = this.getFileTreeFolderAndName(newPath)
-
-      const targetItem = this.getFileTreeItem(prevPath)
-      targetItem.text = newName
-
-      // TODO addFileの挿入処理と共通化
-      const ref = seq(newParent).find(item => (
-        targetItem.isExpandable
-          ? (!item.isExpandable || item.text > newName)
-          : (!item.isExpandable && item.text > newName)
-      ))
-      newParent.insertBefore(targetItem, ref)
-      if (newParent.isExpandable) newParent.expand()
+      const [folder, name] = this.getFileTreeFolderAndName(newPath)
+      const item = this.getFileTreeItem(prevPath)
+      item.text = name
+      this.fileTreeInsert(folder, item)
     }
-    //this.updateFileTree()
+
+    //await this.updateFileTree()
+  }
+
+  fileTreeInsert (parentFolder, targetItem) {
+    const fileName = targetItem.text
+    const ref = seq(parentFolder).find(item => (
+      targetItem.isExpandable
+        ? (!item.isExpandable || item.text > fileName)
+        : (!item.isExpandable && item.text > fileName)
+    ))
+    parentFolder.insertBefore(targetItem, ref)
+    if (parentFolder.isExpandable) parentFolder.expand()
   }
 
   async handleFileTreeMouseDown (event) {
     if (event.button === 1) return
 
     // ドラッグ対象
-    let targetItem = null
-    {
-      let elem = event.target
-      while (elem) {
-        targetItem = TComponent.from(elem)
-        if (targetItem instanceof Tree.Item) break
-        elem = elem.parentNode
-      }
-    }
+    const targetItem =
+      seq(ancestorNodes(event.target))
+      .map(elem => TComponent.from(elem))
+      .find(item => item instanceof Tree.Item)
     if (!targetItem) return
 
     let shadowElem = null
@@ -873,17 +859,14 @@ export default class App extends TComponent {
       },
       onerror: error => {
         this.onerror(error)
-      },
-      cursor: '',
-      bind: null,
-      container: document.body
+      }
     })
   }
 
   handleTabChange (event) {
-    const tab = event.detail
+    const tab = this.tabs.current
     if (!tab) return
-    this.views.value = tab.value
+    this.views.value = tab.path
     document.title = tab.path + ' - ' + this.name
     if (!tab.editor) return // CodeMirror以外 (画像)
     requestAnimationFrame(() => {
@@ -945,10 +928,24 @@ export default class App extends TComponent {
     })
   }
 
+  handleClickMenu (event) {
+    switch (event.target.dataset.key) {
+      case 'load':
+        this.loadProject()
+        break
+      case 'save':
+        this.saveProject()
+        break
+      case 'run':
+        this.run(event)
+        break
+    }
+  }
+
   // 別ウィンドウで「index.html」を開く
-  async handleRun (event) {
+  async run () {
     // 実行前に保存
-    await Promise.all(seq(this.tabs).map(tab => this.save(tab)))
+    await Promise.all(seq(this.tabs).map(tab => this.saveTab(tab)))
 
     //await new Promise(resolve => setTimeout(resolve, 100))
 
@@ -991,7 +988,10 @@ export default class App extends TComponent {
     }
   }
 
-  handleSave (event) {
+  /**
+   * 現在開かれているプロジェクトに名前をつけて保存する
+   */
+  saveProject () {
     const ezip = new EZip()
     return ezip.save(async function () {
       const inputFiles = []
@@ -999,11 +999,7 @@ export default class App extends TComponent {
         idb.cursor({
           index: tx.objectStore('files').index('path'),
           forEach: (value, cursor) => {
-            if (value.file) {
-              inputFiles.push(value)
-            } else {
-              inputFiles.push(value)
-            }
+            inputFiles.push(value)
           }
         })
       ))
@@ -1011,21 +1007,10 @@ export default class App extends TComponent {
     }.bind(this))
   }
 
-  handleClickMenu (event) {
-    switch (event.target.dataset.key) {
-      case 'load':
-        this.handleLoad(event)
-        break
-      case 'save':
-        this.handleSave(event)
-        break
-      case 'run':
-        this.handleRun(event)
-        break
-    }
-  }
-
-  async handleLoad (event) {
+  /**
+   * プロジェクトのZipファイルをローカルマシンから開く
+   */
+  async loadProject () {
     if (!await confirm('現在のプロジェクトを閉じて、別のプロジェクトを開きますか?\n(保存していないデータは失われます)')) {
       return
     }
