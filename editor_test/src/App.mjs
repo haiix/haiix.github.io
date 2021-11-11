@@ -25,7 +25,7 @@ style(`
   }
 
   html, body {
-    font-family: "Yu Gothic UI", "Meiryo UI", "MS UI Gothic", monospace;
+    font-family: "Segoe UI", "Yu Gothic UI", "Meiryo UI", "MS UI Gothic", monospace;
     font-size: 9pt;
     color: #000;
     background: #FFF;
@@ -602,7 +602,13 @@ export default class App extends TComponent {
    * @return {TreeItem} - ツリー項目
    */
   getFileTreeItem (path) {
-    return path.split('/').reduce((item, name) => seq(item).find(cItem => cItem.text === name), this.fileTree)
+    if (!path) return this.fileTree
+    return path.split('/').reduce((item, name) =>
+      seq(item).find(
+        cItem => cItem.text === name) ||
+        this.fileTreeInsert(item, this.createFileTreeItem(name, true)
+      )
+    , this.fileTree)
   }
 
   /**
@@ -783,6 +789,7 @@ export default class App extends TComponent {
     ))
     parentFolder.insertBefore(targetItem, ref)
     if (parentFolder.isExpandable) parentFolder.expand()
+    return targetItem
   }
 
   async handleFileTreeMouseDown (event) {
