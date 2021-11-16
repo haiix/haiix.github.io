@@ -161,8 +161,24 @@ export default class EZip {
   async readZip (zipFile, options = {}) {
     const reader = new zip.ZipReader(new zip.BlobReader(zipFile))
     const entries = await reader.getEntries()
+
+    // 最上位のフォルダーは取り除く
+    let prefix = ''
+    for (const entry of entries) {
+      const i = entry.filename.indexOf('/')
+      if (prefix === '') {
+        if (i < 0) break
+        prefix = entry.filename.slice(0, i + 1)
+      } else {
+        if (i < 0 || entry.filename.slice(0, i + 1) !== prefix) {
+          prefix = ''
+          break
+        }
+      }
+    }
+
     return await Promise.all(
-      entries.map(async function (entry) {
+      entries.filter(entry => !entry.directory && entry.filename !== prefix).map(async function (entry) {
         if (!options.password && entry.encrypted) {
           const password = await passwordPrompt('パスワードを入力してください。')
           if (password == null) return
@@ -170,7 +186,7 @@ export default class EZip {
           opendFilePassword = password
         }
 
-        const path = entry.filename.slice(-1) === '/' ? entry.filename.slice(0, -1) : entry.filename
+        const path = (entry.filename.slice(-1) === '/' ? entry.filename.slice(0, -1) : entry.filename).slice(prefix.length)
 
         const file = entry.directory ? null : await entry.getData(new zip.BlobWriter(this.getMimeFromExt(entry.filename)), options)
         return { path, file }

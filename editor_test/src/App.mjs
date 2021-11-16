@@ -434,6 +434,8 @@ export default class App extends TComponent {
    * ファイルをIDBからロードして、タブとエディタを追加する
    */
   async openTab (path) {
+    if (!this.fileTree.current || this.fileTree.current.isExpandable) return // フォルダー
+
     // すでにタブが開いている場合はそれを選択する
     if (seq(this.tabs).find(tab => tab.path === path)) {
       this.tabs.value = path
@@ -489,6 +491,7 @@ export default class App extends TComponent {
    * タブを閉じる
    */
   closeTab (...tabs) {
+    if (tabs.length === 0) return // this.tabs.currentがnull
     let elem = this.tabs.current.element
     for (const tab of tabs) {
       if (tab === this.tabs.current) {
@@ -562,7 +565,6 @@ export default class App extends TComponent {
 
   handleFileTreeDoubleClick (event) {
     if (event.target.classList.contains('expand-icon')) return // ツリーの展開アイコン
-    if (!this.fileTree.current || this.fileTree.current.isExpandable) return // フォルダー
     return this.openTab(this.getFileTreePath())
   }
 
@@ -689,6 +691,8 @@ export default class App extends TComponent {
           return this.deleteCurrentFileOrFolder()
         }
         break
+      case 'open':
+        return this.openTab(this.getFileTreePath())
       default:
         throw new Error('Undefiend command: ' + value)
     }
@@ -749,7 +753,7 @@ export default class App extends TComponent {
             const _prev = value.path
             const _new = newPath + value.path.slice(prevPath.length)
 
-            console.log('mv ' + _prev + ' ' + _new)
+            //console.log('mv ' + _prev + ' ' + _new)
 
             value.path = _new
             if (value.file) {
@@ -849,7 +853,6 @@ export default class App extends TComponent {
 
           // エディターへのドロップ
           if (prevDropRect.elem === this.tabViews) {
-            if (!this.fileTree.current || this.fileTree.current.isExpandable) return // フォルダー
             return this.openTab(this.getFileTreePath())
           }
 
@@ -938,14 +941,11 @@ export default class App extends TComponent {
   handleClickMenu (event) {
     switch (event.target.dataset.key) {
       case 'load':
-        this.loadProject()
-        break
+        return this.loadProject()
       case 'save':
-        this.saveProject()
-        break
+        return this.saveProject()
       case 'run':
-        this.run(event)
-        break
+        return this.run(event)
     }
   }
 
