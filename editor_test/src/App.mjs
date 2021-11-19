@@ -464,6 +464,11 @@ export default class App extends TComponent {
           lineNumbers: true,
           extraKeys: { 'Ctrl-Space': 'autocomplete' },
           mode: { name: file.type, globalVars: true },
+          gutters: ["CodeMirror-lint-markers"],
+          lint: {
+            esversion: 6,
+            asi: true, // セミコロンを無視 (TODO: lintスタイルを設定できるようにしたほうがいいかもしれない)
+          }
         })
         cm.on('keydown', (cm, event) => {
           switch (event.keyCode) {
