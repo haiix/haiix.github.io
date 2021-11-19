@@ -245,6 +245,7 @@ export default class App extends TComponent {
       >
         <!-- メニュー -->
         <ul class="menubar flex row" onclick="return this.handleClickMenu(event)">
+          <!--<li data-key="workspace">ワークスペース</li>-->
           <li data-key="load">開く</li>
           <li data-key="save">保存</li>
           <li data-key="run">実行 (F5)</li>
@@ -293,6 +294,9 @@ export default class App extends TComponent {
         }
       }
     }
+
+    this.workspace = 'workspace1/'
+
     this.debugWindow = null
 
     window.addEventListener('beforeunload', this.handleClose.bind(this))
@@ -341,10 +345,13 @@ export default class App extends TComponent {
     const files = []
 
     // IDB
-    await idb.tx(this.dbSchema, ['files'], 'readonly', tx => {
+    await idb.tx(this.dbSchema, ['files'], 'readonly', tx => (
       idb.cursor({
         index: tx.objectStore('files').index('path'),
+        range: IDBKeyRange.lowerBound(this.workspace),
         forEach: fileData => {
+          if (!(fileData.path).startsWith(this.workspace)) return false
+          fileData = Object.assign({}, fileData, { path: fileData.path.slice(this.workspace.length) })
           if (fileData.file) {
             files.push(fileData)
           } else {
@@ -352,7 +359,7 @@ export default class App extends TComponent {
           }
         }
       })
-    })
+    ))
 
     // ファイルツリー
     this.fileTree.textContent = ''
@@ -371,7 +378,8 @@ export default class App extends TComponent {
     await idb.tx(this.dbSchema, ['files'], 'readwrite', tx => {
       const store = tx.objectStore('files')
       for (const fileData of fileDataList) {
-        idb.put(store, fileData)
+        const _fileData = Object.assign({}, fileData, { path: this.workspace + fileData.path })
+        idb.put(store, _fileData)
       }
     })
 
@@ -408,15 +416,15 @@ export default class App extends TComponent {
     await idb.tx(this.dbSchema, ['files'], 'readwrite', tx => (
       idb.cursor({
         index: tx.objectStore('files').index('path'),
-        forEach: (value, cursor) => {
-          if ((value.path + '/').startsWith(path + '/')) {
-            //console.log('rm ' + value.path)
-            cursor.delete(value)
+        range: IDBKeyRange.lowerBound(this.workspace + path),
+        forEach: (fileData, cursor) => {
+          if (!(fileData.path + '/').startsWith(this.workspace + path + '/')) return false
+          //console.log('rm ' + fileData.path)
+          cursor.delete(fileData)
 
-            // タブが開いている場合は閉じる
-            const tab = this.tabs.get(value.path)
-            if (tab) this.closeTab(tab)
-          }
+          // タブが開いている場合は閉じる
+          const tab = this.tabs.get(fileData.path.slice(this.workspace.length))
+          if (tab) this.closeTab(tab)
         }
       })
     ))
@@ -521,7 +529,7 @@ export default class App extends TComponent {
       await idb.tx(this.dbSchema, ['files'], 'readwrite', tx => {
         return idb.cursor({
           index: tx.objectStore('files').index('path'),
-          range: IDBKeyRange.only(path),
+          range: IDBKeyRange.only(this.workspace + path),
           forEach (value, cursor) {
             value.file = file
             cursor.update(value)
@@ -727,7 +735,7 @@ export default class App extends TComponent {
   getFileFromIdb (path) {
     return idb.tx(this.dbSchema, ['files'], 'readonly', tx => idb.cursor({
       index: tx.objectStore('files').index('path'),
-      range: IDBKeyRange.only(path),
+      range: IDBKeyRange.only(this.workspace + path),
       forEach: value => value
     }))
   }
@@ -753,27 +761,27 @@ export default class App extends TComponent {
     await idb.tx(this.dbSchema, ['files'], 'readwrite', tx => (
       idb.cursor({
         index: tx.objectStore('files').index('path'),
-        forEach: (value, cursor) => {
-          if ((value.path + '/').startsWith(prevPath + '/')) {
-            const _prev = value.path
-            const _new = newPath + value.path.slice(prevPath.length)
+        range: IDBKeyRange.lowerBound(this.workspace + prevPath),
+        forEach: (fileData, cursor) => {
+          if (!(fileData.path + '/').startsWith(this.workspace + prevPath + '/')) return false
+          const _prev = fileData.path
+          const _new = this.workspace + newPath + fileData.path.slice((this.workspace + prevPath).length)
 
-            //console.log('mv ' + _prev + ' ' + _new)
+          //console.log('mv ' + _prev + ' ' + _new)
 
-            value.path = _new
-            if (value.file) {
-              const prevType = this.getFileType(_prev)
-              const newType = this.getFileType(_new)
-              if (prevType !== newType) {
-                value.file = new Blob([value.file], { type: newType })
-              }
+          fileData.path = _new
+          if (fileData.file) {
+            const prevType = this.getFileType(_prev)
+            const newType = this.getFileType(_new)
+            if (prevType !== newType) {
+              fileData.file = new Blob([fileData.file], { type: newType })
             }
-            cursor.update(value)
-
-            // タブのパスを更新
-            const tab = seq(this.tabs).find(tab => tab.path === _prev)
-            if (tab) tab.path = _new
           }
+          cursor.update(fileData)
+
+          // タブのパスを更新
+          const tab = seq(this.tabs).find(tab => tab.path === _prev.slice(this.workspace.length))
+          if (tab) tab.path = _new.slice(this.workspace.length)
         }
       })
     ))
@@ -945,6 +953,8 @@ export default class App extends TComponent {
 
   handleClickMenu (event) {
     switch (event.target.dataset.key) {
+      case 'workspace':
+        return this.showWorkSpaceList(event)
       case 'load':
         return this.loadProject()
       case 'save':
@@ -952,6 +962,18 @@ export default class App extends TComponent {
       case 'run':
         return this.run(event)
     }
+  }
+
+  async showWorkSpaceList (event) {
+    const value = await createContextMenu(`
+      <div data-value="ws_1"><i class="material-icons" style="font-size: 16px;">check</i>ワークスペース1</div>
+      <div data-value="ws_2"><i class="material-icons" style="font-size: 16px;">_</i>ワークスペース2</div>
+      <hr class="disabled" />
+      <div data-value="add">追加...</div>
+    `)(event)
+    if (!value) return
+    console.log(value)
+    throw new Error('Not implemented')
   }
 
   // 別ウィンドウで「index.html」を開く
@@ -975,23 +997,23 @@ export default class App extends TComponent {
     //}
 
     if (this.debugWindow && !this.debugWindow.closed) {
-      //await this.debugWindow.fetch(this.base + 'debug/') // not foundになることがあるので対策
+      //await this.debugWindow.fetch(this.base + 'debug/' + this.workspace) // not foundになることがあるので対策
       await this.debugWindow.fetch(this.base + 'dummy.html') // not foundになることがあるので対策
-      this.debugWindow.location.replace(this.base + 'debug/')
+      this.debugWindow.location.replace(this.base + 'debug/' + this.workspace)
       //this.debugWindow.location.reload()
       //handlePopupLoad()
     } else {
       this.debugWindow = window.open(this.base + 'dummy.html', 'appWindow', 'width=400,height=400')
       this.debugWindow.onload = async function () {
-        this.debugWindow.location.replace(this.base + 'debug/')
+        this.debugWindow.location.replace(this.base + 'debug/' + this.workspace)
       }.bind(this)
 
-      //await fetch(this.base + 'debug/') // not foundになることがあるので対策
-      //this.debugWindow = window.open(this.base + 'debug/', 'appWindow', 'width=400,height=400')
+      //await fetch(this.base + 'debug/' + this.workspace) // not foundになることがあるので対策
+      //this.debugWindow = window.open(this.base + 'debug/' + this.workspace, 'appWindow', 'width=400,height=400')
 
       //await new Promise(resolve => setTimeout(resolve, 500))
-      //await this.debugWindow.fetch(this.base + 'debug/') // not foundになることがあるので対策
-      //this.debugWindow.location.href = this.base + 'debug/'
+      //await this.debugWindow.fetch(this.base + 'debug/' + this.workspace) // not foundになることがあるので対策
+      //this.debugWindow.location.href = this.base + 'debug/' + this.workspace
       //this.debugWindow.addEventListener('load', handlePopupLoad)
 
       // 親ウィンドウにフォーカスを戻す
@@ -1010,8 +1032,11 @@ export default class App extends TComponent {
       await idb.tx(this.dbSchema, ['files'], 'readonly', tx => (
         idb.cursor({
           index: tx.objectStore('files').index('path'),
-          forEach: (value, cursor) => {
-            inputFiles.push(value)
+          range: IDBKeyRange.lowerBound(this.workspace),
+          forEach: fileData => {
+            if (!fileData.path.startsWith(this.workspace)) return false
+            fileData = Object.assign({}, fileData, { path: fileData.path.slice(this.workspace.length) })
+            inputFiles.push(fileData)
           }
         })
       ))
@@ -1038,7 +1063,9 @@ export default class App extends TComponent {
     await idb.tx(this.dbSchema, ['files'], 'readwrite', tx => (
       idb.cursor({
         index: tx.objectStore('files').index('path'),
-        forEach: (value, cursor) => {
+        range: IDBKeyRange.lowerBound(this.workspace),
+        forEach: (fileData, cursor) => {
+          if (!(fileData.path).startsWith(this.workspace)) return false
           cursor.delete()
         }
       })

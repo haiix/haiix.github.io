@@ -135,7 +135,11 @@ idb.cursor = function cursor ({ index, range = null, direction = 'next', forEach
     req.onsuccess = event => {
       const cursor = req.result
       if (cursor) {
-        result = forEach(cursor.value, cursor)
+        try {
+          result = forEach(cursor.value, cursor)
+        } catch (error) {
+          reject(error)
+        }
         cursor.advance(result === undefined ? 1 : 0xFFFFFFFF)
       } else {
         resolve(result)
