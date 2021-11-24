@@ -245,7 +245,7 @@ export default class App extends TComponent {
       >
         <!-- メニュー -->
         <ul class="menubar flex row" onclick="return this.handleClickMenu(event)">
-          <!--<li data-key="workspace">ワークスペース</li>-->
+          <li data-key="workspace">ワークスペース▾</li>
           <li data-key="load">開く</li>
           <li data-key="save">保存</li>
           <li data-key="run">実行 (F5)</li>
@@ -319,6 +319,16 @@ export default class App extends TComponent {
 
     await this.updateFileTree()
     if (this.firstTime) {
+      // WorkSpace作成
+      await idb.tx(this.dbSchema, ['files'], 'readwrite', tx => {
+        const store = tx.objectStore('files')
+        idb.add(store, { path: 'workspace1', label: 'ワークスペース1' })
+      })
+      await idb.tx(this.dbSchema, ['files'], 'readwrite', tx => {
+        const store = tx.objectStore('files')
+        idb.add(store, { path: 'workspace2', label: 'ワークスペース2' })
+      })
+
       await this.addFile({
         path: 'index.html',
         file: new Blob([`<!DOCTYPE html>
@@ -368,6 +378,19 @@ export default class App extends TComponent {
       const item = this.createFileTreeItem(fileName, !fileData.file)
       folder.appendChild(item)
     }
+  }
+
+  async getAllWorkSpaces () {
+    const workSpaces = []
+    await idb.tx(this.dbSchema, ['files'], 'readonly', tx => (
+      idb.cursor({
+        index: tx.objectStore('files').index('path'),
+        forEach: fileData => {
+          if (!fileData.path.includes('/')) workSpaces.push(fileData)
+        }
+      })
+    ))
+    return workSpaces
   }
 
   /**
@@ -474,7 +497,7 @@ export default class App extends TComponent {
           mode: { name: file.type, globalVars: true },
           gutters: ["CodeMirror-lint-markers"],
           lint: {
-            esversion: 6,
+            esversion: 9,
             asi: true, // セミコロンを無視 (TODO: lintスタイルを設定できるようにしたほうがいいかもしれない)
           }
         })
@@ -965,13 +988,29 @@ export default class App extends TComponent {
   }
 
   async showWorkSpaceList (event) {
+    const workspaces = await this.getAllWorkSpaces()
+
+
     const value = await createContextMenu(`
-      <div data-value="ws_1"><i class="material-icons" style="font-size: 16px;">check</i>ワークスペース1</div>
-      <div data-value="ws_2"><i class="material-icons" style="font-size: 16px;">_</i>ワークスペース2</div>
-      <hr class="disabled" />
-      <div data-value="add">追加...</div>
+      ${workspaces.map(data => `<div data-value="ws_${data.path}"><i class="material-icons" style="font-size: 16px;">${data.path + '/' === this.workspace ? 'check' : '_'}</i><span>${data.label}</span></div>`).join('')}
     `)(event)
+/*
+    const value = await createContextMenu(`
+      <div data-value="ws_workspace1"><i class="material-icons" style="font-size: 16px;">check</i><span>ワークスペース1</span></div>
+      <div data-value="ws_workspace2"><i class="material-icons" style="font-size: 16px;">_</i><span>ワークスペース2</span></div>
+      <hr class="disabled" />
+      <div data-value="add"><i class="material-icons" style="font-size: 16px;">_</i><span>追加/削除...</span></div>
+    `)(event)
+*/
+
     if (!value) return
+    if (value.slice(0, 3) === 'ws_') {
+      if (this.workspace === value.slice(3) + '/') return
+      this.closeTab(...this.tabs)
+      this.workspace = value.slice(3) + '/'
+      await this.updateFileTree()
+      return
+    }
     console.log(value)
     throw new Error('Not implemented')
   }
