@@ -51,9 +51,21 @@ class ContextMenu extends TComponent {
   constructor (attr = {}, nodes = []) {
     super()
     this._resolve = attr.resolve
-    const [event] = attr.arguments
-    this.element.style.top = event.pageY + 'px'
-    this.element.style.left = event.pageX + 'px'
+    const [a1] = attr.arguments
+
+    let px = 0
+    let py = 0
+    if (a1 instanceof MouseEvent) {
+      px = a1.pageX
+      py = a1.pageY
+    } else if (a1 instanceof HTMLElement) {
+      const rect = a1.getBoundingClientRect()
+      px = rect.left
+      py = rect.bottom
+    }
+
+    this.element.style.top = py + 'px'
+    this.element.style.left = px + 'px'
 
     const handleMouseDown = event => {
       if (this.element.contains(event.target)) return

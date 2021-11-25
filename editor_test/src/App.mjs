@@ -131,6 +131,10 @@ export default class App extends TComponent {
         border: 1px solid #9CF;
         background: #DEF;
       }
+      .${ukey} .menubar > .current {
+        border: 1px solid #9CF;
+        background: #BDF;
+      }
       .${ukey} .file-tree {
         height: 0;
         min-height: 100%;
@@ -244,7 +248,10 @@ export default class App extends TComponent {
         tabindex="-1"
       >
         <!-- メニュー -->
-        <ul class="menubar flex row" onclick="return this.handleClickMenu(event)">
+        <ul class="menubar flex row"
+          onmousedown="return this.handleMenuMouseDown(event)"
+          onmouseup="return this.handleMenuMouseUp(event)"
+        >
           <li data-key="workspace">ワークスペース▾</li>
           <li data-key="load">開く</li>
           <li data-key="save">保存</li>
@@ -322,11 +329,9 @@ export default class App extends TComponent {
       // WorkSpace作成
       await idb.tx(this.dbSchema, ['files'], 'readwrite', tx => {
         const store = tx.objectStore('files')
-        idb.add(store, { path: 'workspace1', label: 'ワークスペース1' })
-      })
-      await idb.tx(this.dbSchema, ['files'], 'readwrite', tx => {
-        const store = tx.objectStore('files')
-        idb.add(store, { path: 'workspace2', label: 'ワークスペース2' })
+        for (let i = 1; i <= 4; i++) {
+          idb.add(store, { path: 'workspace' + i, label: 'ワークスペース' + i })
+        }
       })
 
       await this.addFile({
@@ -974,10 +979,15 @@ export default class App extends TComponent {
     })
   }
 
-  handleClickMenu (event) {
+  handleMenuMouseDown (event) {
     switch (event.target.dataset.key) {
       case 'workspace':
         return this.showWorkSpaceList(event)
+    }
+  }
+
+  handleMenuMouseUp (event) {
+    switch (event.target.dataset.key) {
       case 'load':
         return this.loadProject()
       case 'save':
@@ -988,12 +998,17 @@ export default class App extends TComponent {
   }
 
   async showWorkSpaceList (event) {
-    const workspaces = await this.getAllWorkSpaces()
+    if (event.target.classList.contains('current')) return
+    event.target.classList.add('current')
 
+    const workspaces = await this.getAllWorkSpaces()
 
     const value = await createContextMenu(`
       ${workspaces.map(data => `<div data-value="ws_${data.path}"><i class="material-icons" style="font-size: 16px;">${data.path + '/' === this.workspace ? 'check' : '_'}</i><span>${data.label}</span></div>`).join('')}
-    `)(event)
+    `)(event.target)
+
+    event.target.classList.remove('current')
+
 /*
     const value = await createContextMenu(`
       <div data-value="ws_workspace1"><i class="material-icons" style="font-size: 16px;">check</i><span>ワークスペース1</span></div>
