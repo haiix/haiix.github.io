@@ -1,5 +1,10 @@
+/*
+ * This widget uses Material Icons.
+ * Please import as follows:
+ * <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+ */
+
 import TComponent from '../TComponent.mjs'
-import seq from '../seq.mjs'
 import style from '../style.mjs'
 // import * as customEventPolyfill from 'custom-event-polyfill'
 
@@ -65,7 +70,50 @@ style(`
   }
 `)
 
-class TreeItem extends TComponent {
+class TreeBase extends TComponent {
+  get firstChild () {
+    return TComponent.from(this._list.firstChild)
+  }
+
+  get lastChild () {
+    return TComponent.from(this._list.lastChild)
+  }
+
+  appendChild (item) {
+    return this.insertBefore(item, null)
+  }
+
+  insertBefore (item, ref = null) {
+    if (!(item instanceof TreeItem)) throw new Error('The object is not a tree item.')
+    this._list.insertBefore(item._item, ref ? ref._item : null)
+    const indent = this._getIndent()
+    if (!Number.isNaN(indent)) item._setIndent(indent + 1)
+    return item
+  }
+
+  removeChild (item) {
+    if (item.parentNode !== this) throw new Error('The object is not a child of this node.')
+    const tree = this.getRootNode()
+    if (tree.current && item._item.contains(tree.current._item)) {
+      tree.current = item.nextSibling || item.previousSibling || this
+    }
+    this._list.removeChild(item.element)
+  }
+
+  get childElementCount () {
+    return this._list.childElementCount
+  }
+
+  *[Symbol.iterator] () {
+    let elem = this._list.firstChild
+    while (elem) {
+      yield TComponent.from(elem)
+      elem = elem.nextSibling
+    }
+  }
+}
+
+class TreeItem extends TreeBase {
   template () {
     return `
       <li id="_item">
@@ -77,10 +125,6 @@ class TreeItem extends TComponent {
         <ul id="_list" style="display: none;"></ul>
       </li>
     `
-  }
-
-  constructor (attr, nodes) {
-    super()
   }
 
   set text (v) {
@@ -115,32 +159,8 @@ class TreeItem extends TComponent {
     return this._icon.style.color
   }
 
-  appendChild (item) {
-    this.insertBefore(item, null)
-  }
-
-  insertBefore (item, ref = null) {
-    if (!(item instanceof TreeItem)) throw new Error()
-    this._list.insertBefore(item._item, ref ? ref._item : null)
-    const indent = this._getIndent()
-    if (indent >= 0) item._setIndent(indent + 1)
-  }
-
-  removeChild (item) {
-    if (item.parentNode !== this) throw new Error()
-    const tree = this.getRootNode()
-    if (tree.current && item._item.contains(tree.current._item)) {
-      tree.current = item.nextSibling || item.previousSibling || this
-    }
-    this._list.removeChild(item.element)
-  }
-
   get parentNode () {
     return TComponent.from(this._item.parentNode.parentNode)
-  }
-
-  get firstChild () {
-    return TComponent.from(this._list.firstChild)
   }
 
   get previousSibling () {
@@ -149,18 +169,6 @@ class TreeItem extends TComponent {
 
   get nextSibling () {
     return TComponent.from(this._item.nextSibling)
-  }
-
-  get lastChild () {
-    return TComponent.from(this._list.lastChild)
-  }
-
-  getRootNode () {
-    let curr = this
-    while (curr instanceof TreeItem) {
-      curr = curr.parentNode
-    }
-    return curr instanceof Tree ? curr : null
   }
 
   async expand () {
@@ -202,30 +210,31 @@ class TreeItem extends TComponent {
     return this._expandIcon.textContent !== '_'
   }
 
+  getRootNode () {
+    let curr = this
+    while (curr instanceof TreeItem) {
+      curr = curr.parentNode
+    }
+    return curr instanceof Tree ? curr : null
+  }
+
   _setIndent (v) {
     this._container.style.paddingLeft = v + 'em'
-    for (const item of seq(this._list.childNodes).map(elem => TComponent.from(elem))) {
-      item._setIndent(v + 1)
-    }
+    for (const item of this) item._setIndent(v + 1)
   }
 
   _getIndent () {
     const paddingLeft = this._container.style.paddingLeft
-    if (paddingLeft === '') return -1
+    if (paddingLeft === '') return NaN
     return paddingLeft.slice(0, -2) >> 0
-  }
-
-  [Symbol.iterator] () {
-    return seq(this._list.childNodes).map(elem => TComponent.from(elem))[Symbol.iterator]()
   }
 }
 
-export default class Tree extends TComponent {
+export default class Tree extends TreeBase {
   template () {
     return `
       <div id="_tree" tabindex="0"
         onmousedown="this._handleTreeMousedown(event)"
-        onmousemove="event.preventDefault()"
         onkeydown="this._handleTreeKeydown(event)"
       >
         <ul id="_list"></ul>
@@ -236,7 +245,6 @@ export default class Tree extends TComponent {
   constructor (attr, nodes) {
     super()
 
-    // this.current = this.first
     this.current = null
     this.onexpand = null
     this.onmousedown = null
@@ -265,39 +273,16 @@ export default class Tree extends TComponent {
     return this.element.textContent
   }
 
-  get firstChild () {
-    return TComponent.from(this._list.firstChild)
-  }
-
-  get lastChild () {
-    return TComponent.from(this._list.lastChild)
-  }
-
-  appendChild (item) {
-    this.insertBefore(item, null)
-  }
-
   getRootNode () {
     return this
   }
 
-  insertBefore (item, ref = null) {
-    if (!(item instanceof TreeItem)) throw new Error()
-    this._list.insertBefore(item._item, ref ? ref._item : null)
-    item._setIndent(0)
-  }
-
-  removeChild (item) {
-    if (item.parentNode !== this) throw new Error()
-    const tree = this.getRootNode()
-    if (tree.current && item._item.contains(tree.current._item)) {
-      tree.current = item.nextSibling || item.previousSibling || null
-    }
-    this._list.removeChild(item.element)
+  _getIndent () {
+    return -1
   }
 
   set current (item) {
-    if (!(item instanceof TreeItem) && item != null) throw new Error()
+    if (!(item instanceof TreeItem) && item != null) throw new Error('The object is not a tree item.')
     if (this._lastCurrent === item) return
     if (this._lastCurrent != null) this._lastCurrent._item.classList.remove('current')
     this._lastCurrent = item
@@ -314,10 +299,6 @@ export default class Tree extends TComponent {
     }
     return this._lastCurrent
   }
-
-  // get first () {
-  //   return this._tree.firstChild && this._tree.firstChild.firstChild
-  // }
 
   focus () {
     this._tree.focus()
@@ -414,10 +395,6 @@ export default class Tree extends TComponent {
         }
         break
     }
-  }
-
-  [Symbol.iterator] () {
-    return seq(this._list.childNodes).map(elem => TComponent.from(elem))[Symbol.iterator]()
   }
 }
 Tree.Item = TreeItem
