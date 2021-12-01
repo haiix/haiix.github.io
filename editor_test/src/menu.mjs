@@ -77,11 +77,13 @@ class ContextMenu extends TComponent {
     }
 
     const handleMouseMove = event => {
-      if (event.target.parentNode !== this.contextMenu) return
+      if (event.target === this.contextMenu || !this.contextMenu.contains(event.target)) return
+      let target = event.target
+      while (target.parentNode !== this.contextMenu) target = target.parentNode
       const curr = this.current
-      if (curr === event.target) return
+      if (curr === target) return
       if (curr) curr.classList.remove('current')
-      event.target.classList.add('current')
+      target.classList.add('current')
     }
 
     const handleKeyDown = event => {

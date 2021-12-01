@@ -11,22 +11,38 @@ class ContextMenu extends TComponent {
         position: absolute;
         background: #FFF;
         border: 1px solid #999;
+        padding: 2px 0;
         box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
       }
       .${ukey} > * {
         display: block;
-        line-height: 22px;
+        line-height: 20px;
         padding: 0 10px;
         border: 1px solid transparent;
         white-space: nowrap;
       }
-      .${ukey} > .current {
+      .${ukey} > * > * {
+        vertical-align: middle;
+      }
+      .${ukey} > * > .material-icons {
+        font-size: 16px;
+        position: relative;
+        left: -6px;
+      }
+      .${ukey} > hr {
+        border-top: 1px solid #CCC;
+        margin: 4px;
+      }
+      .${ukey} > .current:not(.disabled) {
         border: 1px solid #BDF;
         background: #DEF;
       }
     `)
     return `
-      <div class="${ukey}" id="contextMenu" onmousedown="return this.handleMouseDown(event)" onmouseup="return this.handleMouseUp(event)" onmouseleave="return this.handleMouseLeave(event)">
+      <div class="${ukey}" id="contextMenu"
+        onmousedown="return this.handleMouseDown(event)"
+        onmouseup="return this.handleMouseUp(event)"
+        onmouseleave="return this.handleMouseLeave(event)">
         ${this.menuTemplate()}
       </div>
     `
@@ -35,9 +51,21 @@ class ContextMenu extends TComponent {
   constructor (attr = {}, nodes = []) {
     super()
     this._resolve = attr.resolve
-    const [event] = attr.arguments
-    this.element.style.top = event.pageY + 'px'
-    this.element.style.left = event.pageX + 'px'
+    const [a1] = attr.arguments
+
+    let px = 0
+    let py = 0
+    if (a1 instanceof MouseEvent) {
+      px = a1.pageX
+      py = a1.pageY
+    } else if (a1 instanceof HTMLElement) {
+      const rect = a1.getBoundingClientRect()
+      px = rect.left
+      py = rect.bottom
+    }
+
+    this.element.style.top = py + 'px'
+    this.element.style.left = px + 'px'
 
     const handleMouseDown = event => {
       if (this.element.contains(event.target)) return
@@ -49,11 +77,13 @@ class ContextMenu extends TComponent {
     }
 
     const handleMouseMove = event => {
-      if (event.target.parentNode !== this.contextMenu) return
+      if (event.target === this.contextMenu || !this.contextMenu.contains(event.target)) return
+      let target = event.target
+      while (target.parentNode !== this.contextMenu) target = target.parentNode
       const curr = this.current
-      if (curr === event.target) return
+      if (curr === target) return
       if (curr) curr.classList.remove('current')
-      event.target.classList.add('current')
+      target.classList.add('current')
     }
 
     const handleKeyDown = event => {
@@ -70,13 +100,13 @@ class ContextMenu extends TComponent {
           {
             const last = this.contextMenu.lastElementChild
             if (curr) {
-              const prev = curr.previousElementSibling
               curr.classList.remove('current')
-              if (prev) {
-                prev.classList.add('current')
-              } else {
-                last.classList.add('current')
-              }
+              let prev = curr
+              do {
+                prev = prev.previousElementSibling || last
+                if (!prev.classList.contains('disabled')) break
+              } while (prev !== curr)
+              prev.classList.add('current')
             } else {
               last.classList.add('current')
             }
@@ -86,13 +116,13 @@ class ContextMenu extends TComponent {
           {
             const first = this.contextMenu.firstElementChild
             if (curr) {
-              const next = curr.nextElementSibling
               curr.classList.remove('current')
-              if (next) {
-                next.classList.add('current')
-              } else {
-                first.classList.add('current')
-              }
+              let next = curr
+              do {
+                next = next.nextElementSibling || first
+                if (!next.classList.contains('disabled')) break
+              } while (next !== curr)
+              next.classList.add('current')
             } else {
               first.classList.add('current')
             }
@@ -124,7 +154,13 @@ class ContextMenu extends TComponent {
   }
 
   handleMouseUp (event) {
-    this.resolve(event.target.dataset.value)
+    let target = event.target
+    while (target && target.parentNode !== this.element) {
+      target = target.parentNode
+    }
+    if (target && !target.classList.contains('disabled')) {
+      this.resolve(target.dataset.value)
+    }
   }
 
   handleMouseLeave (event) {
