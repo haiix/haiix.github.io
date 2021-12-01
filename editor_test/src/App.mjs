@@ -131,7 +131,7 @@ export default class App extends TComponent {
         border: 1px solid #9CF;
         background: #DEF;
       }
-      .${ukey} .menubar > .current {
+      .${ukey} .menubar > .selected {
         border: 1px solid #9CF;
         background: #BDF;
       }
@@ -203,6 +203,9 @@ export default class App extends TComponent {
       .${ukey} .tabs > li .close-button:hover {
         border: 1px solid #CCC;
       }
+      .${ukey} .views {
+        background: #EEE;
+      }
       .${ukey} .views > li {
         width: 0;
         height: 0;
@@ -253,8 +256,9 @@ export default class App extends TComponent {
           onmouseup="return this.handleMenuMouseUp(event)"
         >
           <li data-key="workspace">ワークスペース▾</li>
-          <li data-key="load">開く</li>
-          <li data-key="save">保存</li>
+          <li data-key="newProject">新規</li>
+          <li data-key="loadProject">開く</li>
+          <li data-key="saveProject">保存</li>
           <li data-key="run">実行 (F5)</li>
         </ul>
 
@@ -693,8 +697,8 @@ export default class App extends TComponent {
     }[ext] || null
   }
 
-  async command (value) {
-    switch (value) {
+  async command (command) {
+    switch (command) {
       case 'newFile':
         {
           const name = await this.inputFileName('ファイル名', '', '新規ファイル')
@@ -735,7 +739,7 @@ export default class App extends TComponent {
       case 'open':
         return this.openTab(this.getFileTreePath())
       default:
-        throw new Error('Undefiend command: ' + value)
+        throw new Error('Undefiend command: ' + command)
     }
   }
 
@@ -820,6 +824,7 @@ export default class App extends TComponent {
       const item = this.getFileTreeItem(prevPath)
       item.text = name
       this.fileTreeInsert(folder, item)
+      if (folder !== this.fileTree) folder.expand()
     }
 
     //await this.updateFileTree()
@@ -833,7 +838,6 @@ export default class App extends TComponent {
         : (!item.isExpandable && item.text > fileName)
     ))
     parentFolder.insertBefore(targetItem, ref)
-    if (parentFolder.isExpandable) parentFolder.expand()
     return targetItem
   }
 
@@ -980,26 +984,45 @@ export default class App extends TComponent {
   }
 
   handleMenuMouseDown (event) {
-    switch (event.target.dataset.key) {
+    const command = event.target.dataset.key
+    switch (command) {
       case 'workspace':
         return this.showWorkSpaceList(event)
     }
   }
 
-  handleMenuMouseUp (event) {
-    switch (event.target.dataset.key) {
-      case 'load':
+  async handleMenuMouseUp (event) {
+    const command = event.target.dataset.key
+    if (command == null) return
+    switch (command) {
+      case 'workspace':
+        return
+      case 'newProject':
+        if (!await confirm('現在のプロジェクトを閉じますか?\n(保存していないデータは失われます)')) {
+          return
+        }
+        return this.newProject()
+      case 'loadProject':
+        if (!await confirm('現在のプロジェクトを閉じて、別のプロジェクトを開きますか?\n(保存していないデータは失われます)')) {
+          return
+        }
         return this.loadProject()
-      case 'save':
+      case 'saveProject':
         return this.saveProject()
       case 'run':
         return this.run(event)
+      default:
+        throw new Error('Undefiend command: ' + command)
     }
   }
 
+  /**
+   * ワークスペースのプルダウンメニュー
+   * @param  event  マウスイベント
+   */
   async showWorkSpaceList (event) {
-    if (event.target.classList.contains('current')) return
-    event.target.classList.add('current')
+    if (event.target.classList.contains('selected')) return
+    event.target.classList.add('selected')
 
     const workspaces = await this.getAllWorkSpaces()
 
@@ -1007,16 +1030,16 @@ export default class App extends TComponent {
       ${workspaces.map(data => `<div data-value="ws_${data.path}"><i class="material-icons" style="font-size: 16px;">${data.path + '/' === this.workspace ? 'check' : '_'}</i><span>${data.label}</span></div>`).join('')}
     `)(event.target)
 
-    event.target.classList.remove('current')
-
 /*
     const value = await createContextMenu(`
       <div data-value="ws_workspace1"><i class="material-icons" style="font-size: 16px;">check</i><span>ワークスペース1</span></div>
       <div data-value="ws_workspace2"><i class="material-icons" style="font-size: 16px;">_</i><span>ワークスペース2</span></div>
       <hr class="disabled" />
       <div data-value="add"><i class="material-icons" style="font-size: 16px;">_</i><span>追加/削除...</span></div>
-    `)(event)
+    `)(event.target)
 */
+
+    event.target.classList.remove('selected')
 
     if (!value) return
     if (value.slice(0, 3) === 'ws_') {
@@ -1030,7 +1053,9 @@ export default class App extends TComponent {
     throw new Error('Not implemented')
   }
 
-  // 別ウィンドウで「index.html」を開く
+  /**
+   * 別ウィンドウで「index.html」を開く
+   */
   async run () {
     // 実行前に保存
     await Promise.all(seq(this.tabs).map(tab => this.saveTab(tab)))
@@ -1099,20 +1124,11 @@ export default class App extends TComponent {
   }
 
   /**
-   * プロジェクトのZipファイルをローカルマシンから開く
+   * 現在のプロジェクトを閉じる
    */
-  async loadProject () {
-    if (!await confirm('現在のプロジェクトを閉じて、別のプロジェクトを開きますか?\n(保存していないデータは失われます)')) {
-      return
-    }
-
-    const ezip = new EZip()
-    const files = await ezip.load()
-
-    if (!files) return
-
+  async newProject () {
+    // タブをすべて閉じる
     this.closeTab(...this.tabs)
-
     // 現在のファイルリストを削除
     await idb.tx(this.dbSchema, ['files'], 'readwrite', tx => (
       idb.cursor({
@@ -1124,8 +1140,18 @@ export default class App extends TComponent {
         }
       })
     ))
+    // ツリーを空にする
     this.fileTree.textContent = ''
+  }
 
+  /**
+   * プロジェクトのZipファイルをローカルマシンから開く
+   */
+  async loadProject () {
+    const ezip = new EZip()
+    const files = await ezip.load()
+    if (!files) return
+    this.newProject()
     this.addFile(...files)
   }
 
