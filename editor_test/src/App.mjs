@@ -238,6 +238,11 @@ export default class App extends TComponent {
         color: #999;
         font-size: 9px;
       }
+      .cm-ideographic-space::before {
+        position: absolute;
+        content: '□';
+        color: #CCC;
+      }
       .CodeMirror-hints {
         font-size: 14px;
       }
@@ -510,6 +515,19 @@ export default class App extends TComponent {
             asi: true, // セミコロンを無視 (TODO: lintスタイルを設定できるようにしたほうがいいかもしれない)
           }
         })
+
+        // 全角スペースの可視化
+        // https://codepen.io/natuan/pen/jzqMZE
+        // https://codemirror.net/doc/manual.html#addOverlay
+        cm.addOverlay({
+          flattenSpans: false,
+          token (stream, state) {
+            if (stream.match('　')) return 'ideographic-space'
+            while (stream.next() != null && !stream.match('　', false)) {}
+            return null
+          }
+        })
+
         cm.on('keydown', (cm, event) => {
           switch (event.keyCode) {
             // 改行時、右側スペースをトリムする
