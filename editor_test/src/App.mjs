@@ -506,7 +506,7 @@ export default class App extends TComponent {
           mode: { name: file.type, globalVars: true },
           gutters: ["CodeMirror-lint-markers"],
           lint: {
-            esversion: 9,
+            esversion: 11,
             asi: true, // セミコロンを無視 (TODO: lintスタイルを設定できるようにしたほうがいいかもしれない)
           }
         })

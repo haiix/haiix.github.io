@@ -22,7 +22,7 @@ const saveDialog = createDialog(class extends Dialog {
   }
 
   titleTemplate () {
-    return '保存'
+    return 'プロジェクトを保存'
   }
 
   bodyTemplate () {
@@ -53,7 +53,7 @@ const saveDialog = createDialog(class extends Dialog {
       <form id="form" class="${ukey}" onsubmit="event.preventDefault()">
         <label>
           <span>ファイル名:</span>
-          <input name="name" />
+          <input name="name" /> .zip
         </label>
         <details id="details">
           <summary tabindex="-1">オプション</summary>
@@ -95,7 +95,8 @@ export const passwordPrompt = createDialog(class extends Prompt {
 
 export default class EZip {
   async save (callback) {
-    const formValues = await saveDialog('', opendFileName, opendFilePassword)
+    const name = opendFileName.slice(-4) === '.zip' ? opendFileName.slice(0, -4) : opendFileName
+    const formValues = await saveDialog('', name, opendFilePassword)
     if (!formValues) return
 
     if (formValues.password !== formValues['confirm-password']) {
