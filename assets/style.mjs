@@ -14,7 +14,7 @@ export function unlock () {
   styles.length = 0
 }
 
-export default function style (text) {
-  styles.push(text)
+export default function style (...text) {
+  styles.push(...text)
   if (!locked) unlock()
 }
