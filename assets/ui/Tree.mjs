@@ -237,7 +237,7 @@ class TreeItem extends TreeBase {
   getPath () {
     const path = []
     let curr = this
-    while (!(curr instanceof TreeItem)) {
+    while (curr instanceof TreeItem) {
       path.unshift(curr)
       curr = curr.parentNode
     }
