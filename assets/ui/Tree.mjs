@@ -71,6 +71,16 @@ style(`
 `)
 
 class TreeBase extends TComponent {
+  set textContent (value) {
+    if (value !== '') throw new Error('Only empty string can be set.')
+    this._list.textContent = ''
+    this.current = null
+  }
+
+  get textContent () {
+    return this.element.textContent
+  }
+
   get firstChild () {
     return TComponent.from(this._list.firstChild)
   }
@@ -115,6 +125,7 @@ class TreeBase extends TComponent {
 
 class TreeItem extends TreeBase {
   template () {
+    this.tagName = 'ui-tree-item'
     return `
       <li id="_item">
         <div id="_container">
@@ -125,16 +136,6 @@ class TreeItem extends TreeBase {
         <ul id="_list" style="display: none;"></ul>
       </li>
     `
-  }
-
-  set textContent (value) {
-    if (value !== '') throw new Error('Only empty string can be set.')
-    this._list.textContent = ''
-    this.current = null
-  }
-
-  get textContent () {
-    return this.element.textContent
   }
 
   set text (v) {
@@ -258,6 +259,7 @@ class TreeItem extends TreeBase {
 
 export default class Tree extends TreeBase {
   template () {
+    this.tagName = 'ui-tree'
     return `
       <div id="_tree" tabindex="0"
         onmousedown="this._handleTreeMousedown(event)"

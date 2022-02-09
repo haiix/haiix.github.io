@@ -115,7 +115,7 @@ export default class App extends TComponent {
             <textarea id="_textarea">{"a":1,"b":{"c":2,"d":{"e":3,"f":4}}}</textarea>
           </t-li>
           <t-li value="tree">
-            <Tree id="_tree" class="tree" onexpand="this._handleTreeExpand(event)" />
+            <ui-tree id="_tree" class="tree" onexpand="this._handleTreeExpand(event)" />
           </t-li>
         </t-ul>
       </div>

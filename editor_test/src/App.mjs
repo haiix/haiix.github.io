@@ -269,7 +269,7 @@ export default class App extends TComponent {
 
         <div class="flex row fit">
           <!-- ファイルリスト -->
-          <Tree id="fileTree" class="file-tree" style="width: 160px;"
+          <ui-tree id="fileTree" class="file-tree" style="width: 160px;"
             ondblclick="return this.handleFileTreeDoubleClick(event)"
             oncontextmenu="return this.handleFileTreeContextMenu(event)"
             onmousedown="return this.handleFileTreeMouseDown(event)"
