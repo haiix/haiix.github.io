@@ -127,6 +127,16 @@ class TreeItem extends TreeBase {
     `
   }
 
+  set textContent (value) {
+    if (value !== '') throw new Error('Only empty string can be set.')
+    this._list.textContent = ''
+    this.current = null
+  }
+
+  get textContent () {
+    return this.element.textContent
+  }
+
   set text (v) {
     this._text.textContent = v
   }
@@ -184,6 +194,12 @@ class TreeItem extends TreeBase {
   }
 
   async collapse () {
+    const root = this.getRootNode()
+    if (root.oncollapse) {
+      this._expandIcon.textContent = 'autorenew'
+      const event = new window.CustomEvent('collapse', { detail: this })
+      await root.oncollapse(event)
+    }
     this._expandIcon.textContent = 'chevron_right'
     this._list.style.display = 'none'
     this._item.classList.remove('expanded')
@@ -218,6 +234,16 @@ class TreeItem extends TreeBase {
     return curr instanceof Tree ? curr : null
   }
 
+  getPath () {
+    const path = []
+    let curr = this
+    while (!(curr instanceof TreeItem)) {
+      path.unshift(curr)
+      curr = curr.parentNode
+    }
+    return path
+  }
+
   _setIndent (v) {
     this._container.style.paddingLeft = v + 'em'
     for (const item of this) item._setIndent(v + 1)
@@ -247,13 +273,14 @@ export default class Tree extends TreeBase {
 
     this.current = null
     this.onexpand = null
+    this.oncollapse = null
     this.onmousedown = null
     this.onkeydown = null
 
     for (const [key, value] of Object.entries(attr)) {
       if (typeof value === 'string') {
         this._tree.setAttribute(key, value)
-      } else if (key.slice(0, 2) === 'on' && key !== 'onexpand' && key !== 'onmousedown' && key !== 'onkeydown') {
+      } else if (key.slice(0, 2) === 'on' && key !== 'onexpand' && key !== 'oncollapse' && key !== 'onmousedown' && key !== 'onkeydown') {
         this._tree[key] = value
       } else {
         this[key] = value
@@ -261,16 +288,6 @@ export default class Tree extends TreeBase {
     }
 
     this._tree.classList.add(CLASS_NAME)
-  }
-
-  set textContent (value) {
-    if (value !== '') throw new Error('Only empty string can be set.')
-    this._list.textContent = ''
-    this.current = null
-  }
-
-  get textContent () {
-    return this.element.textContent
   }
 
   getRootNode () {
