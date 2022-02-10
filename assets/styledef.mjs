@@ -7,6 +7,10 @@ html, body {
   user-select: none;
   cursor: default;
 }
+button {
+  font-family: inherit;
+  font-size: inherit;
+}
 `
 
 export const fullscreen = `

@@ -1,6 +1,8 @@
+//import CodeMirror from 'codemirror'
 import TComponent from '/assets/TComponent.mjs'
 import seq from '/assets/seq.mjs'
 import style from '/assets/style.mjs'
+import * as styleDef from '/assets/styledef.mjs'
 //import * as idb from '/assets/idb.mjs'
 import hold from '/assets/hold.mjs'
 import Tree from '/assets/ui/Tree.mjs'
@@ -9,35 +11,7 @@ import { alert, confirm, prompt } from '/assets/ui/dialog.mjs'
 import { createContextMenu } from './menu.mjs'
 import EZip from './EZip.mjs'
 
-style(`
-  .flex.row {
-    display: flex;
-  }
-  .flex.column {
-    display: flex;
-    flex-direction: column;
-  }
-  .flex.row > *, .flex.column > * {
-    flex: none;
-  }
-  .flex.fit {
-    flex: auto;
-  }
-
-  html, body {
-    font-family: "Segoe UI", "Yu Gothic UI", "Meiryo UI", "MS UI Gothic", monospace;
-    font-size: 9pt;
-    color: #000;
-    background: #FFF;
-    user-select: none;
-    cursor: default;
-  }
-
-  button {
-    font-family: inherit;
-    font-size: inherit;
-  }
-`)
+style(styleDef.ui, styleDef.fullscreen, styleDef.flex)
 
 function *ancestorNodes (node) {
   while (node) {
@@ -108,12 +82,6 @@ export default class App extends TComponent {
     const ukey = 'my-app'
     style(`
       .${ukey} {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        overflow: auto;
         outline: none;
       }
       .${ukey} .menubar {
@@ -249,7 +217,7 @@ export default class App extends TComponent {
     `)
     this.uses(Tree, TUl)
     return `
-      <div class="${ukey} flex column"
+      <div class="${ukey} fullscreen flex column"
         ondragover="return this.handleDragOver(event)"
         ondrop="return this.handleDrop(event)"
         onkeydown="return this.handleKeyDown(event)"

@@ -1,12 +1,15 @@
 import TComponent from '@haiix/TComponent'
 import * as zip from '@zip.js/zip.js'
 import style from '/assets/style.mjs'
+import * as styleDef from '/assets/styledef.mjs'
 import hold from '/assets/hold.mjs'
 import { Dialog, createDialog, alert, confirm, prompt, Prompt, openFile } from '/assets/ui/dialog.mjs'
 import { createContextMenu } from './menu.mjs'
 import List from './List.mjs'
 
 const EXT = '.ezip'
+
+style(styleDef.ui, styleDef.fullscreen, styleDef.flex)
 
 function isMobile () {
   const regexp = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i
@@ -111,45 +114,12 @@ export default class App extends TComponent {
     const ukey = 'my-app'
     this.uses(List)
     style(`
-      .flex.row {
-        display: flex;
-      }
-      .flex.column {
-        display: flex;
-        flex-direction: column;
-      }
-      .flex.row > *, .flex.column > * {
-        flex: none;
-      }
-      .flex.stretch {
-        flex: auto;
-      }
-
-      body {
-        font-family: "Segoe UI", "Yu Gothic UI", "Meiryo UI", "MS UI Gothic", "Yu Gothic", monospace;
-        font-size: 9pt;
-        color: #000;
-        background: #FFF;
-        user-select: none;
-        cursor: default;
-      }
-      button {
-        font-family: inherit;
-        font-size: inherit;
-      }
       ul {
         margin: 0;
         padding: 0;
         list-style-type: none;
       }
 
-      .${ukey} {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-      }
       .${ukey} .menu {
         background: #EEE;
         border-bottom: 1px solid #CCC;
@@ -211,7 +181,7 @@ export default class App extends TComponent {
       }
     `)
     return `
-      <div class="${ukey} flex column"
+      <div class="${ukey} fullscreen flex column"
         ondragover="return this.handleDragOver(event)"
         ondrop="return this.handleDrop(event)"
         onkeydown="return this.handleKeyDown(event)"
@@ -224,15 +194,15 @@ export default class App extends TComponent {
           <li data-value="open">暗号化されたファイルを開く</li>
           <li data-value="save">暗号化して保存</li>
         </ul>
-        <div class="flex stretch row" style="position: relative; z-index: 0;">
+        <div class="flex fit row" style="position: relative; z-index: 0;">
           <div id="fileListContainer" class="file-list-container"
             oncontextmenu="return this.handleFileListContextMenu(event)"
           >
             <p id="placeholder" class="file-list-placeholder">ここにファイルをドラッグ&ドロップするか、右クリックメニューよりファイルを追加してください。</p>
-            <list id="fileList" class="file-list" onchange="return this.handleFileListChange()" />
+            <list id="fileList" class="file-list" style="display: none;" onchange="return this.handleFileListChange()" />
             <div class="file-list-resize-handle" onmousedown="return this.handleFileListResize(event)"></div>
           </div>
-          <div id="view" class="flex stretch" style="position: relative;">
+          <div id="view" class="flex fit" style="position: relative;">
             <iframe id="iframe" title="view" style="width: 0; min-width: 100%; height: 0; min-height: 100%; border: none;" ></iframe>
           </div>
         </div>
@@ -457,6 +427,7 @@ export default class App extends TComponent {
     }
     if (this.fileList.children.length > 0) {
       this.placeholder.style.display = 'none'
+      this.fileList.element.style.display = ''
     }
     this.fileListContainer.focus()
   }
@@ -468,6 +439,7 @@ export default class App extends TComponent {
     }
     if (this.fileList.children.length === 0) {
       this.placeholder.style.display = ''
+      this.fileList.element.style.display = 'none'
     }
     this.fileListContainer.focus()
   }

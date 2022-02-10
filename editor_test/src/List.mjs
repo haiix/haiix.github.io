@@ -4,6 +4,7 @@ import seq from '/assets/seq.mjs'
 
 export class TUl extends TComponent {
   template () {
+    this.tagName = 't-ul'
     return '<ul></ul>'
   }
 
@@ -97,6 +98,7 @@ export class TUl extends TComponent {
 
 export class TLi extends TComponent {
   template () {
+    this.tagName = 't-li'
     return '<li></li>'
   }
 

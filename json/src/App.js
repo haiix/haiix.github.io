@@ -1,24 +1,13 @@
 import TComponent from '@haiix/TComponent'
 import style from '/assets/style.mjs'
+import * as styleDef from '/assets/styledef.mjs'
 import Tree from '/assets/ui/Tree.mjs'
 import { TUl, TLi } from './List.js'
 import * as customEventPolyfill from 'custom-event-polyfill'
 
-style(`
-  .app {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: #FFF;
-    color: #000;
-    font-family: "Meiryo UI";
-    font-size: 9pt;
-    user-select: none;
-    cursor: default;
-  }
+style(styleDef.ui, styleDef.fullscreen, styleDef.flex)
 
+style(`
   ul.app, .app ul {
     margin: 0;
     padding: 0;
@@ -70,24 +59,6 @@ style(`
     display: none;
   }
 
-  .composition,
-  .composition .column,
-  .composition .row {
-    display: flex;
-  }
-  .composition.column,
-  .composition .column {
-    flex-direction: column;
-  }
-  .composition > *,
-  .composition .row > *,
-  .composition .column > * {
-    flex: none;
-  }
-  .composition .stretch {
-    flex: auto;
-  }
-
   .overlap {
     overflow: auto;
   }
@@ -105,12 +76,12 @@ export default class App extends TComponent {
   template () {
     this.uses(TUl, TLi, Tree)
     return `
-      <div class="app composition column">
-        <t-ul id="_tab" class="row tab" onchange="this._handleChangeTab(event)">
+      <div class="app fullscreen flex composition column">
+        <t-ul id="_tab" class="flex row tab" onchange="this._handleChangeTab(event)">
           <t-li value="text" current>テキスト</t-li>
           <t-li value="tree">ツリー</t-li>
         </t-ul>
-        <t-ul id="_view" class="stretch overlap">
+        <t-ul id="_view" class="flex fit overlap">
           <t-li value="text" current>
             <textarea id="_textarea">{"a":1,"b":{"c":2,"d":{"e":3,"f":4}}}</textarea>
           </t-li>
