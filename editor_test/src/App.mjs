@@ -81,9 +81,6 @@ export default class App extends TComponent {
   template () {
     const ukey = 'my-app'
     style(`
-      .${ukey} {
-        outline: none;
-      }
       .${ukey} .menubar {
         margin: 0;
         padding: 0;
@@ -283,6 +280,7 @@ export default class App extends TComponent {
 
     this.debugWindow = null
 
+    window.navigator.serviceWorker.register('./sw.js')
     window.addEventListener('beforeunload', this.handleClose.bind(this))
   }
 
@@ -299,8 +297,6 @@ export default class App extends TComponent {
     //  idb.put(store, { key: 'base', value: this.base })
     //})
 
-    await window.navigator.serviceWorker.register('./sw.js')
-
     await this.updateFileTree()
     if (this.firstTime) {
       // WorkSpace作成
@@ -314,7 +310,7 @@ export default class App extends TComponent {
       await this.addFile({
         path: 'index.html',
         file: new Blob([`<!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
   <head>
     <meta charset="UTF-8" />
     <title>My App</title>
@@ -1063,12 +1059,12 @@ export default class App extends TComponent {
 
     if (this.debugWindow && !this.debugWindow.closed) {
       //await this.debugWindow.fetch(this.base + 'debug/' + this.workspace) // not foundになることがあるので対策
-      await this.debugWindow.fetch(this.base + 'dummy.html') // not foundになることがあるので対策
+      await this.debugWindow.fetch(this.base + 'blank') // not foundになることがあるので対策
       this.debugWindow.location.replace(this.base + 'debug/' + this.workspace)
       //this.debugWindow.location.reload()
       //handlePopupLoad()
     } else {
-      this.debugWindow = window.open(this.base + 'dummy.html', 'appWindow', 'width=400,height=400')
+      this.debugWindow = window.open(this.base + 'blank', 'appWindow', 'width=400,height=400')
       this.debugWindow.onload = async function () {
         this.debugWindow.location.replace(this.base + 'debug/' + this.workspace)
       }.bind(this)

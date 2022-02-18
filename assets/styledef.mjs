@@ -21,6 +21,7 @@ export const fullscreen = `
   right: 0;
   bottom: 0;
   overflow: auto;
+  outline: none;
 }
 `
 
