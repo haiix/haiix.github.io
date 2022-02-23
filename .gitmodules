@@ -7,3 +7,6 @@
 [submodule "aseq"]
 	path = aseq
 	url = https://github.com/haiix/aseq.git
+[submodule "editor"]
+	path = editor
+	url = git@github.com:haiix/editor
