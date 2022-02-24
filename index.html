@@ -12,6 +12,9 @@
 import TComponent from './TComponent/TComponent.mjs'
 import initApp from './assets/initApp.mjs'
 
+const user = 'haiix'
+const repos = 'haiix.github.io'
+
 class App extends TComponent {
   template () {
     return `
@@ -60,7 +63,7 @@ class App extends TComponent {
         item.path === 'favicon.ico' ||
         item.path === 'index.html' ||
         item.path === 'assets' ||
-        (item.type !== 'tree' && item.type !== 'blob')
+        (item.type !== 'tree' && item.type !== 'commit' && item.type !== 'blob')
       ))
       .map(item => (
         item.type === 'tree' ?
@@ -92,7 +95,7 @@ class App extends TComponent {
   }
 
   async githubApi (path) {
-    const res = await fetch('https://api.github.com/repos/haiix/haiix.github.io/' + path)
+    const res = await fetch(`https://api.github.com/repos/${user}/${repos}/${path}`)
     if (res.status !== 200) throw new Error(res.status + ' ' + res.statusText)
     return await res.json()
   }
@@ -105,7 +108,7 @@ class App extends TComponent {
 
 initApp(App)
     </script>
-    <script nomodule src="https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.4/fetch.min.js"></script>
+    <script nomodule src="https://cdnjs.cloudflare.com/ajax/libs/fetch/3.6.2/fetch.min.js"></script>
     <script nomodule src="./assets/nomodule.js"></script>
   </body>
 </html>
