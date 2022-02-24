@@ -49,7 +49,7 @@ function createExecWorker () {
         'ImageData',
         'OffscreenCanvas', 'OffscreenCanvasRenderingContext2D',
         'createImageBitmap', 'ImageBitmap',
-        //'AbortSignal', 'AbortController',
+        'AbortSignal', 'AbortController',
         //'console' // debug
       ]
 
@@ -120,6 +120,12 @@ function createExecWorker () {
       try {
         // 実行
         let retVal = await new Function(event.data)()
+        if (retVal instanceof OffscreenCanvas) {
+          retVal = retVal.getContext('2d')
+        }
+        if (retVal instanceof OffscreenCanvasRenderingContext2D) {
+          retVal = retVal.getImageData(0, 0, retVal.canvas.width, retVal.canvas.height)
+        }
         if (retVal instanceof ImageData) {
           if (retVal.width > 256 || retVal.height > 256) {
             throw new Error('Too large ImageData')

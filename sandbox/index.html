@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <meta charset="UTF-8" />
 <script type="module">
-import TComponent from '../TComponent/TComponent.mjs'
-import style from '../assets/style.mjs'
-import initApp from '../assets/initApp.mjs'
+import TComponent from '/assets/TComponent.mjs'
+import style from '/assets/style.mjs'
+import initApp from '/assets/initApp.mjs'
 import execCode from './execCode.mjs'
 
 class App extends TComponent {
@@ -54,15 +54,7 @@ class App extends TComponent {
     try {
       const retVal = await execCode(this.code.value, { signal: abortController.signal, timeout: 10000 })
       if (retVal instanceof ImageData) {
-        if (!this.canvas) {
-          this.setText('')
-          this.canvas = document.createElement('canvas')
-          this.result.appendChild(this.canvas)
-          this.ctx = this.canvas.getContext('2d')
-        }
-        this.canvas.width = retVal.width
-        this.canvas.height = retVal.height
-        this.ctx.putImageData(retVal, 0, 0)
+        this.setCanvas(retVal)
       } else {
         this.setText(retVal)
       }
@@ -74,6 +66,18 @@ class App extends TComponent {
         this.prevAbortController = null
       }
     }
+  }
+
+  setCanvas (imageData) {
+    if (!this.canvas) {
+      this.setText('')
+      this.canvas = document.createElement('canvas')
+      this.result.appendChild(this.canvas)
+      this.ctx = this.canvas.getContext('2d')
+    }
+    this.canvas.width = imageData.width
+    this.canvas.height = imageData.height
+    this.ctx.putImageData(imageData, 0, 0)
   }
 
   setText (text, color = '#000') {
