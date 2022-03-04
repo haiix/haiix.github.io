@@ -63,6 +63,7 @@ class App extends TComponent {
         item.path === 'favicon.ico' ||
         item.path === 'index.html' ||
         item.path === 'assets' ||
+        item.path === 'editor_test' ||
         (item.type !== 'tree' && item.type !== 'commit' && item.type !== 'blob')
       ))
       .map(item => (
