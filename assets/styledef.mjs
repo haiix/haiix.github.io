@@ -38,7 +38,6 @@ ul.flex.row, ul.flex.column {
   padding: 0;
   list-style-type: none;
 }
-
 .flex.row > *, .flex.column > * {
   flex: none;
 }
