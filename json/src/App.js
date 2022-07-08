@@ -1,7 +1,7 @@
 import TComponent from '@haiix/TComponent'
 import style from '/assets/style.mjs'
 import * as styleDef from '/assets/styledef.mjs'
-import Tree from '/assets/ui/Tree.mjs'
+import TTree from '/assets/ui/TTree.mjs'
 import { TUl, TLi } from './List.js'
 import * as customEventPolyfill from 'custom-event-polyfill'
 
@@ -74,7 +74,7 @@ style(`
 
 export default class App extends TComponent {
   template () {
-    this.uses(TUl, TLi, Tree)
+    this.uses(TUl, TLi, TTree)
     return `
       <div class="app fullscreen flex composition column">
         <t-ul id="_tab" class="flex row tab" onchange="this._handleChangeTab(event)">
@@ -86,7 +86,7 @@ export default class App extends TComponent {
             <textarea id="_textarea">{"a":1,"b":{"c":2,"d":{"e":3,"f":4}}}</textarea>
           </t-li>
           <t-li value="tree">
-            <ui-tree id="_tree" class="tree" onexpand="this._handleTreeExpand(event)" />
+            <t-tree id="_tree" class="tree" onexpand="this._handleTreeExpand(event)" />
           </t-li>
         </t-ul>
       </div>
@@ -156,7 +156,7 @@ export default class App extends TComponent {
 
   _createTreeItem (key, val, isRoot = false) {
     const isExpandable = typeof val === 'object' && val != null
-    const item = new Tree.Item()
+    const item = new TTree.Item()
     if (Array.isArray(val)) {
       item.html = key + '<small>: [ ' + val.map(this._toS).join(', ') + ' ]</small>'
     } else if (isExpandable) {
