@@ -5,6 +5,7 @@ html, body {
   color: #000;
   background: #FFF;
   user-select: none;
+  -webkit-user-select: none; /* for Safari 3+, Safari on iOS 3+ */
   cursor: default;
 }
 button {
