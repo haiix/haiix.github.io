@@ -3,7 +3,7 @@ import * as zip from '@zip.js/zip.js'
 import style from '/assets/style.mjs'
 import * as styleDef from '/assets/styledef.mjs'
 import hold from '/assets/hold.mjs'
-import { Dialog, createDialog, alert, confirm, prompt, Prompt, openFile } from '/assets/ui/dialog.mjs'
+import TDialog, { alert, confirm, prompt, Prompt, openFile } from '/assets/ui/TDialog.mjs'
 import { createContextMenu } from './menu.mjs'
 import List from './List.mjs'
 
@@ -16,7 +16,7 @@ function isMobile () {
   return (window.navigator.userAgent.search(regexp) !== -1)
 }
 
-export const passwordPrompt = createDialog(class extends Prompt {
+export const passwordPrompt = TDialog.create(class extends Prompt {
   bodyTemplate () {
     return `
       <form onsubmit="event.preventDefault()">
@@ -27,7 +27,7 @@ export const passwordPrompt = createDialog(class extends Prompt {
   }
 })
 
-const saveDialog = createDialog(class extends Dialog {
+const saveDialog = TDialog.create(class extends TDialog {
   titleTemplate () {
     return '暗号化して保存'
   }

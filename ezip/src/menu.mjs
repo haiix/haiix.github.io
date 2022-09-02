@@ -1,6 +1,6 @@
 import TComponent from '/assets/TComponent.mjs'
 import style from '/assets/style.mjs'
-import { createDialog } from '/assets/ui/dialog.mjs'
+import TDialog from '/assets/ui/TDialog.mjs'
 
 class ContextMenu extends TComponent {
   template () {
@@ -170,7 +170,7 @@ class ContextMenu extends TComponent {
 }
 
 export function createContextMenu (template) {
-  return createDialog(class extends ContextMenu {
+  return TDialog.create(class extends ContextMenu {
     menuTemplate () {
       return template
     }
