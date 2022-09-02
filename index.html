@@ -9,13 +9,13 @@
   </head>
   <body>
     <script type="module">
-import TComponent from './TComponent/TComponent.mjs'
-import initApp from './assets/initApp.mjs'
+import TElement from '/assets/ui/TElement.mjs'
+import initApp from '/assets/initApp.mjs'
 
 const user = 'haiix'
 const repos = 'haiix.github.io'
 
-class App extends TComponent {
+class App extends TElement {
   template () {
     return `
       <section>
@@ -24,6 +24,7 @@ class App extends TComponent {
           <h1 id="h1"></h1>
           <ul id="list"></ul>
         </div>
+        <a href="mailto:haiix268@gmail.com" style="outline: none;">haiix268@gmail.com</a>
       </section>
     `
   }
