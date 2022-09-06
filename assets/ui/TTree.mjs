@@ -306,11 +306,13 @@ class TTree extends TTreeBase {
   }
 
   async _handleTreeMousedown (event) {
-    if (typeof this.ontouchstart === 'function') {
+    event.preventDefault() // to avoid doing both touchstart and mousedown
+
+    if (event.type === 'touchstart' && typeof this.ontouchstart === 'function') {
       const result = this.ontouchstart(event)
       if (result === false || event.defaultPrevented) return
     }
-    if (typeof this.onmousedown === 'function') {
+    if (event.type === 'mousedown' && typeof this.onmousedown === 'function') {
       const result = this.onmousedown(event)
       if (result === false || event.defaultPrevented) return
     }
