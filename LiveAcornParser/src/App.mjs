@@ -45,7 +45,7 @@ export default class App extends TElement {
   }
 
   onerror (error) {
-    alert(error.message, 'エラー')
+    alert(error.message, error.name)
     throw error
   }
 }
