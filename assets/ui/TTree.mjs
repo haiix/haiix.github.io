@@ -254,13 +254,11 @@ class TTree extends TTreeBase {
     this.attrDef = [
       { name: 'onexpand', type: 'function' },
       { name: 'oncollapse', type: 'function' },
-      { name: 'ontouchend', type: 'function' },
       { name: 'onmousedown', type: 'function' },
       { name: 'onkeydown', type: 'function' }
     ]
     return `
       <div id="_tree" tabindex="0" class="${CLASS_NAME}"
-        ontouchend="return this._handleTreeMousedown(event)"
         onmousedown="return this._handleTreeMousedown(event)"
         onkeydown="return this._handleTreeKeydown(event)"
       >
@@ -306,11 +304,7 @@ class TTree extends TTreeBase {
   }
 
   async _handleTreeMousedown (event) {
-    if (event.type === 'touchend' && typeof this.ontouchend === 'function') {
-      const result = this.ontouchend(event)
-      if (result === false || event.defaultPrevented) return
-    }
-    if (event.type === 'mousedown' && typeof this.onmousedown === 'function') {
+    if (typeof this.onmousedown === 'function') {
       const result = this.onmousedown(event)
       if (result === false || event.defaultPrevented) return
     }
@@ -322,11 +316,8 @@ class TTree extends TTreeBase {
     }
     const item = TElement.from(elem)
 
-    event.preventDefault() // to avoid doing both touchend and mousedown
-    this.element.focus()
-
     if (event.target === item._expandIcon && item.isExpandable) {
-      if (event.type === 'touchend' || event.button === 0) {
+      if (event.button === 0) {
         if (item.isExpanded) {
           await item.collapse()
         } else {
