@@ -307,6 +307,7 @@ class TTree extends TTreeBase {
 
   async _handleTreeMousedown (event) {
     event.preventDefault() // to avoid doing both touchstart and mousedown
+    this.element.focus()
 
     if (event.type === 'touchstart' && typeof this.ontouchstart === 'function') {
       const result = this.ontouchstart(event)
