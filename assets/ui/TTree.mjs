@@ -16,6 +16,7 @@ style(`
     overflow: auto;
     background: #FFF;
     color: #000;
+    -webkit-user-select: none; /* for Safari 3+, Safari on iOS 3+ */
     user-select: none;
     box-sizing: border-box;
   }
