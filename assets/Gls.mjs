@@ -470,8 +470,8 @@ function createMesh (buffer, vertexOffset, indexOffset, ucount, vcount, callback
 function buildGlsBufferController (geom) {
   if (geom.currentVertexOffset > 0) {
     const buffer = new GlsBuffer(geom.programs, geom.currentVertexOffset, geom.currentIndexOffset, geom.mode, geom.usage)
-    for (const [callback, vertexOffset, vertexSize, indexOffset, indexSize] of geom.callbacks) {
-      callback(buffer, vertexOffset, vertexSize, indexOffset, indexSize)
+    for (const [callback, vertexOffset, indexOffset] of geom.callbacks) {
+      callback(buffer, vertexOffset, indexOffset)
     }
     geom.buffers.push(buffer)
   }
