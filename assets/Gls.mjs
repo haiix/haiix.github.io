@@ -1,4 +1,4 @@
-export const VERSION = '0.4.1'
+export const VERSION = '0.4.2'
 
 const replaceAll = String.prototype.replaceAll ? String.prototype.replaceAll : function (a, b) { return this.split(a).join(b) }
 
@@ -272,17 +272,15 @@ function createElementArrayBuffer (gl, srcData, usage) {
   return buffer
 }
 
-function bindProgramBuffer (gl, attributeInfos, buffer, oesvao) {
-  if (oesvao) {
-    let vao = buffer.vao.get(attributeInfos)
-    if (vao) {
-      oesvao.bindVertexArrayOES(vao)
-      return
-    }
-    vao = oesvao.createVertexArrayOES()
-    buffer.vao.set(attributeInfos, vao)
-    oesvao.bindVertexArrayOES(vao)
+function bindProgramBuffer (gl, attributeInfos, buffer) {
+  let vao = buffer.vao.get(attributeInfos)
+  if (vao) {
+    gl.bindVertexArray(vao)
+    return
   }
+  vao = gl.createVertexArray()
+  buffer.vao.set(attributeInfos, vao)
+  gl.bindVertexArray(vao)
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer.vbo)
   for (const [index, attributeInfo] of attributeInfos.entries()) {
     const info = buffer.infos[attributeInfo.name]
@@ -311,12 +309,11 @@ function bindProgramUniform (gls, gl, program, uniform, uniformInfos) {
 function drawProgramBuffer (program, buffer) {
   const gls = program.gls
   const gl = gls.gl
-  const oesvao = gls._oesvao
   if (!buffer.vbo) {
     buffer.vbo = createArrayBuffer(gl, buffer.vertexes.buffer, buffer.usage)
     buffer.ibo = createElementArrayBuffer(gl, buffer.indices.buffer, buffer.usage)
   }
-  bindProgramBuffer(gl, program.attributeInfos, buffer, oesvao)
+  bindProgramBuffer(gl, program.attributeInfos, buffer)
   gl.useProgram(program.program)
   bindProgramUniform(gls, gl, program.program, program.uniform, program.uniformInfos)
   if (buffer.ibo) {
@@ -676,8 +673,7 @@ export default class Gls {
   constructor (canvas, contextAttributes) {
     this.canvas = typeof canvas === 'string' ? document.querySelector(canvas) : canvas
     contextAttributes = Object.assign({ preserveDrawingBuffer: true }, contextAttributes)
-    this.gl = this.canvas.getContext('webgl', contextAttributes) || this.canvas.getContext('experimental-webgl', contextAttributes)
-    this._oesvao = this.gl.getExtension('OES_vertex_array_object')
+    this.gl = this.canvas.getContext('webgl2', contextAttributes)
     this._textureBinder = null
     this._clearMask = this.gl.COLOR_BUFFER_BIT |
       (contextAttributes.depth !== false ? this.gl.DEPTH_BUFFER_BIT : 0) |
