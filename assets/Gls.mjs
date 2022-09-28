@@ -62,10 +62,10 @@ function removeSourceComments (src) {
 
 function getShaderSourceExAttributeTypes (source) {
   const tmp = ';' + replaceAll.call(source, ';', ';;') + ';'
-  const re = /;\s*attribute\s+\[\[(\w+)\]\]\s+(\w+)\s*;/g
+  const re = /;\s*(attribute|in)\s+\[\[(\w+)\]\]\s+(\w+)\s*;/g
   const types = Object.create(null)
   for (let result; (result = re.exec(tmp));) {
-    const [, type, name] = result
+    const [, , type, name] = result
     if (!EX_ATTRIBUTE_TYPE[type]) continue
     types[name] = type
   }
