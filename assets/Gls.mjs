@@ -169,6 +169,122 @@ export class GlsProgram {
 }
 
 // ---------------------------------------------------------
+// Attribute
+// ---------------------------------------------------------
+
+export class GlsAttribute {
+  constructor (view, typeName, offset, byte, size) {
+    this.view = view
+    this.setterName = 'set' + typeName
+    this.getterName = 'get' + typeName
+    this.offset = offset
+    this.byte = byte
+    this.size = size
+    this.littleEndian = true
+  }
+
+  get 0 () {
+    return this.view[this.getterName](this.offset, this.littleEndian)
+  }
+
+  set 0 (v) {
+    this.view[this.setterName](this.offset, v, this.littleEndian)
+  }
+
+  get 1 () {
+    return this.view[this.getterName](this.offset + this.byte, this.littleEndian)
+  }
+
+  set 1 (v) {
+    this.view[this.setterName](this.offset + this.byte, v, this.littleEndian)
+  }
+
+  get 2 () {
+    if (this.size <= 2) return
+    return this.view[this.getterName](this.offset + this.byte * 2, this.littleEndian)
+  }
+
+  set 2 (v) {
+    if (this.size <= 2) return
+    this.view[this.setterName](this.offset + this.byte * 2, v, this.littleEndian)
+  }
+
+  get 3 () {
+    if (this.size <= 3) return
+    return this.view[this.getterName](this.offset + this.byte * 3, this.littleEndian)
+  }
+
+  set 3 (v) {
+    if (this.size <= 3) return
+    this.view[this.setterName](this.offset + this.byte * 3, v, this.littleEndian)
+  }
+
+  get x () {
+    return this[0]
+  }
+
+  set x (v) {
+    this[0] = v
+  }
+
+  get y () {
+    return this[1]
+  }
+
+  set y (v) {
+    this[1] = v
+  }
+
+  get z () {
+    return this[2]
+  }
+
+  set z (v) {
+    this[2] = v
+  }
+
+  get w () {
+    return this[3]
+  }
+
+  set w (v) {
+    this[3] = v
+  }
+
+  get r () {
+    return this[0]
+  }
+
+  set r (v) {
+    this[0] = v
+  }
+
+  get g () {
+    return this[1]
+  }
+
+  set g (v) {
+    this[1] = v
+  }
+
+  get b () {
+    return this[2]
+  }
+
+  set b (v) {
+    this[2] = v
+  }
+
+  get a () {
+    return this[3]
+  }
+
+  set a (v) {
+    this[3] = v
+  }
+}
+
+// ---------------------------------------------------------
 // Buffer
 // ---------------------------------------------------------
 
@@ -320,122 +436,6 @@ function drawProgramBuffer (program, buffer) {
     gl.drawElements(buffer.mode, buffer.indices.length, buffer.vertexSize <= 256 ? gl.UNSIGNED_BYTE : gl.UNSIGNED_SHORT, 0)
   } else {
     gl.drawArrays(buffer.mode, 0, buffer.vertexSize)
-  }
-}
-
-// ---------------------------------------------------------
-// Attribute
-// ---------------------------------------------------------
-
-export class GlsAttribute {
-  constructor (view, typeName, offset, byte, size) {
-    this.view = view
-    this.setterName = 'set' + typeName
-    this.getterName = 'get' + typeName
-    this.offset = offset
-    this.byte = byte
-    this.size = size
-    this.littleEndian = true
-  }
-
-  get 0 () {
-    return this.view[this.getterName](this.offset, this.littleEndian)
-  }
-
-  set 0 (v) {
-    this.view[this.setterName](this.offset, v, this.littleEndian)
-  }
-
-  get 1 () {
-    return this.view[this.getterName](this.offset + this.byte, this.littleEndian)
-  }
-
-  set 1 (v) {
-    this.view[this.setterName](this.offset + this.byte, v, this.littleEndian)
-  }
-
-  get 2 () {
-    if (this.size <= 2) return
-    return this.view[this.getterName](this.offset + this.byte * 2, this.littleEndian)
-  }
-
-  set 2 (v) {
-    if (this.size <= 2) return
-    this.view[this.setterName](this.offset + this.byte * 2, v, this.littleEndian)
-  }
-
-  get 3 () {
-    if (this.size <= 3) return
-    return this.view[this.getterName](this.offset + this.byte * 3, this.littleEndian)
-  }
-
-  set 3 (v) {
-    if (this.size <= 3) return
-    this.view[this.setterName](this.offset + this.byte * 3, v, this.littleEndian)
-  }
-
-  get x () {
-    return this[0]
-  }
-
-  set x (v) {
-    this[0] = v
-  }
-
-  get y () {
-    return this[1]
-  }
-
-  set y (v) {
-    this[1] = v
-  }
-
-  get z () {
-    return this[2]
-  }
-
-  set z (v) {
-    this[2] = v
-  }
-
-  get w () {
-    return this[3]
-  }
-
-  set w (v) {
-    this[3] = v
-  }
-
-  get r () {
-    return this[0]
-  }
-
-  set r (v) {
-    this[0] = v
-  }
-
-  get g () {
-    return this[1]
-  }
-
-  set g (v) {
-    this[1] = v
-  }
-
-  get b () {
-    return this[2]
-  }
-
-  set b (v) {
-    this[2] = v
-  }
-
-  get a () {
-    return this[3]
-  }
-
-  set a (v) {
-    this[3] = v
   }
 }
 
