@@ -16,13 +16,13 @@ const dtbl = [...Array(256)].map((v, i) => Math.max(0, etbl.indexOf(i)))
  * @param {ArrayBuffer} buf - The array buffer to encode.
  * @return {string} The encoded string.
  */
-export function encode (buf) {
+export function encode (buf, addNewlines = true) {
   const src = new Uint8Array(buf)
   let l = Math.ceil(src.length / 3) * 4
-  l += Math.floor(Math.max(0, l - 1) / 76) * 2
+  if (addNewlines) l += Math.floor(Math.max(0, l - 1) / 76) * 2
   const dst = new Uint8Array(l)
   for (let i = 0, j = 0, k = 0; i < src.length; k++) {
-    if (k === 19) {
+    if (addNewlines && k === 19) {
       dst[j++] = 13
       dst[j++] = 10
       k = 0
