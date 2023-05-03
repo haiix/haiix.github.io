@@ -1,4 +1,4 @@
-export const VERSION = '0.4.1'
+export const VERSION = '0.4.2'
 
 const replaceAll = String.prototype.replaceAll ? String.prototype.replaceAll : function (a, b) { return this.split(a).join(b) }
 
@@ -62,10 +62,10 @@ function removeSourceComments (src) {
 
 function getShaderSourceExAttributeTypes (source) {
   const tmp = ';' + replaceAll.call(source, ';', ';;') + ';'
-  const re = /;\s*attribute\s+\[\[(\w+)\]\]\s+(\w+)\s*;/g
+  const re = /;\s*(attribute|in)\s+\[\[(\w+)\]\]\s+(\w+)\s*;/g
   const types = Object.create(null)
   for (let result; (result = re.exec(tmp));) {
-    const [, type, name] = result
+    const [, , type, name] = result
     if (!EX_ATTRIBUTE_TYPE[type]) continue
     types[name] = type
   }
@@ -165,164 +165,6 @@ export class GlsProgram {
 
   draw (buffer) {
     buffer.drawBy(this)
-  }
-}
-
-// ---------------------------------------------------------
-// Buffer
-// ---------------------------------------------------------
-
-function getBufferAttribute (buffer, offset, name) {
-  const info = buffer.infos[name]
-  const typeByte = TYPE_BYTE[info.type]
-  return new GlsAttribute(buffer.vertexes, typeByte.name, buffer.stride * offset + info.offset, typeByte.byte, info.size)
-}
-
-function getBufferVertex (buffer, offset) {
-  const vertex = Object.create(null)
-  for (const [name, info] of Object.entries(buffer.infos)) {
-    const attribute = getBufferAttribute(buffer, offset, name)
-    if (info.size === 1) {
-      Object.defineProperty(vertex, name, {
-        get () {
-          return attribute[0]
-        },
-        set (v) {
-          attribute[0] = v
-        }
-      })
-    } else {
-      vertex[name] = attribute
-    }
-  }
-  return vertex
-}
-
-function createBufferInfos (programs) {
-  const infos = Object.create(null)
-  let offset = 0
-  for (const program of programs) {
-    for (const [, info] of program.attributeInfos.entries()) {
-      const { name } = info
-      let { type, size } = ATTRIBUTE_TYPE[info.type]
-      let bytes = size * 4
-      if (program.exAttribute[name]) {
-        type = EX_ATTRIBUTE_TYPE[program.exAttribute[name]].type
-        bytes = 4
-      }
-      if (infos[name]) {
-        if (infos[name].type !== type || infos[name].size !== size) {
-          throw new Error('Same attribute name but different type: ' + name)
-        }
-        continue
-      }
-      infos[name] = { type, size, offset }
-      offset += bytes
-    }
-  }
-  return [infos, offset]
-}
-
-export class GlsBuffer {
-  constructor (programs, vertexSize, indexSize, mode, usage) {
-    this.programs = programs
-    ;[this.infos, this.stride] = createBufferInfos(programs)
-    this.mode = mode
-    this.usage = usage
-    this.vertexSize = vertexSize
-    this.vertexes = new DataView(new ArrayBuffer(this.stride * vertexSize))
-    this.indices = indexSize != null ? new (vertexSize <= 256 ? Int8Array : Int16Array)(indexSize) : null
-    this.vbo = null
-    this.ibo = null
-    this.vao = new Map()
-  }
-
-  getVertex (offset) {
-    return getBufferVertex(this, offset)
-  }
-
-  drawBy (program) {
-    if (!this.programs.includes(program)) {
-      throw new Error('Using a program with a different buffer')
-    }
-    drawProgramBuffer(program, this)
-  }
-}
-
-// ---------------------------------------------------------
-// Bind program and buffer
-// ---------------------------------------------------------
-
-function createArrayBuffer (gl, srcData, usage) {
-  const curr = gl.getParameter(gl.ARRAY_BUFFER_BINDING)
-  const buffer = gl.createBuffer()
-  gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
-  gl.bufferData(gl.ARRAY_BUFFER, srcData, usage)
-  gl.bindBuffer(gl.ARRAY_BUFFER, curr)
-  return buffer
-}
-
-function createElementArrayBuffer (gl, srcData, usage) {
-  if (!srcData) return null
-  const curr = gl.getParameter(gl.ELEMENT_ARRAY_BUFFER_BINDING)
-  const buffer = gl.createBuffer()
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffer)
-  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, srcData, usage)
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, curr)
-  return buffer
-}
-
-function bindProgramBuffer (gl, attributeInfos, buffer, oesvao) {
-  if (oesvao) {
-    let vao = buffer.vao.get(attributeInfos)
-    if (vao) {
-      oesvao.bindVertexArrayOES(vao)
-      return
-    }
-    vao = oesvao.createVertexArrayOES()
-    buffer.vao.set(attributeInfos, vao)
-    oesvao.bindVertexArrayOES(vao)
-  }
-  gl.bindBuffer(gl.ARRAY_BUFFER, buffer.vbo)
-  for (const [index, attributeInfo] of attributeInfos.entries()) {
-    const info = buffer.infos[attributeInfo.name]
-    gl.enableVertexAttribArray(index)
-    gl.vertexAttribPointer(index, info.size, info.type, false, buffer.stride, info.offset)
-  }
-  if (buffer.ibo) gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffer.ibo)
-}
-
-function bindProgramUniform (gls, gl, program, uniform, uniformInfos) {
-  for (const [info, location] of uniformInfos) {
-    const name = info.name
-    const { fn, ftype } = ATTRIBUTE_TYPE[info.type]
-    const value = uniform[name]
-    if (ftype === 'matrix') {
-      gl['uniformMatrix' + fn](location, false, value)
-    } else if (ftype === 'texture') {
-      if (!gls._textureBinder) gls._textureBinder = new TextureBinder(gl)
-      gls._textureBinder.bind(location, value.texture || value || null)
-    } else {
-      gl['uniform' + fn](location, value)
-    }
-  }
-}
-
-function drawProgramBuffer (program, buffer) {
-  const gls = program.gls
-  const gl = gls.gl
-  const oesvao = gls._oesvao
-  if (!buffer.vbo) {
-    buffer.vbo = createArrayBuffer(gl, buffer.vertexes.buffer, buffer.usage)
-    buffer.ibo = createElementArrayBuffer(gl, buffer.indices.buffer, buffer.usage)
-  }
-  bindProgramBuffer(gl, program.attributeInfos, buffer, oesvao)
-  gl.useProgram(program.program)
-  bindProgramUniform(gls, gl, program.program, program.uniform, program.uniformInfos)
-  if (buffer.ibo) {
-    gl.drawElements(buffer.mode, buffer.indices.length, buffer.vertexSize <= 256 ? gl.UNSIGNED_BYTE : gl.UNSIGNED_SHORT, 0)
-  } else {
-    gl.drawArrays(buffer.mode, 0, buffer.vertexSize)
   }
 }
 
@@ -443,6 +285,161 @@ export class GlsAttribute {
 }
 
 // ---------------------------------------------------------
+// Buffer
+// ---------------------------------------------------------
+
+function getBufferAttribute (buffer, offset, name) {
+  const info = buffer.infos[name]
+  const typeByte = TYPE_BYTE[info.type]
+  return new GlsAttribute(buffer.vertexes, typeByte.name, buffer.stride * offset + info.offset, typeByte.byte, info.size)
+}
+
+function getBufferVertex (buffer, offset) {
+  const vertex = Object.create(null)
+  for (const [name, info] of Object.entries(buffer.infos)) {
+    const attribute = getBufferAttribute(buffer, offset, name)
+    if (info.size === 1) {
+      Object.defineProperty(vertex, name, {
+        get () {
+          return attribute[0]
+        },
+        set (v) {
+          attribute[0] = v
+        }
+      })
+    } else {
+      vertex[name] = attribute
+    }
+  }
+  return vertex
+}
+
+function createBufferInfos (programs) {
+  const infos = Object.create(null)
+  let offset = 0
+  for (const program of programs) {
+    for (const [, info] of program.attributeInfos.entries()) {
+      const { name } = info
+      let { type, size } = ATTRIBUTE_TYPE[info.type]
+      let bytes = size * 4
+      if (program.exAttribute[name]) {
+        type = EX_ATTRIBUTE_TYPE[program.exAttribute[name]].type
+        bytes = 4
+      }
+      if (infos[name]) {
+        if (infos[name].type !== type || infos[name].size !== size) {
+          throw new Error('Same attribute name but different type: ' + name)
+        }
+        continue
+      }
+      infos[name] = { type, size, offset }
+      offset += bytes
+    }
+  }
+  return [infos, offset]
+}
+
+export class GlsBuffer {
+  constructor (programs, vertexSize, indexSize, mode, usage) {
+    this.programs = programs
+    ;[this.infos, this.stride] = createBufferInfos(programs)
+    this.mode = mode
+    this.usage = usage
+    this.vertexSize = vertexSize
+    this.vertexes = new DataView(new ArrayBuffer(this.stride * vertexSize))
+    this.indices = indexSize != null ? new (vertexSize <= 256 ? Int8Array : Int16Array)(indexSize) : null
+    this.vbo = null
+    this.ibo = null
+    this.vao = new Map()
+  }
+
+  getVertex (offset) {
+    return getBufferVertex(this, offset)
+  }
+
+  drawBy (program) {
+    if (!this.programs.includes(program)) {
+      throw new Error('Using a program with a different buffer')
+    }
+    drawProgramBuffer(program, this)
+  }
+}
+
+// ---------------------------------------------------------
+// Bind program and buffer
+// ---------------------------------------------------------
+
+function createArrayBuffer (gl, srcData, usage) {
+  const curr = gl.getParameter(gl.ARRAY_BUFFER_BINDING)
+  const buffer = gl.createBuffer()
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
+  gl.bufferData(gl.ARRAY_BUFFER, srcData, usage)
+  gl.bindBuffer(gl.ARRAY_BUFFER, curr)
+  return buffer
+}
+
+function createElementArrayBuffer (gl, srcData, usage) {
+  if (!srcData) return null
+  const curr = gl.getParameter(gl.ELEMENT_ARRAY_BUFFER_BINDING)
+  const buffer = gl.createBuffer()
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffer)
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, srcData, usage)
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, curr)
+  return buffer
+}
+
+function bindProgramBuffer (gl, attributeInfos, buffer) {
+  let vao = buffer.vao.get(attributeInfos)
+  if (vao) {
+    gl.bindVertexArray(vao)
+    return
+  }
+  vao = gl.createVertexArray()
+  buffer.vao.set(attributeInfos, vao)
+  gl.bindVertexArray(vao)
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer.vbo)
+  for (const [index, attributeInfo] of attributeInfos.entries()) {
+    const info = buffer.infos[attributeInfo.name]
+    gl.enableVertexAttribArray(index)
+    gl.vertexAttribPointer(index, info.size, info.type, false, buffer.stride, info.offset)
+  }
+  if (buffer.ibo) gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffer.ibo)
+}
+
+function bindProgramUniform (gls, gl, program, uniform, uniformInfos) {
+  for (const [info, location] of uniformInfos) {
+    const name = info.name
+    const { fn, ftype } = ATTRIBUTE_TYPE[info.type]
+    const value = uniform[name]
+    if (ftype === 'matrix') {
+      gl['uniformMatrix' + fn](location, false, value)
+    } else if (ftype === 'texture') {
+      if (!gls._textureBinder) gls._textureBinder = new TextureBinder(gl)
+      gls._textureBinder.bind(location, value.texture || value || null)
+    } else {
+      gl['uniform' + fn](location, value)
+    }
+  }
+}
+
+function drawProgramBuffer (program, buffer) {
+  const gls = program.gls
+  const gl = gls.gl
+  if (!buffer.vbo) {
+    buffer.vbo = createArrayBuffer(gl, buffer.vertexes.buffer, buffer.usage)
+    buffer.ibo = createElementArrayBuffer(gl, buffer.indices.buffer, buffer.usage)
+  }
+  bindProgramBuffer(gl, program.attributeInfos, buffer)
+  gl.useProgram(program.program)
+  bindProgramUniform(gls, gl, program.program, program.uniform, program.uniformInfos)
+  if (buffer.ibo) {
+    gl.drawElements(buffer.mode, buffer.indices.length, buffer.vertexSize <= 256 ? gl.UNSIGNED_BYTE : gl.UNSIGNED_SHORT, 0)
+  } else {
+    gl.drawArrays(buffer.mode, 0, buffer.vertexSize)
+  }
+}
+
+// ---------------------------------------------------------
 // BufferController
 // ---------------------------------------------------------
 
@@ -470,8 +467,8 @@ function createMesh (buffer, vertexOffset, indexOffset, ucount, vcount, callback
 function buildGlsBufferController (geom) {
   if (geom.currentVertexOffset > 0) {
     const buffer = new GlsBuffer(geom.programs, geom.currentVertexOffset, geom.currentIndexOffset, geom.mode, geom.usage)
-    for (const [callback, vertexOffset, vertexSize, indexOffset, indexSize] of geom.callbacks) {
-      callback(buffer, vertexOffset, vertexSize, indexOffset, indexSize)
+    for (const [callback, vertexOffset, indexOffset] of geom.callbacks) {
+      callback(buffer, vertexOffset, indexOffset)
     }
     geom.buffers.push(buffer)
   }
@@ -676,8 +673,7 @@ export default class Gls {
   constructor (canvas, contextAttributes) {
     this.canvas = typeof canvas === 'string' ? document.querySelector(canvas) : canvas
     contextAttributes = Object.assign({ preserveDrawingBuffer: true }, contextAttributes)
-    this.gl = this.canvas.getContext('webgl', contextAttributes) || this.canvas.getContext('experimental-webgl', contextAttributes)
-    this._oesvao = this.gl.getExtension('OES_vertex_array_object')
+    this.gl = this.canvas.getContext('webgl2', contextAttributes)
     this._textureBinder = null
     this._clearMask = this.gl.COLOR_BUFFER_BIT |
       (contextAttributes.depth !== false ? this.gl.DEPTH_BUFFER_BIT : 0) |

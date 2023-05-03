@@ -74,6 +74,7 @@ export default class LiveJsonTree extends TTree {
   constructor (...args) {
     super(...args)
     this.root = this.appendChild(new Item())
+    this.update(null)
   }
 
   update (value) {
@@ -161,7 +162,7 @@ export default class LiveJsonTree extends TTree {
       }
       return true
     } else {
-      return obj1 === item.value
+      return obj1 === obj2
     }
   }
 }
