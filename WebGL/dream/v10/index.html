@@ -13,15 +13,6 @@ import Gls from '../../../assets/Gls.mjs'
 import style from '../../../assets/style.mjs'
 import TComponent from '../../../TComponent/TComponent.mjs'
 
-function Math_mod (a, b) {
-  const c = a % b
-  return c < 0 ? c + b : c
-}
-
-function Math_mean (...arr) {
-  return arr.reduce((s, v) => s + v) / arr.length
-}
-
 class XorShift32 {
   constructor (seed = Date.now()) {
     this.y = (seed >>> 0) * 0x19660d + 0x3c6ef35f >>> 0 || 0x3c6ef35f
@@ -66,37 +57,33 @@ class MyNoise {
     this.min = 0
     this.max = 0
     this.reso = reso
-    this.draw(0, 0, 1, 0)
+    this.draw(0, 0, 1, 1, 1, 0)
   }
 
   getPixel (x, y) {
-    const p = Math_mod(Math.floor(x), this.reso) + Math_mod(Math.floor(y), this.reso) * this.reso
-    return this.arr[p]
+    const w = this.reso
+    return this.arr[(x % w + w) % w + (y % w + w) % w * w]
   }
 
-  draw (x, y, s, n) {
-    if (s >= this.reso) {
-      const tmp = Math.log2(n) + 1
-      const a = this.reso * 2 ** (-tmp >> 1)
-      const b = tmp & 1 && a
-      const mean = Math_mean(
-        this.getPixel(x - a, y - b),
-        this.getPixel(x + b, y - a),
-        this.getPixel(x - b, y + a),
-        this.getPixel(x + a, y + b),
-      )
-      const sigma = Math.sqrt(a * a + b * b)
-      const val = this.rand.next() * sigma + mean
-      this.min = Math.min(this.min, val)
-      this.max = Math.max(this.max, val)
-      this.arr[x + y * this.reso] = val
+  draw (x, y, n, f, a, b) {
+    if (n >= this.reso) {
+      const l = Math.sqrt(a * a + b * b)
+      const v = (
+        this.getPixel(x + a, y + b) +
+        this.getPixel(x - a, y - b) +
+        this.getPixel(x + b, y - a) +
+        this.getPixel(x - b, y + a)
+      ) * 0.25 + this.rand.next() * l
+      this.min = Math.min(this.min, v)
+      this.max = Math.max(this.max, v)
+      this.arr[x + y * this.reso] = v
       return
     }
-    const s2 = s * 2, n4 = n * 4
-    this.draw(x, y, s2, n4)
-    this.draw(x + s, y + s, s2, n4 + 1)
-    this.draw(x + s, y, s2, n4 + 2)
-    this.draw(x, y + s, s2, n4 + 3)
+    const n2 = n + n
+    this.draw(x, y, n2, f, a + a * f, b)
+    this.draw(x + n, y + n, n2, 0, a + b * f, b + (a - b - b) * f)
+    this.draw(x + n, y, n2, 0, a, b)
+    this.draw(x, y + n, n2, 0, a, b)
   }
 
   getVal (i) {
