@@ -609,15 +609,15 @@ export class GlsBufferController {
       })
     }
   }
+}
 
-  drawBy(program: GlsProgram) {
-    if (!this.programs.includes(program)) {
-      throw new Error('Using a program with a different buffer');
-    }
-    buildGlsBufferController(this);
-    for (const buffer of this.buffers) {
-      drawProgramBuffer(program, buffer);
-    }
+function drawBuffer(program: GlsProgram, buffer: GlsBufferController) {
+  if (!buffer.programs.includes(program)) {
+    throw new Error('Using a program with a different buffer');
+  }
+  buildGlsBufferController(buffer);
+  for (const b of buffer.buffers) {
+    drawProgramBuffer(program, b);
   }
 }
 
@@ -716,8 +716,8 @@ function setTextureParameters(gl: WebGL2RenderingContext, parameter: glsTextureP
   if (mipmap) gl.generateMipmap(gl.TEXTURE_2D);
 }
 
-function createImageTexture(gl: WebGL2RenderingContext, img: TexImageSource, parameter: glsTextureParameter) {
-  parameter = parameter || {};
+function createImageTexture(gl: WebGL2RenderingContext, img: TexImageSource, parameter?: glsTextureParameter) {
+  parameter = parameter ?? {};
   const currentTexture = gl.getParameter(gl.TEXTURE_BINDING_2D);
   const texture = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -731,21 +731,23 @@ function createImageTexture(gl: WebGL2RenderingContext, img: TexImageSource, par
 // Framebuffer
 // ---------------------------------------------------------
 
-interface glsCreateFramebufferParams {
-  depth: boolean;
+interface glsFramebufferParams {
   width: number;
   height: number;
-  texture: glsTextureParameter;
+  depth?: boolean;
+  texture?: glsTextureParameter;
 }
 
 export class GlsFramebuffer {
+  gls: Gls;
   framebuffer: WebGLFramebuffer;
   depthRenderbuffer: WebGLFramebuffer;
   texture: WebGLTexture;
   width: number;
   height: number;
   
-  constructor(gls: Gls, param = null) {
+  constructor(gls: Gls, param: glsFramebufferParams = null) {
+    this.gls = gls;
     param = Object.assign({
       width: gls.canvas.width,
       height: gls.canvas.height,
@@ -757,7 +759,16 @@ export class GlsFramebuffer {
     this.height = param.height;
   }
 
-  private createFramebuffer(gl: WebGL2RenderingContext, param: glsCreateFramebufferParams) {
+  clear(mask = this.gls._clearMask) {
+    bindFramebuffer(this.gls, this);
+    this.gls.gl.clear(mask);
+  }
+
+  draw(program: GlsProgram, buffer: GlsBufferController) {
+    drawFrame(this.gls, this, program, buffer);
+  }
+
+  private createFramebuffer(gl: WebGL2RenderingContext, param: glsFramebufferParams) {
     const currentFramebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING);
     const framebuffer = gl.createFramebuffer();
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
@@ -785,6 +796,24 @@ export class GlsFramebuffer {
 // ---------------------------------------------------------
 // Gls
 // ---------------------------------------------------------
+
+function bindFramebuffer(gls: Gls, framebuffer: GlsFramebuffer = null) {
+  if (gls._currentFrameBuffer == framebuffer) return;
+  gls._currentFrameBuffer = framebuffer;
+
+  if (framebuffer) {
+    gls.gl.bindFramebuffer(gls.gl.FRAMEBUFFER, framebuffer.framebuffer);
+    gls.gl.viewport(0, 0, framebuffer.width, framebuffer.height);
+  } else {
+    gls.gl.bindFramebuffer(gls.gl.FRAMEBUFFER, null);
+    gls.gl.viewport(0, 0, gls.canvas.width, gls.canvas.height);
+  }
+}
+
+function drawFrame(gls: Gls, framebuffer: GlsFramebuffer, program: GlsProgram, buffer: GlsBufferController) {
+  bindFramebuffer(gls, framebuffer);
+  drawBuffer(program, buffer);
+}
 
 export default class Gls {
   canvas: HTMLCanvasElement;
@@ -850,38 +879,25 @@ export default class Gls {
     return new GlsBufferController(Array.isArray(program) ? program : [program], mode, usage);
   }
 
-  createTexture(img: TexImageSource, parameter: glsTextureParameter) {
+  createTexture(img: TexImageSource, parameter?: glsTextureParameter) {
     return createImageTexture(this.gl, img, parameter);
   }
 
-  createFramebuffer(param = null) {
+  createFramebuffer(param?: glsFramebufferParams) {
     return new GlsFramebuffer(this, param);
-  }
-
-  bindFramebuffer(framebuffer: GlsFramebuffer = null) {
-    if (this._currentFrameBuffer == framebuffer) return;
-    this._currentFrameBuffer = framebuffer;
-
-    if (framebuffer) {
-      this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, framebuffer.framebuffer);
-      this.gl.viewport(0, 0, framebuffer.width, framebuffer.height);
-    } else {
-      this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
-      this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-    }
-  }
-
-  clear(mask = this._clearMask) {
-    this.gl.clear(mask);
-  }
-
-  draw(framebuffer: GlsFramebuffer, program: GlsProgram, buffer: GlsBufferController) {
-    this.bindFramebuffer(framebuffer);
-    buffer.drawBy(program);
   }
 
   clearColor(red: number, green: number, blue: number, alpha: number) {
     return this.gl.clearColor(red, green, blue, alpha);
+  }
+
+  clear(mask = this._clearMask) {
+    bindFramebuffer(this, null);
+    this.gl.clear(mask);
+  }
+
+  draw(program: GlsProgram, buffer: GlsBufferController) {
+    drawFrame(this, null, program, buffer);
   }
 }
 
