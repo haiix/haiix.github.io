@@ -2,12 +2,12 @@ export const VERSION = '0.4.3';
 
 const GL = window.WebGL2RenderingContext;
 
-interface I_ATTRIBUTE_TYPE {
+type I_ATTRIBUTE_TYPE = {
   type: number;
   size: number;
   fn: string;
   ftype: string;
-}
+};
 
 const ATTRIBUTE_TYPE: { [key: string]: I_ATTRIBUTE_TYPE } = {
   [GL.FLOAT]: { type: GL.FLOAT, size: 1, fn: '1f', ftype: 'primitive' },
@@ -20,10 +20,10 @@ const ATTRIBUTE_TYPE: { [key: string]: I_ATTRIBUTE_TYPE } = {
   [GL.SAMPLER_2D]: { type: GL.SAMPLER_2D, size: 1, fn: '1i', ftype: 'texture' }
 };
 
-interface I_EX_ATTRIBUTE_TYPE {
+type I_EX_ATTRIBUTE_TYPE = {
   glslType: string;
   type: number;
-}
+};
 
 const EX_ATTRIBUTE_TYPE: { [key: string]: I_EX_ATTRIBUTE_TYPE } = {
   byte4: { glslType: 'vec4', type: GL.BYTE },
@@ -32,13 +32,13 @@ const EX_ATTRIBUTE_TYPE: { [key: string]: I_EX_ATTRIBUTE_TYPE } = {
   ushort2: { glslType: 'vec2', type: GL.UNSIGNED_SHORT }
 };
 
-interface I_TYPE_BYTE {
+type I_TYPE_BYTE = {
   byte: number;
   name: string;
   clamp: boolean;
   min?: number;
   max?: number;
-}
+};
 
 const TYPE_BYTE: { [key: string]: I_TYPE_BYTE } = {
   [GL.BYTE]: { byte: 1, name: 'Int8', clamp: true, min: -128, max: 128 },
@@ -70,10 +70,10 @@ function removeSourceComments(source: string) {
   ));
 }
 
-interface GlsShaderSourceExAttributeType {
+type GlsShaderSourceExAttributeType = {
   name: string;
   type: string;
-}
+};
 
 function getShaderSourceExAttributeTypes(source: string) {
   const tmp = ';' + source.replaceAll(';', ';;') + ';';
@@ -154,9 +154,9 @@ function getUniformInfos(gl: WebGL2RenderingContext, program: WebGLProgram) {
   return infos;
 }
 
-interface GlsUniform {
+type GlsUniform = {
   [key: string]: number | Float32Array | WebGLTexture | GlsFramebuffer;
-}
+};
 
 function createUniform(uniformInfos: GlsUniformInfo[]) {
   const uniform: GlsUniform = Object.create(null);
@@ -345,9 +345,9 @@ function getBufferAttribute(buffer: GlsBuffer, name: string, offset: number) {
   return new GlsAttribute(buffer.vertexes, typeByte, buffer.stride * offset + info.offset, info.size);
 }
 
-interface GlsVertex {
+type GlsVertex = {
   [key: string]: GlsAttribute;
-}
+};
 
 function getBufferVertex(buffer: GlsBuffer, offset: number) {
   const vertex: GlsVertex = Object.create(null);
@@ -369,15 +369,15 @@ function getBufferVertex(buffer: GlsBuffer, offset: number) {
   return vertex;
 }
 
-interface GlsBufferInfo {
+type GlsBufferInfo = {
   type: number;
   size: number;
   offset: number;
-}
+};
 
-interface GlsBufferInfos {
+type GlsBufferInfos = {
   [key: string]: GlsBufferInfo;
-}
+};
 
 function createBufferInfos(programs: GlsProgram[]) {
   const infos: GlsBufferInfos = Object.create(null);
@@ -520,10 +520,10 @@ function drawProgramBuffer(program: GlsProgram, buffer: GlsBuffer) {
 // BufferController
 // ---------------------------------------------------------
 
-type glsCreateMeshCallback = (vtx: GlsVertex, i: number) => void;
+type GlsCreateMeshCallback = (vtx: GlsVertex, i: number) => void;
 
 const MAX_BUFFER_SIZE = 65536;
-function createMesh(buffer: GlsBuffer, vertexOffset: number, indexOffset: number, ucount: number, vcount: number, callback: glsCreateMeshCallback, i: number, attrName = 'position') {
+function createMesh(buffer: GlsBuffer, vertexOffset: number, indexOffset: number, ucount: number, vcount: number, callback: GlsCreateMeshCallback, i: number, attrName = 'position') {
   const umax = ucount + 1;
   for (let v = 0, n = vertexOffset; v <= vcount; v++) {
     for (let u = 0; u < umax; u++) {
@@ -556,8 +556,8 @@ function buildGlsBufferController(geom: GlsBufferController) {
   geom.callbacks.length = 0;
 }
 
-type glsBufferAllocateCallback = (bufer: GlsBuffer, vertexOffset: number, indexOffset: number) => void;
-type glsBufferAllocateControllerCallback = [glsBufferAllocateCallback, number, number];
+type GlsBufferAllocateCallback = (bufer: GlsBuffer, vertexOffset: number, indexOffset: number) => void;
+type GlsBufferAllocateControllerCallback = [GlsBufferAllocateCallback, number, number];
 
 export class GlsBufferController {
   programs: GlsProgram[];
@@ -566,7 +566,7 @@ export class GlsBufferController {
   buffers: GlsBuffer[];
   currentVertexOffset: number;
   currentIndexOffset: number;
-  callbacks: glsBufferAllocateControllerCallback[];
+  callbacks: GlsBufferAllocateControllerCallback[];
 
   constructor(programs: GlsProgram[], mode: number, usage: number) {
     this.programs = programs;
@@ -578,7 +578,7 @@ export class GlsBufferController {
     this.callbacks = [];
   }
 
-  allocate(vertexSize: number, indexSize: number, callback: glsBufferAllocateCallback) {
+  allocate(vertexSize: number, indexSize: number, callback: GlsBufferAllocateCallback) {
     if (vertexSize > MAX_BUFFER_SIZE) {
       throw new RangeError('The size you tried to allocate exceeds the maximum value.');
     }
@@ -590,11 +590,11 @@ export class GlsBufferController {
     this.currentIndexOffset += indexSize;
   }
 
-  addMesh(ucount = 1, vcount = 1, callback: glsCreateMeshCallback = null, attrName = 'position') {
+  addMesh(ucount = 1, vcount = 1, callback: GlsCreateMeshCallback = null, attrName = 'position') {
     this.addMeshes(ucount, vcount, 1, callback, attrName);
   }
 
-  addMeshes(ucount = 1, vcount = 1, count = 1, callback: glsCreateMeshCallback = null, attrName = 'position') {
+  addMeshes(ucount = 1, vcount = 1, count = 1, callback: GlsCreateMeshCallback = null, attrName = 'position') {
     const vertexSize = (ucount + 1) * (vcount + 1);
     const indexSize = (ucount * 2 + 4) * vcount;
     const maxBufferCount = Math.floor(MAX_BUFFER_SIZE / vertexSize);
@@ -625,11 +625,11 @@ function drawBuffer(program: GlsProgram, buffer: GlsBufferController) {
 // TextureBinder
 // ---------------------------------------------------------
 
-interface TextureBinderUnit {
+type TextureBinderUnit = {
   number: number;
   locations: WebGLUniformLocation[];
   texture: WebGLTexture;
-}
+};
 
 export class TextureBinder {
   gl: WebGL2RenderingContext;
@@ -703,9 +703,9 @@ export class TextureBinder {
 // Texture
 // ---------------------------------------------------------
 
-type glsTextureParameter = { [key: string]: string };
+type GlsTextureParameter = { [key: string]: string };
 
-function setTextureParameters(gl: WebGL2RenderingContext, parameter: glsTextureParameter) {
+function setTextureParameters(gl: WebGL2RenderingContext, parameter: GlsTextureParameter) {
   let mipmap = !parameter.MIN_FILTER;
   for (const [key, value] of Object.entries(parameter)) {
     if (key === 'MIN_FILTER' && !(value === 'NEAREST' || value === 'LINEAR')) {
@@ -716,7 +716,7 @@ function setTextureParameters(gl: WebGL2RenderingContext, parameter: glsTextureP
   if (mipmap) gl.generateMipmap(gl.TEXTURE_2D);
 }
 
-function createImageTexture(gl: WebGL2RenderingContext, img: TexImageSource, parameter?: glsTextureParameter) {
+function createImageTexture(gl: WebGL2RenderingContext, img: TexImageSource, parameter?: GlsTextureParameter) {
   parameter = parameter ?? {};
   const currentTexture = gl.getParameter(gl.TEXTURE_BINDING_2D);
   const texture = gl.createTexture();
@@ -731,12 +731,12 @@ function createImageTexture(gl: WebGL2RenderingContext, img: TexImageSource, par
 // Framebuffer
 // ---------------------------------------------------------
 
-interface glsFramebufferParams {
+type GlsFramebufferParams = {
   width: number;
   height: number;
   depth?: boolean;
-  texture?: glsTextureParameter;
-}
+  texture?: GlsTextureParameter;
+};
 
 export class GlsFramebuffer {
   gls: Gls;
@@ -746,7 +746,7 @@ export class GlsFramebuffer {
   width: number;
   height: number;
   
-  constructor(gls: Gls, param: glsFramebufferParams = null) {
+  constructor(gls: Gls, param: GlsFramebufferParams = null) {
     this.gls = gls;
     param = Object.assign({
       width: gls.canvas.width,
@@ -768,7 +768,7 @@ export class GlsFramebuffer {
     drawFrame(this.gls, this, program, buffer);
   }
 
-  private createFramebuffer(gl: WebGL2RenderingContext, param: glsFramebufferParams) {
+  private createFramebuffer(gl: WebGL2RenderingContext, param: GlsFramebufferParams) {
     const currentFramebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING);
     const framebuffer = gl.createFramebuffer();
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
@@ -879,11 +879,11 @@ export default class Gls {
     return new GlsBufferController(Array.isArray(program) ? program : [program], mode, usage);
   }
 
-  createTexture(img: TexImageSource, parameter?: glsTextureParameter) {
+  createTexture(img: TexImageSource, parameter?: GlsTextureParameter) {
     return createImageTexture(this.gl, img, parameter);
   }
 
-  createFramebuffer(param?: glsFramebufferParams) {
+  createFramebuffer(param?: GlsFramebufferParams) {
     return new GlsFramebuffer(this, param);
   }
 
