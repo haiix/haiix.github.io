@@ -8,8 +8,24 @@ function reqError(req: IDBRequest, message: string): Error {
   return req.error ?? req.transaction?.error ?? new Error(message);
 }
 
-function idbOpen({ name, version, onupgradeneeded }: IdbDef): Promise<IDBDatabase> {
+function getDbName(def: IdbDef | string): string {
+  return typeof def === 'string' ? def : def.name;
+}
+
+function queryWrapper<T>(fn: (reject: (reason?: any) => void) => IDBRequest<T>, errorMessage: string): Promise<T> {
   return new Promise((resolve, reject) => {
+    const req = fn(reject);
+    req.onsuccess = () => {
+      resolve(req.result);
+    };
+    req.onerror = () => {
+      reject(reqError(req, errorMessage));
+    };
+  });
+}
+
+function idbOpen({ name, version, onupgradeneeded }: IdbDef): Promise<IDBDatabase> {
+  return queryWrapper((reject) => {
     const req = self.indexedDB.open(name, version);
     req.onupgradeneeded = (event) => {
       try {
@@ -23,28 +39,17 @@ function idbOpen({ name, version, onupgradeneeded }: IdbDef): Promise<IDBDatabas
         reject(error);
       }
     };
-    req.onsuccess = () => {
-      resolve(req.result);
-    };
-    req.onerror = () => {
-      reject(reqError(req, 'Failed to open database: ' + name));
-    };
-  });
+    return req;
+  }, 'Failed to delete database: ' + name);
 }
 
-export function deleteDatabase(name: string): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const req = self.indexedDB.deleteDatabase(name);
-    req.onerror = () => {
-      reject(reqError(req, 'Failed to delete database: ' + name));
-    };
-    req.onsuccess = () => {
-      resolve(req.result);
-    };
-  });
+export function deleteDatabase(def: IdbDef | string): Promise<IDBDatabase> {
+  const name = getDbName(def);
+  return queryWrapper(() => self.indexedDB.deleteDatabase(name), 'Failed to delete database: ' + name);
 }
 
-export async function getVersion(name: string): Promise<number> {
+export async function getVersion(def: IdbDef | string): Promise<number> {
+  const name = getDbName(def);
   const db = await idbOpen({ name });
   const version = db.version;
   db.close();
@@ -81,64 +86,40 @@ export async function tx<T>(def: IdbDef, storeNames: string | Iterable<string>, 
   });
 }
 
-export function add(os: IDBObjectStore, value: unknown): Promise<IDBValidKey> {
-  return new Promise((resolve, reject) => {
-    const req = os.add(value);
-    req.onsuccess = () => {
-      resolve(req.result);
-    };
-    req.onerror = () => {
-      reject(reqError(req, 'Failed to add.'));
-    };
-  });
+export function add(os: IDBObjectStore, value: unknown, key?: IDBValidKey): Promise<IDBValidKey> {
+  return queryWrapper(() => os.add(value, key), 'Failed to add.');
 }
 
-export function put(os: IDBObjectStore, value: unknown): Promise<IDBValidKey> {
-  return new Promise((resolve, reject) => {
-    const req = os.put(value);
-    req.onsuccess = () => {
-      resolve(req.result);
-    };
-    req.onerror = () => {
-      reject(reqError(req, 'Failed to put.'));
-    };
-  });
+export function clear(os: IDBObjectStore): Promise<void> {
+  return queryWrapper(() => os.clear(), 'Failed to clear.');
 }
 
-export function get(os: IDBObjectStore, key: IDBValidKey | IDBKeyRange): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    const req = os.get(key);
-    req.onsuccess = () => {
-      resolve(req.result);
-    };
-    req.onerror = () => {
-      reject(reqError(req, 'Failed to get.'));
-    };
-  });
+export function count(os: IDBObjectStore, query?: IDBValidKey | IDBKeyRange): Promise<number> {
+  return queryWrapper(() => os.count(query), 'Failed to count.');
 }
 
-export function del(os: IDBObjectStore, key: IDBValidKey | IDBKeyRange): Promise<undefined> {
-  return new Promise((resolve, reject) => {
-    const req = os.delete(key);
-    req.onsuccess = () => {
-      resolve(req.result);
-    };
-    req.onerror = () => {
-      reject(reqError(req, 'Failed to delete.'));
-    };
-  });
+export function del(os: IDBObjectStore, query: IDBValidKey | IDBKeyRange): Promise<void> {
+  return queryWrapper(() => os.delete(query), 'Failed to delete.');
 }
 
-export function count(os: IDBObjectStore, key: IDBValidKey | IDBKeyRange): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const req = os.count(key);
-    req.onsuccess = () => {
-      resolve(req.result);
-    };
-    req.onerror = () => {
-      reject(reqError(req, 'Failed to count.'));
-    };
-  });
+export function get(os: IDBObjectStore, query: IDBValidKey | IDBKeyRange): Promise<unknown> {
+  return queryWrapper(() => os.get(query), 'Failed to get.');
+}
+
+export function getAll(os: IDBObjectStore, query?: IDBValidKey | IDBKeyRange | null, count?: number): Promise<unknown[]> {
+  return queryWrapper(() => os.getAll(query, count), 'Failed to getAll.');
+}
+
+export function getAllKeys(os: IDBObjectStore, query?: IDBValidKey | IDBKeyRange | null, count?: number): Promise<IDBValidKey[]> {
+  return queryWrapper(() => os.getAllKeys(query, count), 'Failed to getAllKeys.');
+}
+
+export function getKey(os: IDBObjectStore, query: IDBValidKey | IDBKeyRange): Promise<IDBValidKey | undefined> {
+  return queryWrapper(() => os.getKey(query), 'Failed to getKey.');
+}
+
+export function put(os: IDBObjectStore, value: unknown, key?: IDBValidKey): Promise<IDBValidKey> {
+  return queryWrapper(() => os.put(value, key), 'Failed to put.');
 }
 
 export type IdbCursorParam = {
