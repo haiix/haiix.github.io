@@ -8,11 +8,11 @@ function reqError(req: IDBRequest, message: string): Error {
   return req.error ?? req.transaction?.error ?? new Error(message);
 }
 
-function getDbName(def: IdbDef | string): string {
-  return typeof def === 'string' ? def : def.name;
+function getIdbDef(def: IdbDef | string): IdbDef {
+  return typeof def === 'string' ? { name: def } : def;
 }
 
-function queryWrapper<T>(fn: (reject: (reason?: any) => void) => IDBRequest<T>, errorMessage: string): Promise<T> {
+function queryWrapper<T>(fn: (reject: (reason?: unknown) => void) => IDBRequest<T>, errorMessage: string): Promise<T> {
   return new Promise((resolve, reject) => {
     const req = fn(reject);
     req.onsuccess = () => {
@@ -24,9 +24,10 @@ function queryWrapper<T>(fn: (reject: (reason?: any) => void) => IDBRequest<T>, 
   });
 }
 
-function idbOpen({ name, version, onupgradeneeded }: IdbDef): Promise<IDBDatabase> {
+function idbOpen(idbDef: IdbDef | string): Promise<IDBDatabase> {
+  const { name, version, onupgradeneeded } = getIdbDef(idbDef);
   return queryWrapper((reject) => {
-    const req = self.indexedDB.open(name, version);
+    const req = indexedDB.open(name, version);
     req.onupgradeneeded = (event) => {
       try {
         if (onupgradeneeded) {
@@ -40,31 +41,30 @@ function idbOpen({ name, version, onupgradeneeded }: IdbDef): Promise<IDBDatabas
       }
     };
     return req;
-  }, 'Failed to delete database: ' + name);
+  }, 'Failed to open database: ' + name);
 }
 
-export function deleteDatabase(def: IdbDef | string): Promise<IDBDatabase> {
-  const name = getDbName(def);
-  return queryWrapper(() => self.indexedDB.deleteDatabase(name), 'Failed to delete database: ' + name);
+export function deleteDatabase(dbName: IdbDef | string): Promise<IDBDatabase> {
+  const idbDef = getIdbDef(dbName);
+  return queryWrapper(() => indexedDB.deleteDatabase(idbDef.name), 'Failed to delete database: ' + idbDef.name);
 }
 
-export async function getVersion(def: IdbDef | string): Promise<number> {
-  const name = getDbName(def);
-  const db = await idbOpen({ name });
+export async function getVersion(dbName: IdbDef | string): Promise<number> {
+  const db = await idbOpen(dbName);
   const version = db.version;
   db.close();
   return version;
 }
 
-export async function objectStoreNames(def: IdbDef): Promise<DOMStringList> {
-  const db = await idbOpen(def);
+export async function objectStoreNames(dbName: IdbDef | string): Promise<DOMStringList> {
+  const db = await idbOpen(dbName);
   const objectStoreNames = db.objectStoreNames;
   db.close();
   return objectStoreNames;
 }
 
-export async function tx<T>(def: IdbDef, storeNames: string | Iterable<string>, mode: IDBTransactionMode, func: (tx: IDBTransaction) => T): Promise<T> {
-  const db = await idbOpen(def);
+export async function tx<T>(dbName: IdbDef | string, storeNames: string | Iterable<string>, mode: IDBTransactionMode, func: (tx: IDBTransaction) => T): Promise<T> {
+  const db = await idbOpen(dbName);
   return await new Promise((resolve, reject) => {
     let val: T;
     const tx = db.transaction(storeNames, mode);
@@ -72,9 +72,10 @@ export async function tx<T>(def: IdbDef, storeNames: string | Iterable<string>, 
       db.close();
       resolve(val);
     };
-    tx.onerror = () => {
+    tx.onerror = (event: Event) => {
       db.close();
-      reject(tx.error ?? new Error('Failed to transaction: ' + def.name));
+      const error = (event.target instanceof IDBRequest) ? event.target.error : null;
+      reject(error ?? tx.error ?? new Error('Failed to transaction'));
     };
     try {
       val = func(tx);
@@ -121,6 +122,10 @@ export function getKey(os: IDBObjectStore, query: IDBValidKey | IDBKeyRange): Pr
 export function put(os: IDBObjectStore, value: unknown, key?: IDBValidKey): Promise<IDBValidKey> {
   return queryWrapper(() => os.put(value, key), 'Failed to put.');
 }
+
+//export function openCursor(index: IDBObjectStore | IDBIndex, query?: IDBValidKey | IDBKeyRange | null, direction?: IDBCursorDirection): Promise<IDBCursorWithValue | null> {
+//  return queryWrapper(() => index.openCursor(query, direction), 'Failed to openCursor.');
+//}
 
 export type IdbCursorParam = {
   index: IDBObjectStore | IDBIndex,
