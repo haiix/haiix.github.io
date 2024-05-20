@@ -1,4 +1,4 @@
-let executer = null
+let executer = null;
 
 /**
  * Run the JavaScript code on the worker.
@@ -12,23 +12,23 @@ let executer = null
  * @return {Promise<string|ImageData>} The resulting string or ImageData.
  * @throws {Error}
  */
-export default function execCode (code, option = null) {
-  if (!executer) executer = new Executer()
-  return executer.execCode(code, option)
+export default function execCode(code, option = null) {
+  if (!executer) executer = new Executer();
+  return executer.execCode(code, option);
 }
 
-function createWorker ({ oncreate, onmessage, options }) {
+function createWorker({ oncreate, onmessage, options }) {
   const objectURL = URL.createObjectURL(new Blob([`
     'use strict'
     ;((Object, self, postMessage, addEventListener) => {
       ;(${oncreate})()
       addEventListener('message', ${onmessage})
     })(Object, self, postMessage.bind(self), addEventListener.bind(self))
-  `], { type: 'text/javascript' }))
-  return [objectURL, new Worker(objectURL, options)]
+  `], { type: 'text/javascript' }));
+  return [objectURL, new Worker(objectURL, options)];
 }
 
-function createExecWorker () {
+function createExecWorker() {
   return createWorker({
     options: { type: 'classic', credentials: 'omit' },
     oncreate: () => {
@@ -51,22 +51,22 @@ function createExecWorker () {
         'createImageBitmap', 'ImageBitmap',
         'AbortSignal', 'AbortController',
         //'console' // debug
-      ]
+      ];
 
       // グローバル変数とプロトタイプ継承から、削除可能なものは削除し、削除できないものは隠す変数に追加
-      const hiddenVariableNames = Object.create(null)
+      const hiddenVariableNames = Object.create(null);
       for (let curr = self; curr.constructor !== Object; curr = Object.getPrototypeOf(curr)) {
         for (const [name, descriptor] of Object.entries(Object.getOwnPropertyDescriptors(curr))) {
-          if (whitelist.includes(name)) continue
+          if (whitelist.includes(name)) continue;
           if (descriptor.configurable) {
-            delete curr[name]
+            delete curr[name];
           } else {
-            hiddenVariableNames[name] = true
+            hiddenVariableNames[name] = true;
           }
         }
       }
-      const hiddenVariableNamesArr = Object.keys(hiddenVariableNames)
-      //console.log(hiddenVariableNamesArr) // debug
+      const hiddenVariableNamesArr = Object.keys(hiddenVariableNames);
+      //console.log(hiddenVariableNamesArr); // debug
 
       // Function を置き換える
       for (const OldFunc of [
@@ -76,122 +76,120 @@ function createExecWorker () {
         (async function * () {}).constructor
       ]) {
         const Function = function (...args) {
-          const code = args.length > 0 ? (args.pop() + '') : ''
+          const code = args.length > 0 ? (args.pop() + '') : '';
           // 禁止ワード: import
           // importはキーワードであり変数の置き換えができないが、動的インポート「import('url')」を防ぐ必要がある
-          const fw = ['import'].filter(s => (code).indexOf(s) >= 0)
-          if (fw.length > 0) throw new Error('Forbidden word(s): ' + fw.join())
-          const dummyFunc = OldFunc(...args, code)
-          const func = OldFunc(...(args.concat(hiddenVariableNamesArr)), '"use strict";' + code)
-          func.toString = dummyFunc.toString.bind(dummyFunc)
-          return func
+          const fw = ['import'].filter(s => (code).indexOf(s) >= 0);
+          if (fw.length > 0) throw new Error('Forbidden word(s): ' + fw.join());
+          const dummyFunc = OldFunc(...args, code);
+          const func = OldFunc(...(args.concat(hiddenVariableNamesArr)), '"use strict";' + code);
+          func.toString = dummyFunc.toString.bind(dummyFunc);
+          return func;
         }
-        Function.toString = OldFunc.toString.bind(OldFunc)
-        delete OldFunc.prototype.constructor
-        OldFunc.prototype.constructor = Function
-        Object.freeze(Function)
-        Object.freeze(OldFunc)
+        Function.toString = OldFunc.toString.bind(OldFunc);
+        delete OldFunc.prototype.constructor;
+        OldFunc.prototype.constructor = Function;
+        Object.freeze(Function);
+        Object.freeze(OldFunc);
       }
-      self.Function = self.Function.prototype.constructor
+      self.Function = self.Function.prototype.constructor;
 
       // setTimeout, setInterval からグローバルへのアクセスを防ぐ
       for (const fn of ['setTimeout', 'setInterval']) {
-        const tmp = self[fn]
-        if (!tmp) continue
+        const tmp = self[fn];
+        if (!tmp) continue;
         self[fn] = (func, ...rest) => {
           if (func != null) {
-            if (typeof func !== 'function') func = new Function(func)
-            func = func.bind(void 0)
+            if (typeof func !== 'function') func = new Function(func);
+            func = func.bind(void 0);
           }
-          return tmp(func, ...rest)
+          return tmp(func, ...rest);
         }
-        self[fn].toString = tmp.toString.bind(tmp)
+        self[fn].toString = tmp.toString.bind(tmp);
       }
 
       // グローバル変数凍結
       for (const name of whitelist) {
-        if (!(name in self) || self[name] == null) continue
-        Object.freeze(self[name])
-        Object.freeze(self[name].prototype)
+        if (!(name in self) || self[name] == null) continue;
+        Object.freeze(self[name]);
+        Object.freeze(self[name].prototype);
       }
     },
 
     onmessage: async function (event) {
       try {
         // 実行
-        let retVal = await new Function(event.data)()
+        let retVal = await new Function(event.data)();
         if (retVal instanceof OffscreenCanvas) {
-          retVal = retVal.getContext('2d')
+          retVal = retVal.getContext('2d');
         }
         if (retVal instanceof OffscreenCanvasRenderingContext2D) {
-          retVal = retVal.getImageData(0, 0, retVal.canvas.width, retVal.canvas.height)
+          retVal = retVal.getImageData(0, 0, retVal.canvas.width, retVal.canvas.height);
         }
         if (retVal instanceof ImageData) {
           if (retVal.width > 256 || retVal.height > 256) {
-            throw new Error('Too large ImageData')
+            throw new Error('Too large ImageData');
           }
         } else {
-          retVal = '' + JSON.stringify(retVal, (key, val) => typeof val === 'function' ? val + '' : (val != null && !Array.isArray(val) && typeof val !== 'string' && typeof val[Symbol.iterator] === 'function') ? Array.from(val) : val)
-          retVal = retVal.length < 1000 ? retVal : retVal.slice(0, 997) + '...'
+          retVal = '' + JSON.stringify(retVal, (key, val) => typeof val === 'function' ? val + '' : (val != null && !Array.isArray(val) && typeof val !== 'string' && typeof val[Symbol.iterator] === 'function') ? Array.from(val) : val);
+          retVal = retVal.length < 1000 ? retVal : retVal.slice(0, 997) + '...';
         }
-        postMessage(['resolve', retVal])
+        postMessage(['resolve', retVal]);
       } catch (error) {
-        const retVal = '[' + error.name + '] ' + error.message
-        postMessage(['reject', retVal.length < 1000 ? retVal : retVal.slice(0, 997) + '...'])
+        const retVal = '[' + error.name + '] ' + error.message;
+        postMessage(['reject', retVal.length < 1000 ? retVal : retVal.slice(0, 997) + '...']);
       }
     }
   })
 }
 
 export class Executer {
-  constructor () {
-    this.proc = null
-    this.objectURL = null
-    this.worker = null
-    this.timeout = null
-  }
+  proc = null;
+  objectURL = null;
+  worker = null;
+  timeout = null;
 
-  initialize () {
-    if (this.worker) return
-    ;[this.objectURL, this.worker] = createExecWorker()
+  initialize() {
+    if (this.worker) return;
+    [this.objectURL, this.worker] = createExecWorker();
     this.worker.onmessage = event => {
-      clearTimeout(this.timeout)
-      const [type, value] = event.data
-      if (!this.proc) return
-      const [resolve, reject] = this.proc
-      this.proc = null
+      clearTimeout(this.timeout);
+      const [type, value] = event.data;
+      if (!this.proc) return;
+      const [resolve, reject] = this.proc;
+      this.proc = null;
       if (type === 'resolve') {
-        resolve(value)
+        resolve(value);
       } else {
-        reject(new Error(value))
+        reject(new Error(value));
       }
     }
   }
 
-  execCode (code, option = null) {
+  execCode(code, option = null) {
     return new Promise((resolve, reject) => {
-      if (this.proc) throw new Error('Currently working.')
-      this.proc = [resolve, reject]
-      this.initialize()
+      if (this.proc) throw new Error('Currently working.');
+      this.proc = [resolve, reject];
+      this.initialize();
       if (option && option.timeout) {
-        this.timeout = setTimeout(() => this.terminate('Timeout.'), option.timeout)
+        this.timeout = setTimeout(() => this.terminate('Timeout.'), option.timeout);
       }
       if (option && option.signal) {
-        option.signal.addEventListener('abort', event => this.terminate('Worker terminated by the abort signal.'))
+        option.signal.addEventListener('abort', event => this.terminate('Worker terminated by the abort signal.'));
       }
-      this.worker.postMessage(code)
+      this.worker.postMessage(code);
     })
   }
 
-  terminate (message) {
-    clearTimeout(this.timeout)
-    if (!this.worker) return
-    this.worker.terminate()
-    this.worker = null
-    URL.revokeObjectURL(this.objectURL)
-    const [resolve, reject] = this.proc
-    this.proc = null
-    reject(new Error(message))
+  terminate(message) {
+    clearTimeout(this.timeout);
+    if (!this.worker) return;
+    this.worker.terminate();
+    this.worker = null;
+    URL.revokeObjectURL(this.objectURL);
+    const [resolve, reject] = this.proc;
+    this.proc = null;
+    reject(new Error(message));
   }
 }
 

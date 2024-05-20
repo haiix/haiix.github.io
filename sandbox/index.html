@@ -1,98 +1,105 @@
 <!DOCTYPE html>
-<meta charset="UTF-8" />
-<script type="module">
-import TComponent from '/assets/TComponent.mjs'
-import style from '/assets/style.mjs'
-import initApp from '/assets/initApp.mjs'
-import execCode from './execCode.mjs'
+<html lang="ja">
+  <head>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta charset="UTF-8">
+    <title>スクリプト置き場</title>
+    <script type="module">
+import TComponent from '/assets/TComponent.mjs';
+import style from '/assets/style.mjs';
+import execCode from './execCode.mjs';
+
+style(`
+  pre {
+    background: #EEE;
+    color: #000;
+    border: 1px solid #999;
+    margin: 0;
+    padding: 4px;
+  }
+  textarea {
+    width: 400px;
+    height: 200px;
+  }
+`);
 
 class App extends TComponent {
-  template () {
-    style(`
-      pre {
-        background: #EEE;
-        color: #000;
-        border: 1px solid #999;
-        margin: 0;
-        padding: 4px;
-      }
-      textarea {
-        width: 400px;
-        height: 200px;
-      }
-    `)
-    return `
-      <div>
-        <div>Code:</div>
-        <pre>function () {
+  static template = `
+    <div>
+      <div>Code:</div>
+      <pre>function () {
   <textarea id="code" spellcheck="false" oninput="this.handleInputCode(event)" onchange="this.handleInputCode(event)">return 'Hello, World!'</textarea>
 }</pre>
-        <div>Result:</div>
-        <pre id="result"></pre>
-      </div>
-    `
-  }
+      <div>Result:</div>
+      <pre id="result"></pre>
+    </div>
+  `;
 
-  constructor (attr = {}, nodes = []) {
-    super()
-    this.delayTid = null
-    this.prevCode = null
-    this.prevAbortController = null
-    this.canvas = null
-    this.ctx = null
-  }
+  code = this.id('code');
+  result = this.id('result');
 
-  async main () {
-    if (this.prevCode === this.code.value) return
-    this.prevCode = this.code.value
-    if (this.prevAbortController) this.prevAbortController.abort()
-    const abortController = new AbortController()
-    this.prevAbortController = abortController
+  delayTid = null;
+  prevCode = null;
+  prevAbortController = null;
+  canvas = null;
+  ctx = null;
+
+  async main() {
+    if (this.prevCode === this.code.value) return;
+    this.prevCode = this.code.value;
+    if (this.prevAbortController) this.prevAbortController.abort();
+    const abortController = new AbortController();
+    this.prevAbortController = abortController;
     const mtid = setTimeout(() => {
-      this.setText('Processing...')
-    }, 100)
+      this.setText('Processing...');
+    }, 100);
     try {
-      const retVal = await execCode(this.code.value, { signal: abortController.signal, timeout: 10000 })
+      const retVal = await execCode(this.code.value, { signal: abortController.signal, timeout: 10000 });
       if (retVal instanceof ImageData) {
-        this.setCanvas(retVal)
+        this.setCanvas(retVal);
       } else {
-        this.setText(retVal)
+        this.setText(retVal);
       }
     } catch (error) {
-      this.setText(error.message, '#F00')
+      this.setText(error.message, '#F00');
     } finally {
-      clearTimeout(mtid)
+      clearTimeout(mtid);
       if (this.prevAbortController === abortController) {
-        this.prevAbortController = null
+        this.prevAbortController = null;
       }
     }
   }
 
-  setCanvas (imageData) {
+  setCanvas(imageData) {
     if (!this.canvas) {
-      this.setText('')
-      this.canvas = document.createElement('canvas')
-      this.result.appendChild(this.canvas)
-      this.ctx = this.canvas.getContext('2d')
+      this.setText('');
+      this.canvas = document.createElement('canvas');
+      this.result.appendChild(this.canvas);
+      this.ctx = this.canvas.getContext('2d');
     }
-    this.canvas.width = imageData.width
-    this.canvas.height = imageData.height
-    this.ctx.putImageData(imageData, 0, 0)
+    this.canvas.width = imageData.width;
+    this.canvas.height = imageData.height;
+    this.ctx.putImageData(imageData, 0, 0);
   }
 
-  setText (text, color = '#000') {
-    this.result.textContent = text
-    this.canvas = null
-    this.ctx = null
-    this.result.style.color = color
+  setText(text, color = '#000') {
+    this.result.textContent = text;
+    this.canvas = null;
+    this.ctx = null;
+    this.result.style.color = color;
   }
 
-  handleInputCode (event) {
-    clearTimeout(this.delayTid)
-    this.delayTid = setTimeout(() => this.main(), 100)
+  handleInputCode(event) {
+    clearTimeout(this.delayTid);
+    this.delayTid = setTimeout(() => this.main(), 100);
   }
 }
 
-initApp(App)
-</script>
-<script nomodule src="/assets/nomodule.js"></script>
+const app = new App();
+document.body.appendChild(app.element);
+app.main();
+    </script>
+  </head>
+  <body>
+  </body>
+</html>

@@ -1,64 +1,62 @@
 <!DOCTYPE html>
 <html lang="ja">
   <head>
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta charset="UTF-8">
     <meta name="Description" content="スクリプト置き場">
     <title>スクリプト置き場</title>
-  </head>
-  <body>
     <script type="module">
-import TElement from '/assets/ui/TElement.mjs'
-import initApp from '/assets/initApp.mjs'
+import TComponent from '/assets/TComponent.mjs'
 
-const user = 'haiix'
-const repos = 'haiix.github.io'
+const user = 'haiix';
+const repos = 'haiix.github.io';
 
-class App extends TElement {
-  template () {
-    return `
-      <section>
-        <div id="message"></div>
-        <div id="contents">
-          <h1 id="h1"></h1>
-          <ul id="list"></ul>
-        </div>
-        <a href="mailto:haiix268@gmail.com" style="outline: none;">haiix268@gmail.com</a>
-      </section>
-    `
+class App extends TComponent {
+  static template = `
+    <section>
+      <div id="message"></div>
+      <div id="contents">
+        <h1 id="h1"></h1>
+        <ul id="list"></ul>
+      </div>
+      <a href="mailto:haiix268@gmail.com" style="outline: none;">haiix268@gmail.com</a>
+    </section>
+  `;
+
+  message = this.id('message');
+  contents = this.id('contents');
+  h1 = this.id('h1');
+  list = this.id('list');
+
+  base = (() => {
+    const l = window.location;
+    const p = l.pathname;
+    return l.protocol + '//' + l.host + p.slice(0, p.lastIndexOf('/'));
+  })();
+  _tree = Object.create(null);
+
+  main() {
+    window.addEventListener('hashchange', event => this.load());
+    this.load();
   }
 
-  constructor () {
-    super()
-    const l = window.location
-    const p = l.pathname
-    this.base = l.protocol + '//' + l.host + p.slice(0, p.lastIndexOf('/'))
-    this._tree = Object.create(null)
-  }
-
-  async main () {
-    window.addEventListener('hashchange', event => this.load())
-    await this.load()
-  }
-
-  async load () {
-    const path = (location.hash || '#').slice(1)
-    const tree = await this.getTree(('/' + path).slice(0, -1))
+  async load() {
+    const path = (location.hash || '#').slice(1);
+    const tree = await this.getTree(('/' + path).slice(0, -1));
     if (!tree) {
-      this.message.textContent = 'Not found'
-      this.message.style.display = 'block'
-      this.contents.style.display = 'none'
-      return
+      this.message.textContent = 'Not found';
+      this.message.style.display = 'block';
+      this.contents.style.display = 'none';
+      return;
     }
-    this.message.style.display = 'none'
-    this.contents.style.display = 'block'
-    if (path !== '' && tree.some(item => item.path === 'index.html')) {
-      return location.replace(`${this.base}/${path}`)
+    this.message.style.display = 'none';
+    this.contents.style.display = 'block';
+    if (path !== '' && tree.some((item) => item.path === 'index.html')) {
+      return location.replace(`${this.base}/${path}`);
     }
-    this.h1.textContent = (document.title + '/' + path).slice(0, -1).split('/').join(' > ')
+    this.h1.textContent = (document.title + '/' + path).slice(0, -1).split('/').join(' > ');
     this.list.innerHTML = tree
-      .filter(item => !(
+      .filter((item) => !(
         item.path[0] === '.' ||
         item.path[0] === '_' ||
         item.path === 'favicon.ico' ||
@@ -67,50 +65,52 @@ class App extends TElement {
         item.path === 'editor_test' ||
         (item.type !== 'tree' && item.type !== 'commit' && item.type !== 'blob')
       ))
-      .map(item => (
+      .map((item) => (
         item.type === 'tree' ?
           `<li><a href="#${path}${item.path}/" data-sha="${item.sha}">${item.path}</a></li>`
         :
           `<li><a href="${this.base}/${path}${item.path}">${item.path}</a></li>`
       ))
-      .join('')
+      .join('');
   }
 
-  async getTree (path) {
+  async getTree(path) {
     if (!this._tree[path]) {
-      let sha
+      let sha;
       if (!path) {
-        sha = (await this.githubApi('commits'))[0].sha
+        sha = (await this.githubApi('commits'))[0].sha;
       } else {
         const n = path.lastIndexOf('/')
-        const parentPath = path.slice(0, n)
-        const name = path.slice(n + 1)
-        const parentTree = await this.getTree(parentPath)
-        if (!parentTree) return
-        const item = parentTree.find(item => item.path === name)
-        if (!item) return
-        sha = item.sha
+        const parentPath = path.slice(0, n);
+        const name = path.slice(n + 1);
+        const parentTree = await this.getTree(parentPath);
+        if (!parentTree) return;
+        const item = parentTree.find((item) => item.path === name);
+        if (!item) return;
+        sha = item.sha;
       }
-      this._tree[path] = (await this.githubApi(`git/trees/${sha}`)).tree
+      this._tree[path] = (await this.githubApi(`git/trees/${sha}`)).tree;
     }
-    return this._tree[path]
+    return this._tree[path];
   }
 
-  async githubApi (path) {
-    const res = await fetch(`https://api.github.com/repos/${user}/${repos}/${path}`)
-    if (res.status !== 200) throw new Error(res.status + ' ' + res.statusText)
-    return await res.json()
+  async githubApi(path) {
+    const res = await fetch(`https://api.github.com/repos/${user}/${repos}/${path}`);
+    if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
+    return await res.json();
   }
 
-  onerror (error) {
-    alert(error.message)
-    throw error
+  onerror(error) {
+    alert(error.message);
+    throw error;
   }
 }
 
-initApp(App)
+const app = new App();
+document.body.append(app.element);
+app.main();
     </script>
-    <script nomodule src="https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.4/fetch.min.js"></script>
-    <script nomodule src="./assets/nomodule.js"></script>
+  </head>
+  <body>
   </body>
 </html>
