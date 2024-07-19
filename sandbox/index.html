@@ -27,9 +27,9 @@ class App extends TComponent {
   static template = `
     <div>
       <div>Code:</div>
-      <pre>function () {
-  <textarea id="code" spellcheck="false" oninput="this.handleInputCode(event)" onchange="this.handleInputCode(event)">return 'Hello, World!'</textarea>
-}</pre>
+      <pre><![CDATA[function () {
+  ]]><textarea id="code" spellcheck="false" oninput="this.handleInputCode(event)" onchange="this.handleInputCode(event)">return 'Hello, World!'</textarea><![CDATA[
+}]]></pre>
       <div>Result:</div>
       <pre id="result"></pre>
     </div>

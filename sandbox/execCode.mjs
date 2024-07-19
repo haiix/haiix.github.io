@@ -115,6 +115,7 @@ function createExecWorker() {
         Object.freeze(self[name]);
         Object.freeze(self[name].prototype);
       }
+      Object.freeze(self);
     },
 
     onmessage: async function (event) {
