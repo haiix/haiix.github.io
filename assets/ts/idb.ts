@@ -248,7 +248,7 @@ export class IdbStore extends IdbStoreBase {
   }
 }
 
-class IdbIndex extends IdbStoreBase {
+export class IdbIndex extends IdbStoreBase {
   readonly db: Idb;
   readonly storeName: string;
   readonly name: string;
@@ -274,4 +274,12 @@ class IdbIndex extends IdbStoreBase {
   }
 }
 
-export default Idb;
+export function open(dbname: string) {
+  return new Idb(dbname);
+}
+
+const defaultExport = {
+  open
+};
+
+export default defaultExport;
