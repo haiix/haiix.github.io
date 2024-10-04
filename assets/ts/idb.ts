@@ -145,7 +145,7 @@ export class Idb {
       }
     }
     if (reqUpdate || this.reqs.length > 0) {
-      const storeNames = this.reqs.map(([storeName]) => storeName);
+      const storeNames = [...this.reqs.reduce((set, [storeName]) => (set.add(storeName)), new Set<string>())];
       const mode = this.reqs.every(([, mode]) => mode === 'readonly') ? 'readonly' : 'readwrite';
       this.transaction(storeNames, mode, (tx) => {
         for (const [, , fn] of this.reqs) {
