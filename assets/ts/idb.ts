@@ -1,74 +1,12 @@
-function call(
-  x: number,
-  y: number,
-  modal: HTMLElement,
-  callback?: (x: number, y: number, modal: HTMLElement) => unknown,
-  onerror?: (error: unknown) => unknown,
-) {
-  if (!callback) return;
-  let retVal;
-  try {
-    retVal = callback(x, y, modal);
-  } catch (error) {
-    if (onerror) {
-      onerror(error);
-    }
-  }
-  if (
-    !onerror ||
-    typeof retVal !== 'object' ||
-    retVal == null ||
-    !('then' in retVal) ||
-    typeof retVal.then !== 'function'
-  )
-    return;
-  (async function (retVal) {
-    try {
-      await retVal;
-    } catch (error) {
-      onerror(error);
-    }
-  })(retVal);
-}
-
-export function getPageCoordinate(
-  event: MouseEvent | TouchEvent,
-): [number, number] {
-  if (event instanceof TouchEvent) {
-    return [event.touches?.[0]?.clientX ?? 0, event.touches?.[0]?.clientY ?? 0];
-  } else {
-    return [event.pageX, event.pageY];
-  }
-}
-
-export function hold({
-  ondragstart,
-  ondrag,
-  ondragend,
-  onerror,
-  cursor,
-  container = document.body,
-}: {
-  ondragstart?: (x: number, y: number, modal: HTMLElement) => unknown;
-  ondrag?: (x: number, y: number, modal: HTMLElement) => unknown;
-  ondragend?: (x: number, y: number, modal: HTMLElement) => unknown;
-  onerror?: (error: unknown) => unknown;
-  cursor?: string;
-  container?: HTMLElement;
-}) {
-  let modal: HTMLElement;
-  const handleMousemove = (event: MouseEvent | TouchEvent) => {
-    event.preventDefault();
-    const [px, py] = getPageCoordinate(event);
-    if (!modal) {type UpgReq = [
-  string, // storeName
-  'create' | 'delete', // method
+type UpgReq = [
+  string, // StoreName
+  'create' | 'delete', // Method
   (db: IDBDatabase) => unknown,
 ];
 
 type Req = [
-  string, // storeName
-  IDBTransactionMode, // mode
+  string, // StoreName
+  IDBTransactionMode, // Mode
   (tx: IDBTransaction) => unknown,
 ];
 
@@ -166,15 +104,15 @@ export class Idb {
   }
 
   async getVersion(): Promise<number> {
-    const db = await this.open();
-    const version = db.version;
+    const db = await this.open(),
+      { version } = db;
     db.close();
     return version;
   }
 
   async objectStoreNames(): Promise<DOMStringList> {
-    const db = await this.open();
-    const objectStoreNames = db.objectStoreNames;
+    const db = await this.open(),
+      { objectStoreNames } = db;
     db.close();
     return objectStoreNames;
   }
@@ -226,14 +164,14 @@ export class Idb {
     }
     if (reqUpdate || this.reqs.length > 0) {
       const storeNames = [
-        ...this.reqs.reduce(
-          (set, [storeName]) => set.add(storeName),
-          new Set<string>(),
-        ),
-      ];
-      const mode = this.reqs.every(([, mode]) => mode === 'readonly')
-        ? 'readonly'
-        : 'readwrite';
+          ...this.reqs.reduce(
+            (set, [storeName]) => set.add(storeName),
+            new Set<string>(),
+          ),
+        ],
+        mode = this.reqs.every(([, mode]) => mode === 'readonly')
+          ? 'readonly'
+          : 'readwrite';
       this.transaction(storeNames, mode, (tx) => {
         for (const [, , fn] of this.reqs) {
           fn(tx);
@@ -255,18 +193,20 @@ abstract class IdbStoreBase {
   ): Promise<T>;
 
   async count(query?: IDBValidKey | IDBKeyRange): Promise<number> {
-    return this.register('readonly', (os) => queryWrapper(os.count(query)));
+    return await this.register('readonly', (os) =>
+      queryWrapper(os.count(query)),
+    );
   }
 
   async get(query: IDBValidKey | IDBKeyRange): Promise<unknown> {
-    return this.register('readonly', (os) => queryWrapper(os.get(query)));
+    return await this.register('readonly', (os) => queryWrapper(os.get(query)));
   }
 
   async getAll(
     query?: IDBValidKey | IDBKeyRange | null,
     count?: number,
   ): Promise<unknown[]> {
-    return this.register('readonly', (os) =>
+    return await this.register('readonly', (os) =>
       queryWrapper(os.getAll(query, count)),
     );
   }
@@ -275,7 +215,7 @@ abstract class IdbStoreBase {
     query?: IDBValidKey | IDBKeyRange | null,
     count?: number,
   ): Promise<IDBValidKey[]> {
-    return this.register('readonly', (os) =>
+    return await this.register('readonly', (os) =>
       queryWrapper(os.getAllKeys(query, count)),
     );
   }
@@ -283,7 +223,9 @@ abstract class IdbStoreBase {
   async getKey(
     query: IDBValidKey | IDBKeyRange,
   ): Promise<IDBValidKey | undefined> {
-    return this.register('readonly', (os) => queryWrapper(os.getKey(query)));
+    return await this.register('readonly', (os) =>
+      queryWrapper(os.getKey(query)),
+    );
   }
 
   async *openCursor(
@@ -321,12 +263,12 @@ export class IdbStore extends IdbStoreBase {
     db.upgReqs.push([
       name,
       'create',
-      (db) => {
-        if (!db.objectStoreNames.contains(name)) {
-          const store = db.createObjectStore(name, options);
+      (idb) => {
+        if (!idb.objectStoreNames.contains(name)) {
+          const store = idb.createObjectStore(name, options);
           if (indices) {
-            for (const { name, keyPath, options } of indices) {
-              store.createIndex(name, keyPath, options);
+            for (const i of indices) {
+              store.createIndex(i.name, i.keyPath, i.options);
             }
           }
         }
@@ -359,15 +301,19 @@ export class IdbStore extends IdbStoreBase {
     value: unknown,
     key?: IDBValidKey | undefined,
   ): Promise<IDBValidKey> {
-    return this.register('readwrite', (os) => queryWrapper(os.add(value, key)));
+    return await this.register('readwrite', (os) =>
+      queryWrapper(os.add(value, key)),
+    );
   }
 
   async clear(): Promise<void> {
-    return this.register('readwrite', (os) => queryWrapper(os.clear()));
+    return await this.register('readwrite', (os) => queryWrapper(os.clear()));
   }
 
   async delete(query: IDBValidKey | IDBKeyRange): Promise<void> {
-    return this.register('readwrite', (os) => queryWrapper(os.delete(query)));
+    return await this.register('readwrite', (os) =>
+      queryWrapper(os.delete(query)),
+    );
   }
 
   index(name: string) {
@@ -378,7 +324,9 @@ export class IdbStore extends IdbStoreBase {
     value: unknown,
     key?: IDBValidKey | undefined,
   ): Promise<IDBValidKey> {
-    return this.register('readwrite', (os) => queryWrapper(os.put(value, key)));
+    return await this.register('readwrite', (os) =>
+      queryWrapper(os.put(value, key)),
+    );
   }
 }
 
@@ -424,33 +372,3 @@ const defaultExport = {
 };
 
 export default defaultExport;
-
-      modal = document.createElement('div');
-      modal.setAttribute('style', 'position: fixed; inset: 0;');
-      if (cursor == null && event.target instanceof Element) {
-        const style = getComputedStyle(event.target);
-        cursor = style.cursor;
-      }
-      if (cursor) modal.style.cursor = cursor;
-      container.append(modal);
-      call(px, py, modal, ondragstart, onerror);
-    }
-    call(px, py, modal, ondrag, onerror);
-  };
-  const handleMouseup = (event: MouseEvent | TouchEvent) => {
-    event.preventDefault();
-    const [px, py] = getPageCoordinate(event);
-    removeEventListener('touchmove', handleMousemove);
-    removeEventListener('touchend', handleMouseup);
-    removeEventListener('mousemove', handleMousemove);
-    removeEventListener('mouseup', handleMouseup);
-    if (modal) modal.remove();
-    call(px, py, modal, ondragend, onerror);
-  };
-  addEventListener('touchmove', handleMousemove, { passive: false });
-  addEventListener('touchend', handleMouseup, { passive: false });
-  addEventListener('mousemove', handleMousemove, { passive: false });
-  addEventListener('mouseup', handleMouseup, { passive: false });
-}
-
-export default hold;
