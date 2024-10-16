@@ -23,10 +23,10 @@ class App extends TComponent {
     </section>
   `;
 
-  message = this.id('message');
-  contents = this.id('contents');
-  h1 = this.id('h1');
-  list = this.id('list');
+  message = this.id('message', HTMLElement);
+  contents = this.id('contents', HTMLElement);
+  h1 = this.id('h1', HTMLElement);
+  list = this.id('list', HTMLElement);
 
   base = (() => {
     const l = window.location;
