@@ -35,8 +35,8 @@ class App extends TComponent {
     </div>
   `;
 
-  code = this.id('code');
-  result = this.id('result');
+  code = this.id('code', HTMLTextAreaElement);
+  result = this.id('result', HTMLElement);
 
   delayTid = null;
   prevCode = null;
