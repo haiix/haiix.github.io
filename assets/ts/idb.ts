@@ -32,19 +32,10 @@ function queryWrapper<T>(req: IDBRequest<T>): Promise<T> {
 }
 
 async function* cursorWrapper<T>(
-  req: IDBRequest<T>,
-): AsyncGenerator<NonNullable<T>, void, unknown> {
-  while (true) {
-    // eslint-disable-next-line no-await-in-loop
-    const cursor = await new Promise<T>((resolve, reject) => {
-      req.onsuccess = () => {
-        resolve(req.result);
-      };
-      req.onerror = () => {
-        reject(reqError(req));
-      };
-    });
-    if (!cursor) break;
+  req: IDBRequest<T | null>,
+): AsyncGenerator<T, void> {
+  // eslint-disable-next-line no-await-in-loop
+  for (let cursor; (cursor = await queryWrapper(req)); ) {
     yield cursor;
   }
 }
@@ -55,6 +46,7 @@ export class Idb {
   readonly upgReqs: UpgReq[] = [];
   readonly reqs: Req[] = [];
   private commitRequested = false;
+  latestError: unknown;
 
   constructor(name: string) {
     this.name = name;
@@ -98,21 +90,21 @@ export class Idb {
       } catch (error) {
         tx.abort();
         db.close();
-        reject(error);
+        throw error;
       }
     });
   }
 
   async getVersion(): Promise<number> {
-    const db = await this.open(),
-      { version } = db;
+    const db = await this.open();
+    const { version } = db;
     db.close();
     return version;
   }
 
   async objectStoreNames(): Promise<DOMStringList> {
-    const db = await this.open(),
-      { objectStoreNames } = db;
+    const db = await this.open();
+    const { objectStoreNames } = db;
     db.close();
     return objectStoreNames;
   }
@@ -136,11 +128,14 @@ export class Idb {
   }
 
   requestToCommit(): void {
-    if (this.commitRequested) return;
-    this.commitRequested = true;
-    Promise.resolve().then(() => {
+    (async () => {
+      if (this.commitRequested) return;
+      this.commitRequested = true;
+      await Promise.resolve();
       this.commitRequested = false;
-      this.commit();
+      await this.commit();
+    })().catch((error: unknown) => {
+      this.latestError = error;
     });
   }
 
@@ -164,15 +159,15 @@ export class Idb {
     }
     if (reqUpdate || this.reqs.length > 0) {
       const storeNames = [
-          ...this.reqs.reduce(
-            (set, [storeName]) => set.add(storeName),
-            new Set<string>(),
-          ),
-        ],
-        mode = this.reqs.every(([, mode]) => mode === 'readonly')
-          ? 'readonly'
-          : 'readwrite';
-      this.transaction(storeNames, mode, (tx) => {
+        ...this.reqs.reduce(
+          (set, [storeName]) => set.add(storeName),
+          new Set<string>(),
+        ),
+      ];
+      const mode = this.reqs.every(([, mode]) => mode === 'readonly')
+        ? 'readonly'
+        : 'readwrite';
+      await this.transaction(storeNames, mode, (tx) => {
         for (const [, , fn] of this.reqs) {
           fn(tx);
         }
@@ -207,7 +202,7 @@ abstract class IdbStoreBase {
     count?: number,
   ): Promise<unknown[]> {
     return await this.register('readonly', (os) =>
-      queryWrapper(os.getAll(query, count)),
+      queryWrapper<unknown[]>(os.getAll(query, count)),
     );
   }
 
@@ -231,7 +226,7 @@ abstract class IdbStoreBase {
   async *openCursor(
     query?: IDBValidKey | IDBKeyRange | null,
     direction?: IDBCursorDirection,
-  ): AsyncGenerator<IDBCursorWithValue, void, unknown> {
+  ): AsyncGenerator<IDBCursorWithValue, void> {
     yield* await this.register('readwrite', (os) =>
       cursorWrapper(os.openCursor(query, direction)),
     );
@@ -240,92 +235,9 @@ abstract class IdbStoreBase {
   async *openKeyCursor(
     query?: IDBValidKey | IDBKeyRange | null,
     direction?: IDBCursorDirection,
-  ): AsyncGenerator<IDBCursor, void, unknown> {
+  ): AsyncGenerator<IDBCursor, void> {
     yield* await this.register('readwrite', (os) =>
       cursorWrapper(os.openKeyCursor(query, direction)),
-    );
-  }
-}
-
-export class IdbStore extends IdbStoreBase {
-  readonly db: Idb;
-  readonly name: string;
-
-  constructor(
-    db: Idb,
-    name: string,
-    options?: IDBObjectStoreParameters,
-    indices?: IndexParameters[],
-  ) {
-    super();
-    this.db = db;
-    this.name = name;
-    db.upgReqs.push([
-      name,
-      'create',
-      (idb) => {
-        if (!idb.objectStoreNames.contains(name)) {
-          const store = idb.createObjectStore(name, options);
-          if (indices) {
-            for (const i of indices) {
-              store.createIndex(i.name, i.keyPath, i.options);
-            }
-          }
-        }
-      },
-    ]);
-    db.requestToCommit();
-  }
-
-  protected register<T>(
-    mode: IDBTransactionMode,
-    fn: (os: IDBObjectStore) => T,
-  ): Promise<T> {
-    return new Promise((resolve, reject) => {
-      this.db.reqs.push([
-        this.name,
-        mode,
-        (tx) => {
-          try {
-            resolve(fn(tx.objectStore(this.name)));
-          } catch (error: unknown) {
-            reject(error);
-          }
-        },
-      ]);
-      this.db.requestToCommit();
-    });
-  }
-
-  async add(
-    value: unknown,
-    key?: IDBValidKey | undefined,
-  ): Promise<IDBValidKey> {
-    return await this.register('readwrite', (os) =>
-      queryWrapper(os.add(value, key)),
-    );
-  }
-
-  async clear(): Promise<void> {
-    return await this.register('readwrite', (os) => queryWrapper(os.clear()));
-  }
-
-  async delete(query: IDBValidKey | IDBKeyRange): Promise<void> {
-    return await this.register('readwrite', (os) =>
-      queryWrapper(os.delete(query)),
-    );
-  }
-
-  index(name: string) {
-    return new IdbIndex(this.db, this.name, name);
-  }
-
-  async put(
-    value: unknown,
-    key?: IDBValidKey | undefined,
-  ): Promise<IDBValidKey> {
-    return await this.register('readwrite', (os) =>
-      queryWrapper(os.put(value, key)),
     );
   }
 }
@@ -346,20 +258,97 @@ export class IdbIndex extends IdbStoreBase {
     mode: IDBTransactionMode,
     fn: (os: IDBIndex) => T,
   ): Promise<T> {
-    return new Promise((resolve, reject) => {
+    const result = new Promise((resolve, reject) => {
       this.db.reqs.push([
         this.storeName,
         mode,
         (tx) => {
           try {
             resolve(fn(tx.objectStore(this.storeName).index(this.name)));
-          } catch (error: unknown) {
-            reject(error);
+          } catch (error) {
+            reject(error as Error);
           }
         },
       ]);
-      this.db.requestToCommit();
     });
+    this.db.requestToCommit();
+    return result as Promise<T>;
+  }
+}
+
+export class IdbStore extends IdbStoreBase {
+  readonly db: Idb;
+  readonly name: string;
+
+  constructor(
+    db: Idb,
+    name: string,
+    options?: IDBObjectStoreParameters,
+    indices?: IndexParameters[],
+  ) {
+    super();
+    this.db = db;
+    this.name = name;
+    this.db.upgReqs.push([
+      name,
+      'create',
+      (idb) => {
+        if (!idb.objectStoreNames.contains(name)) {
+          const store = idb.createObjectStore(name, options);
+          if (indices) {
+            for (const i of indices) {
+              store.createIndex(i.name, i.keyPath, i.options);
+            }
+          }
+        }
+      },
+    ]);
+    this.db.requestToCommit();
+  }
+
+  protected register<T>(
+    mode: IDBTransactionMode,
+    fn: (os: IDBObjectStore) => T,
+  ): Promise<T> {
+    const result = new Promise((resolve, reject) => {
+      this.db.reqs.push([
+        this.name,
+        mode,
+        (tx) => {
+          try {
+            resolve(fn(tx.objectStore(this.name)));
+          } catch (error) {
+            reject(error as Error);
+          }
+        },
+      ]);
+    });
+    this.db.requestToCommit();
+    return result as Promise<T>;
+  }
+
+  async add(value: unknown, key?: IDBValidKey): Promise<IDBValidKey> {
+    return await this.register('readwrite', (os) =>
+      queryWrapper(os.add(value, key)),
+    );
+  }
+
+  async clear(): Promise<void> {
+    await this.register('readwrite', (os) => queryWrapper(os.clear()));
+  }
+
+  async delete(query: IDBValidKey | IDBKeyRange): Promise<void> {
+    await this.register('readwrite', (os) => queryWrapper(os.delete(query)));
+  }
+
+  index(name: string) {
+    return new IdbIndex(this.db, this.name, name);
+  }
+
+  async put(value: unknown, key?: IDBValidKey): Promise<IDBValidKey> {
+    return await this.register('readwrite', (os) =>
+      queryWrapper(os.put(value, key)),
+    );
   }
 }
 
@@ -367,8 +356,6 @@ export function open(dbname: string) {
   return new Idb(dbname);
 }
 
-const defaultExport = {
+export default {
   open,
 };
-
-export default defaultExport;

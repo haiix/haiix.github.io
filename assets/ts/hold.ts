@@ -4,9 +4,9 @@ function call(
   modal: HTMLElement,
   callback?: (_x: number, _y: number, _modal: HTMLElement) => unknown,
   onerror?: (error: unknown) => unknown,
-) {
+): void {
   if (!callback) return;
-  let retVal;
+  let retVal = null;
   try {
     retVal = callback(x, y, modal);
   } catch (error) {
@@ -14,30 +14,22 @@ function call(
       onerror(error);
     }
   }
-  if (
-    !onerror ||
-    typeof retVal !== 'object' ||
-    retVal == null ||
-    !('then' in retVal) ||
-    typeof retVal.then !== 'function'
-  )
-    return;
-  (async () => {
-    try {
-      await retVal;
-    } catch (error) {
-      onerror(error);
-    }
-  })();
+  if (onerror && retVal instanceof Promise) {
+    retVal.catch(onerror);
+  }
 }
 
-export function getPageCoordinate(
-  event: MouseEvent | TouchEvent,
-): [number, number] {
+export function getPageCoordinate(event: MouseEvent | TouchEvent): {
+  x: number;
+  y: number;
+} {
   if (event instanceof TouchEvent) {
-    return [event.touches?.[0]?.clientX ?? 0, event.touches?.[0]?.clientY ?? 0];
+    return {
+      x: event.touches[0]?.clientX ?? 0,
+      y: event.touches[0]?.clientY ?? 0,
+    };
   }
-  return [event.pageX, event.pageY];
+  return { x: event.pageX, y: event.pageY };
 }
 
 export function hold({
@@ -55,29 +47,31 @@ export function hold({
   cursor?: string;
   container?: HTMLElement;
 }) {
-  let modal: HTMLElement;
+  let modal: HTMLElement | null = null;
   const handleMousemove = (event: MouseEvent | TouchEvent) => {
-      event.preventDefault();
-      const [x, y] = getPageCoordinate(event);
-      if (!modal) {
-        modal = document.createElement('div');
-        modal.setAttribute('style', 'position: fixed; inset: 0;');
-        if (cursor) modal.style.cursor = cursor;
-        container.append(modal);
-        call(x, y, modal, ondragstart, onerror);
-      }
-      call(x, y, modal, ondrag, onerror);
-    },
-    handleMouseup = (event: MouseEvent | TouchEvent) => {
-      event.preventDefault();
-      const [x, y] = getPageCoordinate(event);
-      removeEventListener('touchmove', handleMousemove);
-      removeEventListener('touchend', handleMouseup);
-      removeEventListener('mousemove', handleMousemove);
-      removeEventListener('mouseup', handleMouseup);
-      if (modal) modal.remove();
+    event.preventDefault();
+    const { x, y } = getPageCoordinate(event);
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.setAttribute('style', 'position: fixed; inset: 0;');
+      if (cursor) modal.style.cursor = cursor;
+      container.append(modal);
+      call(x, y, modal, ondragstart, onerror);
+    }
+    call(x, y, modal, ondrag, onerror);
+  };
+  const handleMouseup = (event: MouseEvent | TouchEvent) => {
+    event.preventDefault();
+    const { x, y } = getPageCoordinate(event);
+    removeEventListener('touchmove', handleMousemove);
+    removeEventListener('touchend', handleMouseup);
+    removeEventListener('mousemove', handleMousemove);
+    removeEventListener('mouseup', handleMouseup);
+    if (modal) {
+      modal.remove();
       call(x, y, modal, ondragend, onerror);
-    };
+    }
+  };
   addEventListener('touchmove', handleMousemove, { passive: false });
   addEventListener('touchend', handleMouseup, { passive: false });
   addEventListener('mousemove', handleMousemove, { passive: false });
