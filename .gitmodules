@@ -10,3 +10,6 @@
 [submodule "editor"]
 	path = editor
 	url = https://github.com/haiix/editor.git
+[submodule "idb"]
+	path = idb
+	url = https://github.com/haiix/idb.git
