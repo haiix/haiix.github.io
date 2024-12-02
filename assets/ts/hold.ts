@@ -1,28 +1,18 @@
-function call(
-  x: number,
-  y: number,
-  modal: HTMLElement,
-  callback?: (_x: number, _y: number, _modal: HTMLElement) => unknown,
-  onerror?: (error: unknown) => unknown,
-): void {
-  if (!callback) return;
-  let retVal = null;
-  try {
-    retVal = callback(x, y, modal);
-  } catch (error) {
-    if (onerror) {
-      onerror(error);
-    }
-  }
-  if (onerror && retVal instanceof Promise) {
-    retVal.catch(onerror);
-  }
-}
-
-export function getPageCoordinate(event: MouseEvent | TouchEvent): {
+export type Point = {
   x: number;
   y: number;
-} {
+};
+
+export type HoldParams = {
+  ondragstart?: (x: number, y: number, modal: HTMLElement) => unknown;
+  ondrag?: (x: number, y: number, modal: HTMLElement) => unknown;
+  ondragend?: (x: number, y: number, modal: HTMLElement) => unknown;
+  onerror?: (error: unknown) => unknown;
+  cursor?: string;
+  container?: HTMLElement;
+};
+
+export function getPageCoordinate(event: MouseEvent | TouchEvent): Point {
   if (event instanceof TouchEvent) {
     return {
       x: event.touches[0]?.clientX ?? 0,
@@ -32,50 +22,90 @@ export function getPageCoordinate(event: MouseEvent | TouchEvent): {
   return { x: event.pageX, y: event.pageY };
 }
 
-export function hold({
-  ondragstart,
-  ondrag,
-  ondragend,
-  onerror,
-  cursor,
-  container = document.body,
-}: {
-  ondragstart?: (x: number, y: number, modal: HTMLElement) => unknown;
-  ondrag?: (x: number, y: number, modal: HTMLElement) => unknown;
-  ondragend?: (x: number, y: number, modal: HTMLElement) => unknown;
-  onerror?: (error: unknown) => unknown;
-  cursor?: string;
-  container?: HTMLElement;
-}) {
-  let modal: HTMLElement | null = null;
-  const handleMousemove = (event: MouseEvent | TouchEvent) => {
+class HoldController {
+  params: HoldParams;
+  modal: HTMLElement | null = null;
+  prevPoint: Point = { x: 0, y: 0 };
+
+  constructor(params: HoldParams) {
+    this.params = params;
+
+    this.handleMouseDown = this.handleMouseDown.bind(this);
+    this.handleMouseMove = this.handleMouseMove.bind(this);
+    this.handleMouseUp = this.handleMouseUp.bind(this);
+
+    addEventListener('touchstart', this.handleMouseDown, { passive: false });
+    addEventListener('touchmove', this.handleMouseMove, { passive: false });
+    addEventListener('touchend', this.handleMouseUp, { passive: false });
+    addEventListener('mousedown', this.handleMouseDown, { passive: false });
+    addEventListener('mousemove', this.handleMouseMove, { passive: false });
+    addEventListener('mouseup', this.handleMouseUp, { passive: false });
+  }
+
+  private handleMouseDown(event: MouseEvent | TouchEvent): void {
     event.preventDefault();
-    const { x, y } = getPageCoordinate(event);
-    if (!modal) {
-      modal = document.createElement('div');
-      modal.setAttribute('style', 'position: fixed; inset: 0;');
-      if (cursor) modal.style.cursor = cursor;
-      container.append(modal);
-      call(x, y, modal, ondragstart, onerror);
-    }
-    call(x, y, modal, ondrag, onerror);
-  };
-  const handleMouseup = (event: MouseEvent | TouchEvent) => {
+    this.prevPoint = getPageCoordinate(event);
+  }
+
+  private handleMouseMove(event: MouseEvent | TouchEvent): void {
     event.preventDefault();
-    const { x, y } = getPageCoordinate(event);
-    removeEventListener('touchmove', handleMousemove);
-    removeEventListener('touchend', handleMouseup);
-    removeEventListener('mousemove', handleMousemove);
-    removeEventListener('mouseup', handleMouseup);
-    if (modal) {
-      modal.remove();
-      call(x, y, modal, ondragend, onerror);
+
+    const point = getPageCoordinate(event);
+    if (point.x === this.prevPoint.x && point.y === this.prevPoint.y) return;
+    this.prevPoint = point;
+
+    if (!this.modal) {
+      this.modal = document.createElement('div');
+      this.modal.setAttribute('style', 'position: fixed; inset: 0;');
+      if (this.params.cursor) this.modal.style.cursor = this.params.cursor;
+      (this.params.container ?? document.body).append(this.modal);
+      this.call(point, this.modal, this.params.ondragstart);
     }
-  };
-  addEventListener('touchmove', handleMousemove, { passive: false });
-  addEventListener('touchend', handleMouseup, { passive: false });
-  addEventListener('mousemove', handleMousemove, { passive: false });
-  addEventListener('mouseup', handleMouseup, { passive: false });
+
+    this.call(point, this.modal, this.params.ondrag);
+  }
+
+  private handleMouseUp(event: MouseEvent | TouchEvent): void {
+    event.preventDefault();
+
+    removeEventListener('touchstart', this.handleMouseDown);
+    removeEventListener('touchmove', this.handleMouseMove);
+    removeEventListener('touchend', this.handleMouseUp);
+    removeEventListener('mousedown', this.handleMouseDown);
+    removeEventListener('mousemove', this.handleMouseMove);
+    removeEventListener('mouseup', this.handleMouseUp);
+
+    if (this.modal) {
+      this.modal.remove();
+      const point = getPageCoordinate(event);
+      this.call(point, this.modal, this.params.ondragend);
+    }
+  }
+
+  private call(
+    point: Point,
+    modal: HTMLElement,
+    callback?: (x: number, y: number, m: HTMLElement) => unknown,
+  ): void {
+    if (!callback) return;
+
+    let retVal = null;
+    try {
+      retVal = callback(point.x, point.y, modal);
+    } catch (error) {
+      if (this.params.onerror) {
+        this.params.onerror(error);
+      }
+    }
+
+    if (this.params.onerror && retVal instanceof Promise) {
+      retVal.catch(this.params.onerror);
+    }
+  }
+}
+
+export function hold(params: HoldParams): void {
+  new HoldController(params);
 }
 
 export default hold;

@@ -43,4 +43,7 @@ export class Style extends EventTarget {
   }
 }
 
-export default new Style();
+const instance = new Style();
+export default function (value: string): void {
+  instance.add(value);
+}
