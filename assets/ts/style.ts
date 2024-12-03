@@ -1,11 +1,10 @@
-export class Style extends EventTarget {
+export class Style {
   private src: string[] = [];
   private requested = false;
   private styleElement: HTMLStyleElement | null = null;
   private readonly autoApply: boolean;
 
   constructor(autoApply = true) {
-    super();
     this.autoApply = autoApply;
   }
 
@@ -20,19 +19,15 @@ export class Style extends EventTarget {
   }
 
   apply(): void {
-    if (this.src.length === 0) return;
+    if (!this.src.length) return;
 
-    try {
-      if (!this.styleElement) {
-        this.styleElement = document.createElement('style');
-        document.head.appendChild(this.styleElement);
-      }
-
-      this.styleElement.textContent += this.src.join('\n');
-      this.src.length = 0;
-    } catch (error) {
-      this.dispatchEvent(new CustomEvent('error', { detail: error }));
+    if (!this.styleElement) {
+      this.styleElement = document.createElement('style');
+      document.head.appendChild(this.styleElement);
     }
+
+    this.styleElement.insertAdjacentText('beforeend', this.src.join('\n'));
+    this.src.length = 0;
   }
 
   clear(): void {
@@ -44,6 +39,6 @@ export class Style extends EventTarget {
 }
 
 const instance = new Style();
-export default function (value: string): void {
+export default function style(value: string): void {
   instance.add(value);
 }
