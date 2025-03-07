@@ -1,4 +1,4 @@
-import { TAttributes, TComponent } from 'tcomponent';
+import { TAttributes, TComponent } from '@haiix/tcomponent';
 
 export class List extends TComponent {
   static template = '<ul id="ul"></ul>';

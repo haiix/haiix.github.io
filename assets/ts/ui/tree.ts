@@ -3,7 +3,7 @@ import {
   TComponent,
   mergeAttrsWithoutStyles,
   mergeStyles,
-} from 'tcomponent';
+} from '@haiix/tcomponent';
 import List from './list';
 import style from '../style';
 

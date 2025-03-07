@@ -1,16 +1,16 @@
-export type Point = {
+export interface Point {
   x: number;
   y: number;
-};
+}
 
-export type HoldParams = {
+export interface HoldParams {
   ondragstart?: (x: number, y: number, overlay: HTMLElement) => unknown;
   ondrag?: (x: number, y: number, overlay: HTMLElement) => unknown;
   ondragend?: (x: number, y: number, overlay: HTMLElement) => unknown;
   onerror?: (error: unknown) => unknown;
   cursor?: string;
   container?: HTMLElement;
-};
+}
 
 const overlay = document.createElement('div');
 overlay.style.position = 'fixed';
@@ -94,6 +94,7 @@ export function hold(params: HoldParams): void {
   };
   const handleMouseUp = (event: MouseEvent | TouchEvent) => {
     event.preventDefault();
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
     for (const handler of handlers) {
       removeEventListener(handler.type, handler.listener);
     }
