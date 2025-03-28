@@ -13,10 +13,8 @@ export function isContainerLike(node: unknown): node is ContainerLike {
 }
 
 /* eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters */
-export function createElement<T extends HTMLElement = HTMLElement>(
-  tagName: keyof HTMLElementTagNameMap,
-): T {
-  return document.createElement(tagName) as T;
+export function createElement<T extends keyof HTMLElementTagNameMap>(tagName: T): HTMLElementTagNameMap[T] {
+  return document.createElement(tagName);
 }
 
 export class Container implements ContainerLike {
