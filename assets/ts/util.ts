@@ -22,18 +22,18 @@ export function sleep(delay: number): Promise<void> {
 /**
  * イベントハンドラーを安全に実行するためのラッパーを作成します。
  */
-export const createSafeEventHandler = (errorCallback: (error: unknown) => void) => (
-  <T extends Event>(handler: (event: T) => void | Promise<void>) => (
-    (event: T) => {
-      try {
-        const result = handler(event);
-        if (typeof result?.catch === 'function') result.catch(errorCallback);
-      } catch (error) {
-        errorCallback(error);
-      }
+export const createSafeErrorHandler =
+  (errorCallback: (error: unknown) => void) =>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  <T extends any[]>(fn: (...args: T) => void | Promise<void>) =>
+  (...args: T) => {
+    try {
+      const result = fn(...args);
+      if (typeof result?.catch === "function") result.catch(errorCallback);
+    } catch (error) {
+      errorCallback(error);
     }
-  )
-);
+  };
 
 /**
  * 指定された URL から非同期で取得し、レスポンスを JSON 形式で返します。
