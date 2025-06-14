@@ -83,7 +83,7 @@ class App extends TComponent {
       } else {
         const n = path.lastIndexOf('/')
         const parentPath = path.slice(0, n);
-        const name = path.slice(n + 1);
+        const name = decodeURIComponent(path.slice(n + 1));
         const parentTree = await this.getTree(parentPath);
         if (!parentTree) return;
         const item = parentTree.find((item) => item.path === name);
