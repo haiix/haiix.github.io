@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>何食べたいかわからないとき用・食欲診断</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      padding: 20px;
+      max-width: 800px;
+      margin: auto;
+      background-color: #f9f9f9;
+      color: #333;
+    }
+    h1 {
+      font-size: 1.8em;
+      text-align: center;
+      color: #d35400;
+      margin-bottom: 30px;
+    }
+    form {
+      background-color: #fff;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    fieldset {
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      padding: 15px 20px;
+      margin-bottom: 25px;
+    }
+    legend {
+      font-size: 1.1em;
+      font-weight: bold;
+      padding: 0 10px;
+      color: #34495e;
+    }
+    label {
+      display: block;
+      margin-bottom: 10px;
+      cursor: pointer;
+    }
+    input[type="text"],
+    fieldset textarea {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      box-sizing: border-box;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-family: inherit;
+    }
+    fieldset textarea {
+      resize: vertical;
+    }
+    button[type="button"] {
+      display: block;
+      width: 100%;
+      padding: 12px 20px;
+      font-size: 1.1em;
+      font-weight: bold;
+      color: #fff;
+      background-color: #e67e22;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    button[type="button"]:hover {
+      background-color: #d35400;
+    }
+    .output-container {
+        position: relative;
+        margin-top: 20px;
+    }
+    textarea#output {
+      width: 100%;
+      height: 300px;
+      padding: 15px;
+      box-sizing: border-box;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      font-family: monospace;
+      white-space: pre-wrap;
+      line-height: 1.5;
+      background-color: #fdfdfd;
+    }
+    #copyButton {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        padding: 6px 12px;
+        font-size: 0.9em;
+        background-color: #3498db;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    #copyButton:hover {
+        background-color: #2980b9;
+    }
+    #copyButton:disabled {
+        background-color: #bdc3c7;
+        cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <h1>🍽️ 何食べたい？ 食欲診断</h1>
+  <form id="questionnaire" onsubmit="return false;">
+
+    <fieldset>
+      <legend>1. 今、お腹の空き具合は？</legend>
+      <label><input type="radio" name="q1" value="かなり空いてる"> かなり空いてる</label>
+      <label><input type="radio" name="q1" value="まあまあ空いてる"> まあまあ空いてる</label>
+      <label><input type="radio" name="q1" value="そんなに空いてない"> そんなに空いてない</label>
+      <label><input type="radio" name="q1" value="よくわからない"> よくわからない</label>
+    </fieldset>
+
+    <fieldset>
+      <legend>2. 温かいもの？冷たいもの？</legend>
+      <label><input type="radio" name="q2" value="温かい"> 温かい</label>
+      <label><input type="radio" name="q2" value="冷たい"> 冷たい</label>
+      <label><input type="radio" name="q2" value="どっちでもいい"> どっちでもいい</label>
+    </fieldset>
+
+    <fieldset>
+      <legend>3. どのくらいの量を食べたい？</legend>
+      <label><input type="radio" name="q3" value="がっつり"> がっつり食べたい</label>
+      <label><input type="radio" name="q3" value="普通"> 普通の量で満足</label>
+      <label><input type="radio" name="q3" value="軽め"> 軽めに済ませたい</label>
+      <label><input type="radio" name="q3" value="つまむ程度"> 少しつまむ程度でいい</label>
+    </fieldset>
+
+    <fieldset>
+      <legend>4. 食べるのにかけられる時間は？</legend>
+      <label><input type="radio" name="q4" value="ゆっくり(30分以上)"> ゆっくり食べられる (30分以上)</label>
+      <label><input type="radio" name="q4" value="普通(15〜30分)"> 普通 (15〜30分)</label>
+      <label><input type="radio" name="q4" value="ぱっと(15分以内)"> ぱっと済ませたい (15分以内)</label>
+    </fieldset>
+
+    <fieldset>
+      <legend>5. 今の味の気分は？ (複数選択可)</legend>
+      <label><input type="checkbox" name="q5" value="こってり"> こってり</label>
+      <label><input type="checkbox" name="q5" value="あっさり"> あっさり</label>
+      <label><input type="checkbox" name="q5" value="甘い"> 甘い</label>
+      <label><input type="checkbox" name="q5" value="しょっぱい"> しょっぱい (塩気)</label>
+      <label><input type="checkbox" name="q5" value="辛い"> 辛い</label>
+      <label><input type="checkbox" name="q5" value="酸っぱい"> 酸っぱい</label>
+      <label><input type="checkbox" name="q5" value="旨味"> 旨味 (出汁など)</label>
+    </fieldset>
+
+    <fieldset>
+      <legend>6. どのくらい手間をかけられる？</legend>
+      <label><input type="radio" name="q6" value="本格的な自炊"> 本格的に自炊したい</label>
+      <label><input type="radio" name="q6" value="簡単な自炊"> 簡単な自炊ならOK</label>
+      <label><input type="radio" name="q6" value="テイクアウト/外食"> テイクアウト・外食したい</label>
+      <label><input type="radio" name="q6" value="デリバリー"> デリバリーを頼みたい</label>
+      <label><input type="radio" name="q6" value="家にあるもの"> 家にあるものですぐに済ませたい</label>
+    </fieldset>
+
+    <fieldset>
+      <legend>7. 避けたいものはある？ (複数選択可)</legend>
+      <div id="q7_options">
+        <label><input type="checkbox" name="q7" value="肉類"> 肉類は気分じゃない</label>
+        <label><input type="checkbox" name="q7" value="魚介類"> 魚介類は気分じゃない</label>
+        <label><input type="checkbox" name="q7" value="揚げ物"> 揚げ物は重い</label>
+        <label><input type="checkbox" name="q7" value="炭水化物"> 炭水化物は控えたい</label>
+        <label><input type="checkbox" name="q7" value="アレルギー等"> アレルギー／体質的にNGなものがある</label>
+      </div>
+      <label><input type="checkbox" id="q7_none" value="特になし"> 特になし</label>
+      <input type="text" name="q7_detail" placeholder="（アレルギーなど具体的にあれば入力）">
+    </fieldset>
+    
+    <fieldset>
+      <legend>8. 惹かれる言葉は？ (複数選択可)</legend>
+      <label><input type="checkbox" name="q8" value="焼きたて"> 焼きたて</label>
+      <label><input type="checkbox" name="q8" value="ジューシー"> ジューシー</label>
+      <label><input type="checkbox" name="q8" value="しゃきしゃき"> しゃきしゃき</label>
+      <label><input type="checkbox" name="q8" value="とろとろ"> とろとろ</label>
+      <label><input type="checkbox" name="q8" value="サクサク"> サクサク</label>
+      <label><input type="checkbox" name="q8" value="つるつる"> つるつる</label>
+      <label><input type="checkbox" name="q8" value="もちもち"> もちもち</label>
+      <label><input type="checkbox" name="q8" value="ふわふわ"> ふわふわ</label>
+    </fieldset>
+
+    <fieldset>
+        <legend>9. 食べたい気分のジャンルは？ (複数選択可)</legend>
+        <div id="q9_options">
+            <label><input type="checkbox" name="q9" value="和食"> 和食</label>
+            <label><input type="checkbox" name="q9" value="洋食"> 洋食</label>
+            <label><input type="checkbox" name="q9" value="中華"> 中華</label>
+            <label><input type="checkbox" name="q9" value="アジア・エスニック"> アジア・エスニック</label>
+            <label><input type="checkbox" name="q9" value="イタリアン"> イタリアン</label>
+            <label><input type="checkbox" name="q9" value="ジャンクフード"> ジャンクフード</label>
+        </div>
+        <label><input type="checkbox" id="q9_none" value="特になし"> 特にこだわりはない</label>
+    </fieldset>
+
+    <fieldset>
+      <legend>10. その他、何か希望はありますか？</legend>
+      <textarea name="q10_freetext" rows="3" placeholder="昨日食べたもの、今なんとなく頭に浮かんでいるもの、予算など、何でも自由にお書きください。"></textarea>
+    </fieldset>
+
+    <button type="button" onclick="generateOutput()">AIへの相談内容を作成する</button>
+  </form>
+
+  <div class="output-container">
+    <textarea id="output" readonly placeholder="ここにAIへの相談内容（プロンプト）が表示されます。コピーしてChatGPTなどに貼り付けてください。"></textarea>
+    <button id="copyButton" onclick="copyPrompt()" disabled>コピー</button>
+  </div>
+
+  <script>
+    // 「特になし」チェックボックスの排他処理
+    function setupExclusiveCheckbox(noneCheckboxId, optionsContainerId) {
+        const noneCheckbox = document.getElementById(noneCheckboxId);
+        const options = document.getElementById(optionsContainerId).querySelectorAll('input[type="checkbox"]');
+
+        noneCheckbox.addEventListener('change', () => {
+            if (noneCheckbox.checked) {
+                options.forEach(opt => opt.checked = false);
+            }
+        });
+
+        options.forEach(opt => {
+            opt.addEventListener('change', () => {
+                if (opt.checked) {
+                    noneCheckbox.checked = false;
+                }
+            });
+        });
+    }
+    
+    setupExclusiveCheckbox('q7_none', 'q7_options');
+    setupExclusiveCheckbox('q9_none', 'q9_options');
+
+    function generateOutput() {
+      const form = document.getElementById('questionnaire');
+      const output = document.getElementById('output');
+      const formData = new FormData(form);
+      let prompt = "あなたは食事提案のプロフェッショナルです。以下の私の今の気分や状況を分析し、最適な食事の選択肢を3つ、具体的なメニュー名で提案してください。それぞれの選択肢について、なぜそれがおすすめなのか、簡単な理由も添えてください。\n\n--- 私の状況 ---\n";
+
+      const getRadioValue = (name) => formData.get(name) || '未選択';
+      const getCheckboxValues = (name) => {
+          const values = formData.getAll(name);
+          // 「特になし」が選択肢にある場合を除外
+          return values.filter(v => v !== '特になし').join(', ') || '特になし';
+      }
+
+      prompt += `・お腹の空き具合: ${getRadioValue('q1')}\n`;
+      prompt += `・温度: ${getRadioValue('q2')}ものがいい\n`;
+      prompt += `・量: ${getRadioValue('q3')}気分\n`;
+      prompt += `・食事時間: ${getRadioValue('q4')}\n`;
+      prompt += `・味の好み: ${getCheckboxValues('q5')}\n`;
+      prompt += `・かけられる手間: ${getRadioValue('q6')}\n`;
+      
+      let restrictions = getCheckboxValues('q7');
+      const detail = formData.get('q7_detail').trim();
+      if (detail) {
+          restrictions += (restrictions !== '特になし' ? ', ' : '') + `具体的には「${detail}」を避けたい`;
+      }
+      prompt += `・避けたいもの: ${restrictions}\n`;
+
+      prompt += `・惹かれる食感や言葉: ${getCheckboxValues('q8')}\n`;
+      prompt += `・気分のジャンル: ${getCheckboxValues('q9')}\n`;
+      
+      const freeText = formData.get('q10_freetext').trim();
+      if (freeText) {
+          prompt += `・その他の希望: ${freeText}\n`;
+      }
+      
+      prompt += "\n--- 提案をお願いします ---";
+
+      output.value = prompt;
+
+      const copyBtn = document.getElementById('copyButton');
+      copyBtn.disabled = false;
+      copyBtn.textContent = 'コピー';
+    }
+
+    function copyPrompt() {
+        const outputArea = document.getElementById('output');
+        const copyBtn = document.getElementById('copyButton');
+
+        if (!outputArea.value) return; // テキストがなければ何もしない
+
+        navigator.clipboard.writeText(outputArea.value).then(() => {
+            // 成功したらボタンの表示を変更
+            copyBtn.textContent = 'コピーしました！';
+            copyBtn.disabled = true;
+            // 2秒後に元に戻す
+            setTimeout(() => {
+                copyBtn.textContent = 'コピー';
+                copyBtn.disabled = false;
+            }, 2000);
+        }).catch(err => {
+            console.error('コピーに失敗しました', err);
+            // ユーザーに失敗を知らせる（任意）
+            alert('クリップボードへのコピーに失敗しました。');
+        });
+    }
+  </script>
+</body>
+</html>
