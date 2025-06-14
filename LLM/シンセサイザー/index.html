@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>シンセサイザー</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+      text-align: center;
+      color: #333;
+    }
+
+    h1 {
+      color: #333;
+      margin-bottom: 15px;
+    }
+
+    .controls {
+      margin: 20px 0;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 15px;
+    }
+
+    .control-group {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    label {
+      margin-right: 5px;
+    }
+
+    select, input {
+      padding: 5px;
+    }
+
+    .keyboard-container {
+      overflow-x: auto;
+      margin: 20px auto;
+      padding: 10px 0;
+    }
+
+    .keyboard {
+      display: flex;
+      justify-content: center;
+      position: relative;
+      height: 200px;
+      margin: 0 auto;
+      min-width: max-content;
+    }
+
+    .key {
+      border: 1px solid #000;
+      border-radius: 0 0 5px 5px;
+      cursor: pointer;
+      position: relative;
+      user-select: none;
+      box-shadow: 2px 2px 2px rgba(0,0,0,0.1);
+      transition: background-color 0.1s;
+    }
+
+    .white-key {
+      background-color: white;
+      width: 40px;
+      height: 200px;
+      z-index: 1;
+    }
+
+    .black-key {
+      background-color: #222;
+      width: 24px;
+      height: 120px;
+      margin-left: -12px;
+      margin-right: -12px;
+      z-index: 2;
+    }
+
+    .key.active {
+      background-color: #a0e0ff;
+    }
+
+    .black-key.active {
+      background-color: #5090b0;
+    }
+
+    .key-label {
+      position: absolute;
+      bottom: 10px;
+      width: 100%;
+      text-align: center;
+      font-size: 10px;
+      color: #333;
+    }
+
+    .black-key .key-label {
+      color: white;
+      font-size: 8px;
+    }
+
+    .envelope-controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 15px;
+      padding: 15px;
+      background-color: #f5f5f5;
+      border-radius: 8px;
+    }
+
+    .envelope-control {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .volume-control {
+      width: 200px;
+      margin: 0 auto;
+    }
+
+    .presets {
+      margin: 15px 0;
+    }
+
+    .preset-btn {
+      margin: 0 5px;
+      padding: 5px 10px;
+      background-color: #e0e0e0;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .preset-btn:hover {
+      background-color: #d0d0d0;
+    }
+
+    .info {
+      margin-top: 20px;
+      font-size: 0.9em;
+      background-color: #f9f9f9;
+      padding: 10px;
+      border-radius: 5px;
+    }
+
+    .octave-indicator {
+      font-weight: bold;
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>シンセサイザー</h1>
+  
+  <div class="controls">
+    <div class="control-group">
+      <label for="waveform">波形: </label>
+      <select id="waveform">
+        <option value="sine">サイン波</option>
+        <option value="square">矩形波</option>
+        <option value="sawtooth">のこぎり波</option>
+        <option value="triangle">三角波</option>
+      </select>
+    </div>
+    
+    <div class="control-group">
+      <label for="octave">開始オクターブ: </label>
+      <select id="octave">
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4" selected>4</option>
+        <option value="5">5</option>
+        <option value="6">6</option>
+      </select>
+    </div>
+    
+    <div class="control-group volume-control">
+      <label for="volume">音量: </label>
+      <input type="range" id="volume" min="0" max="100" value="70" step="1">
+      <span id="volume-value">70%</span>
+    </div>
+  </div>
+  
+  <div class="presets">
+    <button class="preset-btn" data-preset="piano">ピアノ風</button>
+    <button class="preset-btn" data-preset="organ">オルガン風</button>
+    <button class="preset-btn" data-preset="synth">シンセ風</button>
+    <button class="preset-btn" data-preset="pad">パッド音</button>
+  </div>
+  
+  <div class="envelope-controls">
+    <div class="envelope-control">
+      <label for="attack">アタック (秒)</label>
+      <input type="range" id="attack" min="0" max="2" value="0.05" step="0.01">
+      <span id="attack-value">0.05</span>
+    </div>
+    <div class="envelope-control">
+      <label for="decay">ディケイ (秒)</label>
+      <input type="range" id="decay" min="0" max="2" value="0.1" step="0.01">
+      <span id="decay-value">0.1</span>
+    </div>
+    <div class="envelope-control">
+      <label for="sustain">サステイン (%)</label>
+      <input type="range" id="sustain" min="0" max="100" value="70" step="1">
+      <span id="sustain-value">70</span>
+    </div>
+    <div class="envelope-control">
+      <label for="release">リリース (秒)</label>
+      <input type="range" id="release" min="0" max="3" value="0.3" step="0.01">
+      <span id="release-value">0.3</span>
+    </div>
+  </div>
+
+  <div class="octave-indicator">
+    <span id="octave-display">現在のオクターブ: 4-5</span>
+  </div>
+  
+  <div class="keyboard-container">
+    <div id="keyboard" class="keyboard"></div>
+  </div>
+  
+  <div class="info">
+    <p>コンピュータキーボードでも演奏できます（最初のオクターブ）: A, W, S, E, D, F, T, G, Y, H, U, J, K</p>
+    <p>ZキーとXキーでオクターブを変更できます</p>
+    <p>キーボードショートカット: 1=ピアノ風, 2=オルガン風, 3=シンセ風, 4=パッド音</p>
+  </div>
+
+  <script>
+    // オーディオコンテキストの作成
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const audioContext = new AudioContext();
+    
+    // マスターボリューム
+    const masterGainNode = audioContext.createGain();
+    masterGainNode.connect(audioContext.destination);
+    
+    // キーマッピング（1オクターブ分）
+    const keyMapping = [
+      { note: 'C', key: 'a' },
+      { note: 'C#', key: 'w' },
+      { note: 'D', key: 's' },
+      { note: 'D#', key: 'e' },
+      { note: 'E', key: 'd' },
+      { note: 'F', key: 'f' },
+      { note: 'F#', key: 't' },
+      { note: 'G', key: 'g' },
+      { note: 'G#', key: 'y' },
+      { note: 'A', key: 'h' },
+      { note: 'A#', key: 'u' },
+      { note: 'B', key: 'j' },
+      { note: 'C+', key: 'k' } // 次のオクターブのC
+    ];
+    
+    // プリセット設定
+    const presets = {
+      piano: {
+        waveform: 'triangle',
+        attack: 0.01,
+        decay: 0.2,
+        sustain: 70,
+        release: 0.5
+      },
+      organ: {
+        waveform: 'sine',
+        attack: 0.05,
+        decay: 0.0,
+        sustain: 100,
+        release: 0.1
+      },
+      synth: {
+        waveform: 'sawtooth',
+        attack: 0.02,
+        decay: 0.3,
+        sustain: 60,
+        release: 0.2
+      },
+      pad: {
+        waveform: 'sine',
+        attack: 0.8,
+        decay: 1.0,
+        sustain: 80,
+        release: 1.5
+      }
+    };
+    
+    // 2オクターブ分のキーボードレイアウトを生成（修正版）
+    function generateKeyboardLayout() {
+      const layout = [];
+      
+      // 1オクターブ目
+      keyMapping.forEach(keyInfo => {
+        layout.push({
+          note: keyInfo.note === 'C+' ? 'C+1' : keyInfo.note,
+          isWhite: !keyInfo.note.includes('#'),
+          key: keyInfo.key,
+          octaveOffset: keyInfo.note === 'C+' ? 1 : 0
+        });
+      });
+      
+      // 2オクターブ目（コンピュータのキーは割り当てない）
+      keyMapping.forEach(keyInfo => {
+        // Cキーは既に1オクターブ目の「C+1」として追加されているので除外
+        if (keyInfo.note !== 'C') {
+          layout.push({
+            note: keyInfo.note === 'C+' ? 'C+2' : keyInfo.note + '+1',
+            isWhite: !keyInfo.note.includes('#'),
+            key: null,
+            octaveOffset: keyInfo.note === 'C+' ? 2 : 1
+          });
+        }
+      });
+      
+      return layout;
+    }
+    
+    const keyboardLayout = generateKeyboardLayout();
+    
+    // MIDIノートから周波数への変換
+    function midiNoteToFrequency(note) {
+      return 440 * Math.pow(2, (note - 69) / 12);
+    }
+    
+    // ノート名からMIDIノート番号への変換
+    function noteToMidiNote(noteName, octave) {
+      const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+      let noteIndex;
+      let octaveOffset = 0;
+      
+      // +1のようなオクターブ修飾子がある場合
+      if (noteName.includes('+')) {
+        const parts = noteName.split('+');
+        noteIndex = notes.indexOf(parts[0]);
+        octaveOffset = parseInt(parts[1] || 1);
+      } else {
+        noteIndex = notes.indexOf(noteName);
+      }
+      
+      return 12 * (parseInt(octave) + octaveOffset) + noteIndex;
+    }
+    
+    // 現在アクティブなオシレーターを追跡
+    const activeOscillators = {};
+    
+    // エンベロープ設定の取得
+    function getEnvelopeSettings() {
+      return {
+        attack: parseFloat(document.getElementById('attack').value),
+        decay: parseFloat(document.getElementById('decay').value),
+        sustain: parseFloat(document.getElementById('sustain').value) / 100,
+        release: parseFloat(document.getElementById('release').value)
+      };
+    }
+    
+    // 音量の取得
+    function getVolume() {
+      return parseFloat(document.getElementById('volume').value) / 100;
+    }
+    
+    // オクターブ表示の更新
+    function updateOctaveDisplay() {
+      const octave = parseInt(document.getElementById('octave').value);
+      document.getElementById('octave-display').textContent = `現在のオクターブ: ${octave}-${octave+1}`;
+    }
+    
+    // プリセットの適用
+    function applyPreset(presetName) {
+      const preset = presets[presetName];
+      if (!preset) return;
+      
+      document.getElementById('waveform').value = preset.waveform;
+      document.getElementById('attack').value = preset.attack;
+      document.getElementById('decay').value = preset.decay;
+      document.getElementById('sustain').value = preset.sustain;
+      document.getElementById('release').value = preset.release;
+      
+      // 値の表示を更新
+      updateSliderValue('attack');
+      updateSliderValue('decay');
+      updateSliderValue('sustain');
+      updateSliderValue('release');
+    }
+    
+    // 音を鳴らす
+    function playNote(noteName) {
+      const octave = document.getElementById('octave').value;
+      const waveform = document.getElementById('waveform').value;
+      const midiNote = noteToMidiNote(noteName, octave);
+      const frequency = midiNoteToFrequency(midiNote);
+      const volume = getVolume();
+      const env = getEnvelopeSettings();
+      
+      // オシレーターの作成
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.type = waveform;
+      oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+      
+      // エンベロープを設定 (ADSR)
+      const now = audioContext.currentTime;
+      gainNode.gain.setValueAtTime(0, now);
+      gainNode.gain.linearRampToValueAtTime(volume, now + env.attack);  // Attack
+      gainNode.gain.linearRampToValueAtTime(volume * env.sustain, now + env.attack + env.decay);  // Decay to Sustain
+      
+      // 接続
+      oscillator.connect(gainNode);
+      gainNode.connect(masterGainNode);
+      
+      // 再生開始
+      oscillator.start();
+      
+      // アクティブなノートとして保存
+      activeOscillators[noteName] = {
+        oscillator: oscillator,
+        gainNode: gainNode,
+        startTime: now
+      };
+      
+      // キーボードのキーをアクティブに
+      const key = document.querySelector(`[data-note="${noteName}"]`);
+      if (key) {
+        key.classList.add('active');
+      }
+    }
+    
+    // 音を止める
+    function stopNote(noteName) {
+      if (activeOscillators[noteName]) {
+        const { oscillator, gainNode } = activeOscillators[noteName];
+        const env = getEnvelopeSettings();
+        const now = audioContext.currentTime;
+        
+        // リリース部分（エンベロープ）
+        gainNode.gain.cancelScheduledValues(now);
+        gainNode.gain.setValueAtTime(gainNode.gain.value, now);
+        gainNode.gain.linearRampToValueAtTime(0, now + env.release);
+        
+        // リリース時間後に完全に停止
+        setTimeout(() => {
+          oscillator.stop();
+          oscillator.disconnect();
+          gainNode.disconnect();
+        }, env.release * 1000 + 50);
+        
+        delete activeOscillators[noteName];
+        
+        // キーボードのキーのアクティブ状態を解除
+        const key = document.querySelector(`[data-note="${noteName}"]`);
+        if (key) {
+          key.classList.remove('active');
+        }
+      }
+    }
+    
+    // キーボードの表示
+    function createKeyboard() {
+      const keyboardElement = document.getElementById('keyboard');
+      keyboardElement.innerHTML = '';
+      
+      keyboardLayout.forEach(keyInfo => {
+        const keyElement = document.createElement('div');
+        const keyClass = keyInfo.isWhite ? 'white-key' : 'black-key';
+        keyElement.className = `key ${keyClass}`;
+        keyElement.dataset.note = keyInfo.note;
+        
+        const keyLabel = document.createElement('div');
+        keyLabel.className = 'key-label';
+        keyLabel.textContent = keyInfo.key ? `${keyInfo.note} (${keyInfo.key})` : keyInfo.note;
+        keyElement.appendChild(keyLabel);
+        
+        // マウスイベント
+        keyElement.addEventListener('mousedown', () => {
+          playNote(keyInfo.note);
+        });
+        keyElement.addEventListener('mouseup', () => {
+          stopNote(keyInfo.note);
+        });
+        keyElement.addEventListener('mouseleave', () => {
+          stopNote(keyInfo.note);
+        });
+        
+        // タッチイベント
+        keyElement.addEventListener('touchstart', (e) => {
+          e.preventDefault();
+          playNote(keyInfo.note);
+        });
+        keyElement.addEventListener('touchend', () => {
+          stopNote(keyInfo.note);
+        });
+        
+        keyboardElement.appendChild(keyElement);
+      });
+      
+      // オクターブ表示の更新
+      updateOctaveDisplay();
+    }
+    
+    // キーボードイベント
+    const keyToNoteMap = {};
+    keyboardLayout.forEach(keyInfo => {
+      if (keyInfo.key) {
+        keyToNoteMap[keyInfo.key] = keyInfo.note;
+      }
+    });
+    
+    document.addEventListener('keydown', (e) => {
+      // オーディオコンテキストの開始（ユーザージェスチャーが必要）
+      if (audioContext.state === 'suspended') {
+        audioContext.resume();
+      }
+      
+      // オクターブ変更
+      if (e.key === 'z') {
+        const octaveSelect = document.getElementById('octave');
+        const currentIndex = octaveSelect.selectedIndex;
+        if (currentIndex > 0) {
+          octaveSelect.selectedIndex = currentIndex - 1;
+          updateOctaveDisplay();
+          createKeyboard();
+        }
+        return;
+      }
+      
+      if (e.key === 'x') {
+        const octaveSelect = document.getElementById('octave');
+        const currentIndex = octaveSelect.selectedIndex;
+        if (currentIndex < octaveSelect.options.length - 1) {
+          octaveSelect.selectedIndex = currentIndex + 1;
+          updateOctaveDisplay();
+          createKeyboard();
+        }
+        return;
+      }
+      
+      // プリセットショートカット
+      if (e.key === '1') {
+        applyPreset('piano');
+        return;
+      }
+      if (e.key === '2') {
+        applyPreset('organ');
+        return;
+      }
+      if (e.key === '3') {
+        applyPreset('synth');
+        return;
+      }
+      if (e.key === '4') {
+        applyPreset('pad');
+        return;
+      }
+      
+      const note = keyToNoteMap[e.key];
+      if (note && !e.repeat) {
+        playNote(note);
+      }
+    });
+    
+    document.addEventListener('keyup', (e) => {
+      const note = keyToNoteMap[e.key];
+      if (note) {
+        stopNote(note);
+      }
+    });
+    
+    // スライダーの値表示を更新
+    function updateSliderValue(id) {
+      const slider = document.getElementById(id);
+      const valueDisplay = document.getElementById(`${id}-value`);
+      
+      if (id === 'volume' || id === 'sustain') {
+        valueDisplay.textContent = `${slider.value}%`;
+      } else {
+        valueDisplay.textContent = slider.value;
+      }
+      
+      // マスターボリュームの更新
+      if (id === 'volume') {
+        masterGainNode.gain.value = slider.value / 100;
+      }
+    }
+    
+    // 初期化
+    window.addEventListener('load', () => {
+      createKeyboard();
+      
+      // マスターボリュームの初期化
+      masterGainNode.gain.value = getVolume();
+      
+      // 波形やオクターブが変更された時にキーボードを再描画
+      document.getElementById('waveform').addEventListener('change', createKeyboard);
+      document.getElementById('octave').addEventListener('change', () => {
+        updateOctaveDisplay();
+        createKeyboard();
+      });
+      
+      // スライダーのイベントリスナー設定
+      const sliders = ['volume', 'attack', 'decay', 'sustain', 'release'];
+      sliders.forEach(id => {
+        const slider = document.getElementById(id);
+        slider.addEventListener('input', () => updateSliderValue(id));
+        updateSliderValue(id); // 初期表示
+      });
+      
+      // プリセットボタンの設定
+      document.querySelectorAll('.preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          applyPreset(btn.dataset.preset);
+        });
+      });
+      
+      // ユーザージェスチャーがあったときにオーディオを開始
+      document.addEventListener('click', () => {
+        if (audioContext.state === 'suspended') {
+          audioContext.resume();
+        }
+      });
+    });
+  </script>
+</body>
+</html>
