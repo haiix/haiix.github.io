@@ -20,22 +20,6 @@ export function sleep(delay: number): Promise<void> {
 }
 
 /**
- * イベントハンドラーを安全に実行するためのラッパーを作成します。
- */
-export const createSafeErrorHandler =
-  (errorCallback: (error: unknown) => void) =>
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  <T extends any[]>(fn: (...args: T) => void | Promise<void>) =>
-  (...args: T) => {
-    try {
-      const result = fn(...args);
-      if (typeof result?.catch === "function") result.catch(errorCallback);
-    } catch (error) {
-      errorCallback(error);
-    }
-  };
-
-/**
  * 指定された URL から非同期で取得し、レスポンスを JSON 形式で返します。
  *
  * @param url 取得先の URL
@@ -90,18 +74,29 @@ export async function postJSON(
 }
 
 /**
- * 決定論的乱数
+ * 決定論的乱数（FNV-1aを使用）
+ * @param source - 元データ（文字列またはUint8Array）
+ * @returns [0, 1) の範囲の浮動小数点数
  */
 export function deterministicRandom(source: string | Uint8Array): number {
-  const data = typeof source === 'string' ? new TextEncoder().encode(source) : source;
-  let state = 0;
-  for (const value of data) {
-    state += value * 0x19660d + 0x3c6ef35f;
-    state ^= state << 13;
-    state ^= state >>> 17;
-    state ^= state << 5;
+  const extraSalt = new Uint8Array([11, 195, 204, 207, 6, 176, 117, 216]);
+
+  const encoder = new TextEncoder();
+  const inputBytes = typeof source === 'string' ? encoder.encode(source) : source;
+  const bytes = new Uint8Array(inputBytes.length + extraSalt.length);
+  bytes.set(inputBytes);
+  bytes.set(extraSalt, inputBytes.length);
+
+  const FNV_PRIME = 0x01000193;
+  const FNV_OFFSET_BASIS = 0x811c9dc5;
+
+  let hash = FNV_OFFSET_BASIS;
+  for (const byte of bytes) {
+    hash ^= byte;
+    hash = Math.imul(hash, FNV_PRIME);
   }
-  return (state >>> 0) / 0x100000000;
+
+  return (hash >>> 0) / 0x100000000;
 }
 
 /**

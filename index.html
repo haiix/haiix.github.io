@@ -1,117 +1,342 @@
 <!DOCTYPE html>
 <html lang="ja">
-  <head>
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <meta charset="UTF-8">
-    <meta name="Description" content="スクリプト置き場">
-    <title>スクリプト置き場</title>
-    <script type="module">
-import TComponent from '/assets/TComponent.mjs'
+<head>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="UTF-8">
+  <title>スクリプト置き場</title>
+  <meta name="Description" content="スクリプト置き場">
+  <style>
+    /* --- 基本スタイル --- */
+    :root {
+      --primary-color: #007bff;
+      --text-color: #333;
+      --bg-color: #fff;
+      --border-color: #ddd;
+      --error-bg-color: #ffebee;
+      --error-text-color: #d32f2f;
+      --hover-bg-color: #f8f9fa;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.6;
+      color: var(--text-color);
+      background-color: var(--bg-color);
+      margin: 0;
+      padding: 1.5em;
+    }
+    main {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    a {
+      color: var(--primary-color);
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid var(--border-color);
+      margin: 2em 0;
+    }
 
-const user = 'haiix';
-const repos = 'haiix.github.io';
+    /* --- ローダー --- */
+    #loader {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      width: 40px;
+      height: 40px;
+      border: 4px solid var(--border-color);
+      border-top-color: var(--primary-color);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      z-index: 1000;
+      transform: translate(-50%, -50%);
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
 
-class App extends TComponent {
-  static template = `
-    <section>
-      <div id="message"></div>
-      <div id="contents">
-        <h1 id="h1"></h1>
-        <ul id="list"></ul>
-      </div>
-      <hr />
-      <a href="mailto:haiix268@gmail.com" style="outline: none;">haiix268@gmail.com</a>
-    </section>
-  `;
+    /* --- メッセージエリア --- */
+    #message {
+      padding: 1em;
+      border-radius: 4px;
+      margin-bottom: 1.5em;
+      background-color: var(--error-bg-color);
+      color: var(--error-text-color);
+      border: 1px solid var(--error-text-color);
+    }
 
-  message = this.id('message', HTMLElement);
-  contents = this.id('contents', HTMLElement);
-  h1 = this.id('h1', HTMLElement);
-  list = this.id('list', HTMLElement);
+    /* --- パンくずリスト --- */
+    #breadcrumbs {
+      font-size: 1.2em;
+      margin-bottom: 1.5em;
+      color: #666;
+    }
+    #breadcrumbs ol {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    #breadcrumbs li {
+      margin: 0;
+    }
+    #breadcrumbs li:not(:last-child)::after {
+      content: '>';
+      margin: 0 0.5em;
+      color: #999;
+    }
+    #breadcrumbs a {
+      color: var(--primary-color);
+    }
+    #breadcrumbs span {
+      font-weight: bold;
+      color: var(--text-color);
+    }
 
-  base = (() => {
-    const l = window.location;
-    const p = l.pathname;
-    return l.protocol + '//' + l.host + p.slice(0, p.lastIndexOf('/'));
-  })();
-  _tree = Object.create(null);
+    /* --- ファイルリスト --- */
+    #list {
+      list-style: none;
+      padding: 0;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+    }
+    #list li {
+      margin: 0;
+    }
+    #list li a {
+      display: flex;
+      align-items: center;
+      padding: 0.8em 1em;
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-color);
+      transition: background-color 0.2s;
+    }
+    #list li:last-child a {
+      border-bottom: none;
+    }
+    #list li a:hover {
+      background-color: var(--hover-bg-color);
+      text-decoration: none;
+    }
+    #list .icon {
+      width: 20px;
+      height: 20px;
+      margin-right: 0.8em;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div id="loader" style="display: none;"></div>
+    <div id="message" style="display: none;"></div>
+    <div id="contents">
+      <nav id="breadcrumbs"></nav>
+      <ul id="list"></ul>
+    </div>
+    <hr />
+    連絡先: <a href="mailto:haiix268@gmail.com">haiix268@gmail.com</a>
+  </main>
 
-  main() {
-    window.addEventListener('hashchange', event => this.load());
-    this.load();
+  <script>
+class GitHubFileExplorer {
+  // --- アイコン定義 (SVG) ---
+  #icons = {
+    folder: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>`,
+    file: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>`
+  };
+
+  // --- プライベートプロパティ ---
+  #dom = {};
+  #config = {};
+  #apiCache = new Map();
+  #baseUrl = '';
+
+  constructor(config) {
+    this.#config = {
+      excludeItems: ['favicon.ico', 'index.html', 'assets'],
+      excludePrefixes: ['.', '_'],
+      ...config,
+    };
+
+    this.#dom = {
+      loader: document.getElementById('loader'),
+      message: document.getElementById('message'),
+      contents: document.getElementById('contents'),
+      breadcrumbs: document.getElementById('breadcrumbs'),
+      list: document.getElementById('list'),
+    };
+
+    this.#baseUrl = this.#calculateBaseUrl();
   }
 
-  async load() {
-    const path = (location.hash || '#').slice(1);
-    const tree = await this.getTree(('/' + path).slice(0, -1));
-    if (!tree) {
-      this.message.textContent = 'Not found';
-      this.message.style.display = 'block';
-      this.contents.style.display = 'none';
-      return;
-    }
-    this.message.style.display = 'none';
-    this.contents.style.display = 'block';
-    if (path !== '' && tree.some((item) => item.path === 'index.html')) {
-      return location.replace(`${this.base}/${path}`);
-    }
-    this.h1.textContent = (document.title + '/' + path).slice(0, -1).split('/').join(' > ');
-    this.list.innerHTML = tree
-      .filter((item) => !(
-        item.path[0] === '.' ||
-        item.path[0] === '_' ||
-        item.path === 'favicon.ico' ||
-        item.path === 'index.html' ||
-        item.path === 'assets' ||
-        item.path === 'editor_test' ||
-        (item.type !== 'tree' && item.type !== 'commit' && item.type !== 'blob')
-      ))
-      .map((item) => (
-        item.type === 'tree' ?
-          `<li><a href="#${path}${item.path}/" data-sha="${item.sha}">${item.path}</a></li>`
-        :
-          `<li><a href="${this.base}/${path}${item.path}">${item.path}</a></li>`
-      ))
-      .join('');
+  initialize() {
+    window.addEventListener('hashchange', () => this.#handleLocationChange());
+    this.#handleLocationChange();
   }
 
-  async getTree(path) {
-    if (!this._tree[path]) {
-      let sha;
-      if (!path) {
-        sha = (await this.githubApi('commits'))[0].sha;
-      } else {
-        const n = path.lastIndexOf('/')
-        const parentPath = path.slice(0, n);
-        const name = decodeURIComponent(path.slice(n + 1));
-        const parentTree = await this.getTree(parentPath);
-        if (!parentTree) return;
-        const item = parentTree.find((item) => item.path === name);
-        if (!item) return;
-        sha = item.sha;
+  async #handleLocationChange() {
+    this.#showLoader(true);
+    try {
+      this.#dom.message.style.display = 'none';
+      const path = (window.location.hash || '#').slice(1);
+      const tree = await this.#getTreeData(path);
+
+      if (!tree) {
+        this.#showError('指定されたファイルまたはディレクトリが見つかりません。');
+        return;
       }
-      this._tree[path] = (await this.githubApi(`git/trees/${sha}`)).tree;
+      
+      if (path && tree.some(item => item.path === 'index.html')) {
+        window.location.replace(`${this.#baseUrl}/${path}`);
+        return;
+      }
+
+      this.#updateDisplay(tree, path);
+    } catch (error) {
+      console.error('ファイルの取得に失敗しました:', error);
+      this.#showError(error.message);
+    } finally {
+      this.#showLoader(false);
     }
-    return this._tree[path];
   }
 
-  async githubApi(path) {
-    const res = await fetch(`https://api.github.com/repos/${user}/${repos}/${path}`);
-    if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
-    return await res.json();
+  #updateDisplay(tree, path) {
+    this.#dom.contents.style.display = 'block';
+    this.#renderBreadcrumbs(path);
+    this.#renderFileList(tree, path);
   }
 
-  onerror(error) {
-    alert(error.message);
-    throw error;
+  #renderBreadcrumbs(path) {
+    const parts = path.split('/').filter(p => p);
+    let currentPath = '';
+
+    const breadcrumbItems = parts.map((part, index) => {
+      currentPath += `${part}/`;
+      if (index === parts.length - 1) {
+        return `<li><span>${decodeURIComponent(part)}</span></li>`;
+      }
+      return `<li><a href="#${currentPath}">${decodeURIComponent(part)}</a></li>`;
+    });
+    
+    const rootLink = `<li><a href="#">${this.#config.repo}</a></li>`;
+    this.#dom.breadcrumbs.innerHTML = `<ol>${rootLink}${breadcrumbItems.join('')}</ol>`;
+  }
+
+  #renderFileList(tree, path) {
+    const listHtml = tree
+      .filter(item => this.#shouldDisplayItem(item))
+      .sort((a, b) => { // ディレクトリを先に、次にファイル名でソート
+        if (a.type === b.type) return a.path.localeCompare(b.path);
+        return a.type === 'tree' ? -1 : 1;
+      })
+      .map(item => this.#createListItemHtml(item, path))
+      .join('');
+    this.#dom.list.innerHTML = listHtml;
+  }
+
+  #shouldDisplayItem(item) {
+    const { excludeItems, excludePrefixes } = this.#config;
+    const validTypes = ['tree', 'commit', 'blob'];
+
+    if (!validTypes.includes(item.type)) return false;
+    if (excludeItems.includes(item.path)) return false;
+    if (excludePrefixes.some(prefix => item.path.startsWith(prefix))) return false;
+
+    return true;
+  }
+
+  #createListItemHtml(item, currentPath) {
+    if (item.type === 'tree') { // ディレクトリ
+      return `
+        <li>
+          <a href="#${currentPath}${item.path}/">
+            ${this.#icons.folder}
+            <span>${item.path}</span>
+          </a>
+        </li>`;
+    }
+    // ファイル
+    return `
+      <li>
+        <a href="${this.#baseUrl}/${currentPath}${item.path}" target="_blank" rel="noopener noreferrer">
+          ${this.#icons.file}
+          <span>${item.path}</span>
+        </a>
+      </li>`;
+  }
+
+  #showLoader(isLoading) {
+    this.#dom.loader.style.display = isLoading ? 'block' : 'none';
+  }
+
+  #showError(message) {
+    this.#dom.message.textContent = message;
+    this.#dom.message.style.display = 'block';
+    this.#dom.contents.style.display = 'none';
+  }
+
+  async #getTreeData(path) {
+    const cleanPath = path.endsWith('/') ? path.slice(0, -1) : path;
+    if (this.#apiCache.has(cleanPath)) {
+      return this.#apiCache.get(cleanPath);
+    }
+    
+    let sha;
+    if (!cleanPath) {
+      const commits = await this.#fetchGitHubApi('commits');
+      sha = commits[0]?.sha;
+    } else {
+      const parentPath = cleanPath.substring(0, cleanPath.lastIndexOf('/'));
+      const itemName = decodeURIComponent(cleanPath.substring(cleanPath.lastIndexOf('/') + 1));
+      
+      const parentTree = await this.#getTreeData(parentPath);
+      if (!parentTree) return null;
+      const item = parentTree.find(entry => entry.path === itemName);
+      if (!item) return null;
+      sha = item.sha;
+    }
+    
+    if (!sha) return null;
+
+    const { tree } = await this.#fetchGitHubApi(`git/trees/${sha}`);
+    this.#apiCache.set(cleanPath, tree);
+    return tree;
+  }
+
+  async #fetchGitHubApi(apiPath) {
+    const { user, repo } = this.#config;
+    const url = `https://api.github.com/repos/${user}/${repo}/${apiPath}`;
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const message = errorData.message || `${response.status} ${response.statusText}`;
+      throw new Error(`GitHub API Error: ${message}`);
+    }
+    return response.json();
+  }
+
+  #calculateBaseUrl() {
+    const { protocol, host, pathname } = window.location;
+    const path = pathname.slice(0, pathname.lastIndexOf('/'));
+    return `${protocol}//${host}${path}`;
   }
 }
 
-const app = new App();
-document.body.append(app.element);
-app.main();
-    </script>
-  </head>
-  <body>
-  </body>
+document.addEventListener('DOMContentLoaded', () => {
+  const app = new GitHubFileExplorer({
+    user: 'haiix',
+    repo: 'haiix.github.io'
+  });
+  app.initialize();
+});
+  </script>
+</body>
 </html>

@@ -34,6 +34,22 @@ export function build<T extends Element>(
   return append(parent, children);
 }
 
+/**
+ * イベントハンドラーを安全に実行するためのラッパーを作成します。
+ */
+export function createSafeErrorHandler(errorCallback: (error: unknown) => void) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return <T extends any[]>(fn: (...args: T) => void | Promise<void>) =>
+  (...args: T) => {
+    try {
+      const result = fn(...args);
+      if (typeof result?.catch === "function") result.catch(errorCallback);
+    } catch (error) {
+      errorCallback(error);
+    }
+  };
+}
+
 export function container<K extends keyof HTMLElementTagNameMap>(
   classList?: string | null,
   tagName?: K,
