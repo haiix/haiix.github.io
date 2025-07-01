@@ -20,6 +20,22 @@ export function sleep(delay: number): Promise<void> {
 }
 
 /**
+ * 指定された URL から非同期で取得し、レスポンスをテキスト形式で返します。
+ *
+ * @param url 取得先の URL
+ * @returns レスポンスの JSON データを解決する Promise
+ */
+export async function getText(url: string): Promise<string> {
+  const res = await fetch(url);
+
+  if (!res.ok) {
+    throw new Error(`Request failed with status: ${res.status}`);
+  }
+
+  return await res.text();
+}
+
+/**
  * 指定された URL から非同期で取得し、レスポンスを JSON 形式で返します。
  *
  * @param url 取得先の URL
@@ -45,10 +61,11 @@ export async function getJSON(url: string): Promise<unknown> {
 export async function postJSONRaw(
   url: string,
   data: unknown = null,
+  headers: Record<string, string> = {};
 ): Promise<Response> {
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...headers, 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
 
@@ -69,6 +86,7 @@ export async function postJSONRaw(
 export async function postJSON(
   url: string,
   data: unknown = null,
+  headers: Record<string, string> = {};
 ): Promise<unknown> {
   return await (await postJSONRaw(url, data)).json();
 }
