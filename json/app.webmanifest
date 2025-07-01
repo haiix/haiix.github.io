@@ -1,7 +1,7 @@
 {
   "name": "JSON Viewer",
   "short_name": "JSON Viewer",
-  "description": "JSONテキストを解析してツリー表示します。",
+  "description": "Parses JSON text and displays it in a tree view.",
   "icons": [
     {
       "src": "icons/icon-32.png",
