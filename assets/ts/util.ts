@@ -88,7 +88,7 @@ export async function postJSON(
   data: unknown = null,
   headers: Record<string, string> = {};
 ): Promise<unknown> {
-  return await (await postJSONRaw(url, data)).json();
+  return await (await postJSONRaw(url, data, headers)).json();
 }
 
 /**
