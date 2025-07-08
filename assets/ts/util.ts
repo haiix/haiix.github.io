@@ -4,7 +4,7 @@
  * @returns オブジェクトがレコード型であればtrue、そうでなければfalse
  */
 export function isRecord(obj: unknown): obj is Record<string, unknown> {
-  return typeof obj === 'object' && obj !== null;
+  return typeof obj === "object" && obj !== null;
 }
 
 /**
@@ -61,11 +61,11 @@ export async function getJSON(url: string): Promise<unknown> {
 export async function postJSONRaw(
   url: string,
   data: unknown = null,
-  headers: Record<string, string> = {};
+  headers: Record<string, string> = {},
 ): Promise<Response> {
   const res = await fetch(url, {
-    method: 'POST',
-    headers: { ...headers, 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { ...headers, "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
 
@@ -86,7 +86,7 @@ export async function postJSONRaw(
 export async function postJSON(
   url: string,
   data: unknown = null,
-  headers: Record<string, string> = {};
+  headers: Record<string, string> = {},
 ): Promise<unknown> {
   return await (await postJSONRaw(url, data, headers)).json();
 }
@@ -100,7 +100,8 @@ export function deterministicRandom(source: string | Uint8Array): number {
   const extraSalt = new Uint8Array([11, 195, 204, 207, 6, 176, 117, 216]);
 
   const encoder = new TextEncoder();
-  const inputBytes = typeof source === 'string' ? encoder.encode(source) : source;
+  const inputBytes =
+    typeof source === "string" ? encoder.encode(source) : source;
   const bytes = new Uint8Array(inputBytes.length + extraSalt.length);
   bytes.set(inputBytes);
   bytes.set(extraSalt, inputBytes.length);
@@ -120,7 +121,11 @@ export function deterministicRandom(source: string | Uint8Array): number {
 /**
  * 決定論的乱数(整数値)
  */
-export function deterministicRandomInt(source: string, range1: number, range2?: number) {
+export function deterministicRandomInt(
+  source: string,
+  range1: number,
+  range2?: number,
+) {
   const [min, max] = range2 == null ? [0, range1] : [range1, range2];
   return Math.floor(deterministicRandom(source) * (max - min) + min);
 }
