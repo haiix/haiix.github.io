@@ -26,7 +26,10 @@ export class Style {
       document.head.appendChild(this.styleElement);
     }
 
-    this.styleElement.insertAdjacentText('beforeend', this.src.join('\n'));
+    this.styleElement.insertAdjacentText(
+      'beforeend',
+      `${this.src.join('\n')}\n`,
+    );
     this.src.length = 0;
   }
 
