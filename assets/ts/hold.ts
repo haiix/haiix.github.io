@@ -85,7 +85,8 @@ export function hold(params: HoldParams): void {
   const controller = new HoldController(params);
 
   const handleMouseDown = (event: MouseEvent | TouchEvent) => {
-    event.preventDefault();
+    // マウスダウンのイベントを抑止すると、フォーカス処理が行われなくなる
+    //event.preventDefault();
     controller.handleMouseDown(event);
   };
   const handleMouseMove = (event: MouseEvent | TouchEvent) => {
