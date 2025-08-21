@@ -129,8 +129,11 @@ function setAttrs(
     if (value instanceof Function) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
       (element as unknown as Record<string, Function>)[lowerCaseKey] = value;
-    } else if (value != null) {
-      element.setAttribute(lowerCaseKey, String(value));
+    } else if (value != null && value !== false) {
+      element.setAttribute(
+        lowerCaseKey,
+        value === true ? lowerCaseKey : String(value),
+      );
     }
   }
 }
@@ -171,27 +174,70 @@ export function submit(labelText: string, ref?: HTMLButtonElement) {
 export interface InputProps {
   value?: string | number | boolean;
   placeholder?: string | number | boolean;
+  spellCheck?: boolean;
+  readOnly?: boolean;
   onKeyDown?: (event: KeyboardEvent) => unknown;
   onInput?: (event: Event) => unknown;
   onChange?: (event: Event) => unknown;
 }
 
+export interface TextInputProps extends InputProps {
+  value?: string;
+}
+
 export interface NumberInputProps extends InputProps {
-  value?: string | number;
-  min?: string | number;
-  max?: string | number;
-  step?: string | number;
+  value?: number;
+  min?: number;
+  max?: number;
+  step?: number;
+}
+
+export interface CheckBoxProps extends InputProps {
+  value?: boolean;
+  checked?: boolean | null;
 }
 
 export function input(
   name: string,
   type: string | null = 'text',
-  props?: NumberInputProps | null,
+  props?: InputProps | NumberInputProps | null,
   ref?: HTMLInputElement,
 ) {
   const element = container(null, ref ?? 'input') as HTMLInputElement;
   setAttrs(element, { name, type, ...props });
   return element;
+}
+
+export function textInput(
+  name: string,
+  props?: TextInputProps | null,
+  ref?: HTMLInputElement,
+) {
+  return input(name, 'text', props, ref);
+}
+
+export function numberInput(
+  name: string,
+  props?: NumberInputProps | null,
+  ref?: HTMLInputElement,
+) {
+  return input(name, 'number', props, ref);
+}
+
+export function checkbox(
+  name: string,
+  props?: CheckBoxProps | null,
+  ref?: HTMLInputElement,
+) {
+  return input(
+    name,
+    'checkbox',
+    {
+      checked: (props?.checked ?? props?.value ?? false) ? 'checked' : null,
+      ...props,
+    },
+    ref,
+  );
 }
 
 export interface TextAreaProps extends InputProps {
@@ -208,24 +254,17 @@ export function textarea(
   return element;
 }
 
-let globalLabelIdCount = 0;
 export function label(
   labelText: string,
-  props?: { for?: string | Element } | null,
-  classList?: string | null,
+  target: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement,
   ref?: HTMLLabelElement,
-): HTMLLabelElement {
-  const element = text(
-    labelText,
-    classList,
-    ref ?? 'label',
-  ) as HTMLLabelElement;
-  const forElem = props?.for;
-  if (typeof forElem === 'string') {
-    element.setAttribute('for', forElem);
-  } else if (forElem) {
-    forElem.id ||= `el-global-label-id-${(globalLabelIdCount += 1)}`;
-    element.setAttribute('for', forElem.id);
+) {
+  const element = container(null, ref ?? 'label') as HTMLLabelElement;
+  const span = text(labelText, null, 'span');
+  if (target.type === 'checkbox' || target.type === 'radio') {
+    element.append(target, span);
+  } else {
+    element.append(span, target);
   }
   return element;
 }
@@ -233,6 +272,12 @@ export function label(
 export function image(alt: string, ref?: HTMLImageElement) {
   const element = container(null, ref ?? 'img') as HTMLImageElement;
   element.alt = alt;
+  return element;
+}
+
+export function canvas(width: number, height: number) {
+  const element = create('canvas');
+  setAttrs(element, { width, height });
   return element;
 }
 
