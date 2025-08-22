@@ -1,7 +1,7 @@
 import TComponent from '@haiix/TComponent'
 import * as vec3 from 'gl-matrix/esm/vec3.js'
 import * as vec4 from 'gl-matrix/esm/vec4.js'
-import Gls from '../../../assets/Gls-lib.mjs'
+import Gls from '../../../assets/js/Gls-lib.mjs'
 
 export default class App extends TComponent {
   static template = `

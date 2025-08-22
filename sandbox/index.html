@@ -1,27 +1,25 @@
 <!DOCTYPE html>
 <html lang="ja">
   <head>
-    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta charset="UTF-8">
     <title>Sandbox</title>
+    <style>
+pre {
+  background: #EEE;
+  color: #000;
+  border: 1px solid #999;
+  margin: 0;
+  padding: 4px;
+}
+textarea {
+  width: 400px;
+  height: 200px;
+}
+    </style>
     <script type="module">
-import TComponent from '/assets/TComponent.mjs';
-import style from '/assets/style.mjs';
+import TComponent from '../TComponent/dist/TComponent.mjs';
 import execCode from './execCode.mjs';
-
-style(`
-  pre {
-    background: #EEE;
-    color: #000;
-    border: 1px solid #999;
-    margin: 0;
-    padding: 4px;
-  }
-  textarea {
-    width: 400px;
-    height: 200px;
-  }
-`);
 
 class App extends TComponent {
   static template = `

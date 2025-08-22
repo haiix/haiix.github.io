@@ -1,8 +1,7 @@
 <!DOCTYPE html>
 <html lang="ja">
   <head>
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta charset="UTF-8">
     <meta name="Description" content="ライフゲーム">
     <title>ライフゲーム</title>
@@ -10,7 +9,7 @@
   <body>
     <canvas width="1024" height="1024"></canvas>
     <script type="module">
-import Gls from '../../assets/Gls.mjs'
+import Gls from '../../assets/js/Gls.mjs'
 
 const gl = new Gls('canvas', {alpha: true, depth: false, antialias: false})
 gl.mainShader = gl.createProgram(`

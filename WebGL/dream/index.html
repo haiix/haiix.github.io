@@ -5,11 +5,25 @@
     <meta charset="UTF-8">
     <meta name="Description" content="模様生成">
     <title>模様生成</title>
+    <style>
+body {
+  background: white;
+}
+canvas {
+  border: 1px solid gray;
+}
+input, button, select {
+  font-family: inherit;
+  font-size: inherit;
+}
+input[type="number"] {
+  text-align: right;
+}
+    </style>
   </head>
   <body>
     <script type="module">
-import Gls from '../../assets/Gls.mjs'
-import style from '../../assets/style.mjs'
+import Gls from '../../assets/js/Gls.mjs'
 import TComponent from '../../TComponent/dist/TComponent.mjs'
 
 class XorShift32 {
@@ -182,22 +196,6 @@ function saveBlob (blob, filename = blob.name) {
     setTimeout(URL.revokeObjectURL.bind(URL), 0, url)
   }
 }
-
-style(`
-  body {
-    background: white;
-  }
-  canvas {
-    border: 1px solid gray;
-  }
-  input, button, select {
-    font-family: inherit;
-    font-size: inherit;
-  }
-  input[type="number"] {
-    text-align: right;
-  }
-`)
 
 class App extends TComponent {
   static template = `

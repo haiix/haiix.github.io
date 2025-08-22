@@ -1,4 +1,9 @@
 import App from './App.js'
-import initApp from '../../../assets/initApp.mjs'
 
-initApp(App)
+const app = new App()
+document.body.appendChild(app.element)
+function loop (t) {
+  requestAnimationFrame(loop)
+  app.loop(t)
+}
+loop(0)
