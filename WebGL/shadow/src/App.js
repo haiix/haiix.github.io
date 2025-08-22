@@ -1,14 +1,14 @@
 import TComponent from '@haiix/TComponent'
-import * as vec3 from 'gl-matrix/cjs/vec3.js'
-import * as mat4 from 'gl-matrix/cjs/mat4.js'
-import Gls from '../../../../assets/Gls-lib.mjs'
+import * as vec3 from 'gl-matrix/esm/vec3.js'
+import * as mat4 from 'gl-matrix/esm/mat4.js'
+import Gls from '../../../assets/Gls-lib.mjs'
 
 export default class App extends TComponent {
-  template () {
-    return `
-      <canvas id="canvas" width="400" height="400"></canvas>
-    `
-  }
+  static template = `
+    <canvas id="canvas" width="400" height="400"></canvas>
+  `
+
+  canvas = this.id('canvas')
 
   constructor () {
     super()

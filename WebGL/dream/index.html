@@ -1,17 +1,16 @@
 <!DOCTYPE html>
 <html lang="ja">
   <head>
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta charset="UTF-8">
     <meta name="Description" content="模様生成">
     <title>模様生成</title>
   </head>
   <body>
     <script type="module">
-import Gls from '../../../assets/Gls.mjs'
-import style from '../../../assets/style.mjs'
-import TComponent from '../../../TComponent/TComponent.mjs'
+import Gls from '../../assets/Gls.mjs'
+import style from '../../assets/style.mjs'
+import TComponent from '../../TComponent/dist/TComponent.mjs'
 
 class XorShift32 {
   constructor (seed = Date.now()) {
@@ -184,44 +183,47 @@ function saveBlob (blob, filename = blob.name) {
   }
 }
 
-class App extends TComponent {
-  template () {
-    style(`
-      body {
-        background: white;
-      }
-      canvas {
-        border: 1px solid gray;
-      }
-      input, button, select {
-        font-family: inherit;
-        font-size: inherit;
-      }
-      input[type="number"] {
-        text-align: right;
-      }
-    `)
-    return `
-      <div>
-        <label>
-          No.<input id="seedInput" type="number" min="1" max="4294967295" value="1" onclick="this.update()" onkeyup="this.update()" />
-        </label>
-        <label>サイズ
-          <select id="resoSelect" onchange="this.update()">
-            <option value="256">小 (256x256)</option>
-            <option value="512" selected>中 (512x512)</option>
-            <option value="1024">大 (1024x1024)</option>
-            <option value="2048">特大 (2048x2048)</option>
-          </select>
-        </label>
-        <button onclick="this.handlePrevButton(event)">前</button>
-        <button onclick="this.handleNextButton(event)">次</button>
-        <button onclick="this.handleSaveButton(event)">保存</button>
-        <br />
-        <canvas id="view" width="512" height="512">WebGL is not supported.</canvas>
-      </div>
-    `
+style(`
+  body {
+    background: white;
   }
+  canvas {
+    border: 1px solid gray;
+  }
+  input, button, select {
+    font-family: inherit;
+    font-size: inherit;
+  }
+  input[type="number"] {
+    text-align: right;
+  }
+`)
+
+class App extends TComponent {
+  static template = `
+    <div>
+      <label>
+        No.<input id="seedInput" type="number" min="1" max="4294967295" value="1" onclick="this.update()" onkeyup="this.update()" />
+      </label>
+      <label>サイズ
+        <select id="resoSelect" onchange="this.update()">
+          <option value="256">小 (256x256)</option>
+          <option value="512" selected>中 (512x512)</option>
+          <option value="1024">大 (1024x1024)</option>
+          <option value="2048">特大 (2048x2048)</option>
+        </select>
+      </label>
+      <button onclick="this.handlePrevButton(event)">前</button>
+      <button onclick="this.handleNextButton(event)">次</button>
+      <button onclick="this.handleSaveButton(event)">保存</button>
+      <br />
+      <canvas id="view" width="512" height="512">WebGL is not supported.</canvas>
+    </div>
+  `
+
+  seedInput = this.id('seedInput')
+  resoSelect = this.id('resoSelect')
+  view = this.id('view')
 
   constructor () {
     super()

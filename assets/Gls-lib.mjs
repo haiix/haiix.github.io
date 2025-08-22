@@ -1,7 +1,7 @@
 import Gls from './Gls.mjs'
-import * as mat4 from 'gl-matrix/cjs/mat4.js'
-import * as quat from 'gl-matrix/cjs/quat.js'
-import * as vec3 from 'gl-matrix/cjs/vec3.js'
+import * as mat4 from 'gl-matrix/esm/mat4.js'
+import * as quat from 'gl-matrix/esm/quat.js'
+import * as vec3 from 'gl-matrix/esm/vec3.js'
 
 /**
  * Mouse

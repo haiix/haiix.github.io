@@ -1,20 +1,19 @@
 import TComponent from '@haiix/TComponent'
-import seq from '@haiix/seq'
-import * as vec3 from 'gl-matrix/cjs/vec3.js'
-import * as vec4 from 'gl-matrix/cjs/vec4.js'
+import * as vec3 from 'gl-matrix/esm/vec3.js'
+import * as vec4 from 'gl-matrix/esm/vec4.js'
 import Gls from '../../../assets/Gls-lib.mjs'
 
 export default class App extends TComponent {
-  template () {
-    return `
-      <div>
-        <h1>box</h1>
-        <canvas id="canvas" width="600" height="600">
-          WebGL is not available.
-        </canvas>
-      </div>
-    `
-  }
+  static template = `
+    <div>
+      <h1>box</h1>
+      <canvas id="canvas" width="600" height="600">
+        WebGL is not available.
+      </canvas>
+    </div>
+  `
+
+  canvas = this.id('canvas')
 
   mainVertexShader () {
     return `
@@ -62,7 +61,7 @@ export default class App extends TComponent {
     this.buffer = this.gl.createBuffer([this.shader])
     // this.buffer = this.gl.createBuffer([this.shader], this.gl.LINE_STRIP)
 
-    const ColorIds = seq(25).map(n => Math.random() * 3 | 0).toArray()
+    const ColorIds = Array.from({ length: 25 }).map(n => Math.random() * 3 | 0)
 
     this.buffer.addMeshes(5, 5, 25 * 6, (attribute, i) => {
       const modelId = Math.floor(i / 6)
