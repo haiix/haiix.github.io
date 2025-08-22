@@ -38,7 +38,7 @@ export function build<T extends Element>(
  * イベントハンドラーを安全に実行するためのラッパーを作成します。
  */
 export function createSafeErrorHandler(
-  errorCallback: (error: unknown) => void,
+  errorCallback: (error: unknown) => unknown,
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return <T extends any[]>(fn: (...args: T) => void | Promise<void>) =>

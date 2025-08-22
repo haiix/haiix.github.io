@@ -61,12 +61,14 @@ export async function getJSON(url: string): Promise<unknown> {
 export async function postJSONRaw(
   url: string,
   data: unknown = null,
-  headers: Record<string, string> = {},
+  headers: Record<string, string> | null = {},
+  signal?: AbortSignal,
 ): Promise<Response> {
   const res = await fetch(url, {
-    method: "POST",
-    headers: { ...headers, "Content-Type": "application/json" },
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
+    signal,
   });
 
   if (!res.ok) {
@@ -86,9 +88,11 @@ export async function postJSONRaw(
 export async function postJSON(
   url: string,
   data: unknown = null,
-  headers: Record<string, string> = {},
+  headers: Record<string, string> | null = {},
+  signal?: AbortSignal,
 ): Promise<unknown> {
-  return await (await postJSONRaw(url, data, headers)).json();
+  const res = await postJSONRaw(url, data, headers, signal);
+  return await res.json();
 }
 
 /**
