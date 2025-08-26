@@ -139,7 +139,10 @@ function setAttrs(
 }
 
 export function form(
-  props?: { onSubmit?: (event: SubmitEvent) => unknown } | null,
+  props?: {
+    onChange?: (event: Event) => unknown;
+    onSubmit?: (event: SubmitEvent) => unknown;
+  } | null,
   classList?: string | null,
   ref?: HTMLFormElement,
 ) {
