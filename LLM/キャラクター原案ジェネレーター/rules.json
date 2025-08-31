@@ -1,0 +1,65 @@
+[
+  {
+    "targetCategory": "occupation",
+    "conditions": [{ "category": "ageGroup", "has": ["中学生 (13-15歳)", "高校生 (16-18歳)", "大学生 (19-22歳)"] }],
+    "action": { "type": "FILTER_INCLUDE", "values": ["学生", "フリーター", "冒険者", "情報屋"] }
+  },
+  {
+    "targetCategory": "occupation",
+    "conditions": [{ "category": "ageGroup", "has": ["子供 (12歳以下)"] }],
+    "action": { "type": "FILTER_INCLUDE", "values": ["学生", "無職", "王族/貴族"] }
+  },
+  {
+    "targetCategory": "occupation",
+    "conditions": [{ "category": "ageGroup", "has": ["20代", "30代", "中年 (40-50代)", "老人 (60代以上)"] }],
+    "action": { "type": "FILTER_EXCLUDE", "values": ["学生"] }
+  },
+  {
+    "targetCategory": "occupation",
+    "conditions": [{ "category": "birthplace", "has": ["サイバーパンクな巨大都市", "宇宙ステーション"] }],
+    "action": { "type": "FILTER_INCLUDE", "values": ["ハッカー", "探偵", "警察官", "医者", "会社員", "情報屋", "傭兵", "フリーター"] }
+  },
+  {
+    "targetCategory": "occupation",
+    "conditions": [{ "category": "birthplace", "has": ["ファンタジー世界の王都", "魔法の森", "天空に浮かぶ島"] }],
+    "action": { "type": "FILTER_INCLUDE", "values": ["騎士", "魔法使い", "冒険者", "神官/聖職者", "王族/貴族", "情報屋", "芸術家"] }
+  },
+  {
+    "targetCategory": "specialty",
+    "conditions": [{ "category": "occupation", "has": ["騎士", "傭兵", "冒険者"] }],
+    "action": { "type": "FILTER_INCLUDE", "values": ["剣術", "格闘術", "狙撃/弓術", "サバイバル術"] }
+  },
+  {
+    "targetCategory": "specialty",
+    "conditions": [{ "category": "occupation", "has": ["ハッカー"] }],
+    "action": { "type": "FILTER_INCLUDE", "values": ["ハッキング/情報操作", "プログラミング"] }
+  },
+  {
+    "targetCategory": "specialty",
+    "conditions": [{ "category": "occupation", "has": ["魔法使い", "神官/聖職者"] }],
+    "action": { "type": "FILTER_INCLUDE", "values": ["魔法全般", "回復魔法/治癒能力"] }
+  },
+  {
+    "targetCategory": "item",
+    "conditions": [{ "category": "occupation", "has": ["騎士", "傭兵"] }],
+    "action": { "type": "FILTER_INCLUDE", "values": ["曰く付きの名剣", "カスタマイズされた拳銃", "家族からのお守り"] }
+  },
+  {
+    "targetCategory": "item",
+    "conditions": [{ "category": "occupation", "has": ["ハッカー", "ジャーナリスト"] }],
+    "action": { "type": "FILTER_INCLUDE", "values": ["最新型スマートフォン", "高性能なノートPC", "愛用の万年筆"] }
+  },
+  {
+    "targetCategory": "item",
+    "conditions": [{ "category": "occupation", "has": ["魔法使い"] }],
+    "action": { "type": "FILTER_INCLUDE", "values": ["魔法の杖", "魔導書", "古いお守り"] }
+  },
+  {
+    "targetCategory": "appearance",
+    "conditions": [{ "category": "birthplace", "has": ["雪国"] }],
+    "action": {
+      "type": "ADD_OPTIONS",
+      "values": [{ "value": "銀髪", "weight": 20 }, { "value": "白い肌", "weight": 20 }]
+    }
+  }
+]
