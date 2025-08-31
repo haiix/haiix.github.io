@@ -40,7 +40,7 @@ export function build<T extends Element>(
 export function createSafeErrorHandler(
   errorCallback: (error: unknown) => unknown,
 ) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
   return <T extends any[]>(fn: (...args: T) => void | Promise<void>) =>
     (...args: T) => {
       try {
@@ -50,6 +50,7 @@ export function createSafeErrorHandler(
         errorCallback(error);
       }
     };
+  /* eslint-enable-next-line @typescript-eslint/no-explicit-any */
 }
 
 export function container<K extends keyof HTMLElementTagNameMap>(
@@ -115,28 +116,25 @@ export function p(
   return text(labelText, classList, ref ?? 'p') as HTMLParagraphElement;
 }
 
-function setAttrs(
+/* eslint-disable @typescript-eslint/no-unsafe-function-type */
+function setProperties(
   element: Element,
-  attrs?: Record<
+  props?: Record<
     string,
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
     string | number | boolean | null | undefined | Function
   > | null,
 ) {
-  if (!attrs) return;
-  for (const [key, value] of Object.entries(attrs)) {
+  if (!props) return;
+  for (const [key, value] of Object.entries(props)) {
     const lowerCaseKey = key.toLowerCase();
     if (value instanceof Function) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-      (element as unknown as Record<string, Function>)[lowerCaseKey] = value;
-    } else if (value != null && value !== false) {
-      element.setAttribute(
-        lowerCaseKey,
-        value === true ? lowerCaseKey : String(value),
-      );
+      (element as unknown as Record<string, unknown>)[lowerCaseKey] = value;
+    } else {
+      (element as unknown as Record<string, unknown>)[key] = value;
     }
   }
 }
+/* eslint-enable @typescript-eslint/no-unsafe-function-type */
 
 export function form(
   props?: {
@@ -147,7 +145,7 @@ export function form(
   ref?: HTMLFormElement,
 ) {
   const element = container(classList, ref ?? 'form') as HTMLFormElement;
-  setAttrs(element, props);
+  setProperties(element, props);
   return element;
 }
 
@@ -162,14 +160,14 @@ export function button(
   ref?: HTMLButtonElement,
 ) {
   const element = container(classList, ref ?? 'button') as HTMLButtonElement;
-  setAttrs(element, { type: 'button', ...props });
+  setProperties(element, { type: 'button', ...props });
   element.textContent = labelText;
   return element;
 }
 
 export function submit(labelText: string, ref?: HTMLButtonElement) {
   const element = container(null, ref ?? 'button') as HTMLButtonElement;
-  setAttrs(element, { type: 'submit' });
+  setProperties(element, { type: 'submit' });
   element.textContent = labelText;
   return element;
 }
@@ -177,7 +175,7 @@ export function submit(labelText: string, ref?: HTMLButtonElement) {
 export interface InputProps {
   value?: string | number | boolean;
   placeholder?: string | number | boolean;
-  spellCheck?: boolean;
+  spellcheck?: boolean;
   readOnly?: boolean;
   onKeyDown?: (event: KeyboardEvent) => unknown;
   onInput?: (event: Event) => unknown;
@@ -207,7 +205,7 @@ export function input(
   ref?: HTMLInputElement,
 ) {
   const element = container(null, ref ?? 'input') as HTMLInputElement;
-  setAttrs(element, { name, type, ...props });
+  setProperties(element, { name, type, ...props });
   return element;
 }
 
@@ -253,18 +251,21 @@ export function textarea(
   ref?: HTMLTextAreaElement,
 ) {
   const element = container(null, ref ?? 'textarea') as HTMLTextAreaElement;
-  setAttrs(element, { name, ...props });
+  setProperties(element, { name, ...props });
   return element;
 }
 
 export function label(
   labelText: string,
-  target: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement,
+  target: HTMLElement,
   ref?: HTMLLabelElement,
 ) {
   const element = container(null, ref ?? 'label') as HTMLLabelElement;
   const span = text(labelText, null, 'span');
-  if (target.type === 'checkbox' || target.type === 'radio') {
+  if (
+    target instanceof HTMLInputElement &&
+    (target.type === 'checkbox' || target.type === 'radio')
+  ) {
     element.append(target, span);
   } else {
     element.append(span, target);
@@ -280,7 +281,7 @@ export function image(alt: string, ref?: HTMLImageElement) {
 
 export function canvas(width: number, height: number) {
   const element = create('canvas');
-  setAttrs(element, { width, height });
+  setProperties(element, { width, height });
   return element;
 }
 
