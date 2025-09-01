@@ -116,30 +116,17 @@ export function p(
   return text(labelText, classList, ref ?? 'p') as HTMLParagraphElement;
 }
 
-/* eslint-disable @typescript-eslint/no-unsafe-function-type */
 function setProperties(
   element: Element,
-  props?: Record<
-    string,
-    string | number | boolean | null | undefined | Function
-  > | null,
+  props?: Record<string, unknown> | null,
 ) {
-  if (!props) return;
-  for (const [key, value] of Object.entries(props)) {
-    const lowerCaseKey = key.toLowerCase();
-    if (value instanceof Function) {
-      (element as unknown as Record<string, unknown>)[lowerCaseKey] = value;
-    } else {
-      (element as unknown as Record<string, unknown>)[key] = value;
-    }
-  }
+  if (props) Object.assign(element, props);
 }
-/* eslint-enable @typescript-eslint/no-unsafe-function-type */
 
 export function form(
   props?: {
-    onChange?: (event: Event) => unknown;
-    onSubmit?: (event: SubmitEvent) => unknown;
+    onchange?: (event: Event) => unknown;
+    onsubmit?: (event: SubmitEvent) => unknown;
   } | null,
   classList?: string | null,
   ref?: HTMLFormElement,
@@ -154,7 +141,7 @@ export function button(
   props?: {
     // ボタンの有効・無効は通常動的に切り替える。そのようなものはビルド時ではなく、リセット処理で行う
     //disabled: boolean,
-    onClick?: (event: MouseEvent) => unknown;
+    onclick?: (event: MouseEvent) => unknown;
   } | null,
   classList?: string | null,
   ref?: HTMLButtonElement,
@@ -177,9 +164,9 @@ export interface InputProps {
   placeholder?: string | number | boolean;
   spellcheck?: boolean;
   readOnly?: boolean;
-  onKeyDown?: (event: KeyboardEvent) => unknown;
-  onInput?: (event: Event) => unknown;
-  onChange?: (event: Event) => unknown;
+  onkeydown?: (event: KeyboardEvent) => unknown;
+  oninput?: (event: Event) => unknown;
+  onchange?: (event: Event) => unknown;
 }
 
 export interface TextInputProps extends InputProps {
@@ -273,14 +260,26 @@ export function label(
   return element;
 }
 
-export function image(alt: string, ref?: HTMLImageElement) {
-  const element = container(null, ref ?? 'img') as HTMLImageElement;
-  element.alt = alt;
-  return element;
+export function loadImage(alt: string, src: string, ref?: HTMLImageElement) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = container(null, ref ?? 'img') as HTMLImageElement;
+    img.alt = alt;
+    img.onload = () => {
+      img.onload = null;
+      img.onerror = null;
+      resolve(img);
+    };
+    img.onerror = () => {
+      img.onload = null;
+      img.onerror = null;
+      reject(new Error(`Failed to load image: ${src}`));
+    };
+    img.src = src;
+  });
 }
 
-export function canvas(width: number, height: number) {
-  const element = create('canvas');
+export function canvas(width: number, height: number, ref?: HTMLImageElement) {
+  const element = container(null, ref ?? 'canvas') as HTMLCanvasElement;
   setProperties(element, { width, height });
   return element;
 }

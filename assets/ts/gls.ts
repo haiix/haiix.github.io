@@ -586,7 +586,7 @@ function bindProgramBuffer(
       index,
       info.size,
       info.type,
-      false,
+      true,
       buffer.stride,
       info.offset,
     );
