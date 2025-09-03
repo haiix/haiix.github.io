@@ -1,5 +1,9 @@
 export const VERSION = '0.4.5';
 
+// ---------------------------------------------------------
+// Constants and Definitions
+// ---------------------------------------------------------
+
 const GL = window.WebGL2RenderingContext;
 
 const ATTRIBUTE_TYPE_MAP = {
@@ -24,15 +28,7 @@ const EX_ATTRIBUTE_TYPE_MAP = {
 
 type ExAttributeType = keyof typeof EX_ATTRIBUTE_TYPE_MAP;
 
-interface TypeByte {
-  byte: number;
-  name: string;
-  clamp: boolean;
-  min: number;
-  max: number;
-}
-
-const TYPE_BYTE = {
+const TYPE_BYTE_MAP = {
   [GL.BYTE]: { byte: 1, name: 'Int8', clamp: true, min: -128, max: 127 },
   [GL.UNSIGNED_BYTE]: { byte: 1, name: 'Uint8', clamp: true, min: 0, max: 255 },
   [GL.SHORT]: { byte: 2, name: 'Int16', clamp: true, min: -32768, max: 32767 },
@@ -60,17 +56,26 @@ const TYPE_BYTE = {
   [GL.FLOAT]: { byte: 4, name: 'Float32', clamp: false },
 } as const;
 
-type TypeByteKey = keyof typeof TYPE_BYTE;
+type TypeByteKey = keyof typeof TYPE_BYTE_MAP;
+type TypeByte = (typeof TYPE_BYTE_MAP)[TypeByteKey];
 
 // ---------------------------------------------------------
-// Util
+// Utils
 // ---------------------------------------------------------
+
+export function assertNever(x: never): never {
+  throw new Error(`Unexpected object: ${JSON.stringify(x)}`);
+}
 
 export function hasKey<O extends object, K extends PropertyKey>(
   obj: O,
   key: K,
 ): obj is O & Record<K, unknown> {
   return key in obj;
+}
+
+export function clampInt(val: number, min: number, max: number) {
+  return Math.floor(Math.min(Math.max(min, val), max));
 }
 
 // ---------------------------------------------------------
@@ -83,7 +88,10 @@ function createShader(
   name: string,
   source: string,
 ) {
-  const shader = gl.createShader(type)!;
+  const shader = gl.createShader(type);
+  if (!shader) {
+    throw new Error(`Failed to create ${name} shader object.`);
+  }
   gl.shaderSource(shader, source);
   gl.compileShader(shader);
   if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
@@ -191,14 +199,29 @@ function getAttributeInfos(gl: WebGL2RenderingContext, program: WebGLProgram) {
   return infos;
 }
 
-type GlsUniformInfo = [WebGLActiveInfo, WebGLUniformLocation];
+type GlsUniformInfo = [
+  WebGLActiveInfo & { type: AttributeType },
+  WebGLUniformLocation,
+];
+
+function validateUniformInfo(
+  info: WebGLActiveInfo,
+): info is WebGLActiveInfo & { type: AttributeType } {
+  return info.type in ATTRIBUTE_TYPE_MAP;
+}
 
 function getUniformInfos(gl: WebGL2RenderingContext, program: WebGLProgram) {
   const infos: GlsUniformInfo[] = [];
   const count = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS) as number;
   for (let i = 0; i < count; i++) {
     const info = gl.getActiveUniform(program, i)!;
-    const location = gl.getUniformLocation(program, info.name)!;
+    if (!validateUniformInfo(info)) {
+      throw new Error(`Undefined attribute type: ${String(info.type)}`);
+    }
+    const location = gl.getUniformLocation(program, info.name);
+    if (!location) {
+      throw new Error(`Failed to get uniform location: ${info.name}`);
+    }
     infos.push([info, location]);
   }
   return infos;
@@ -212,10 +235,7 @@ type GlsUniform = Record<
 function createUniform(uniformInfos: GlsUniformInfo[]) {
   const uniform: GlsUniform = Object.create(null) as GlsUniform;
   for (const [info] of uniformInfos) {
-    if (!(info.type in ATTRIBUTE_TYPE_MAP)) {
-      throw new Error(`Undefined attribute type: ${info.type}`);
-    }
-    const size = ATTRIBUTE_TYPE_MAP[info.type as AttributeType].size;
+    const size = ATTRIBUTE_TYPE_MAP[info.type].size;
     if (size === 1) {
       uniform[info.name] = 0;
     } else {
@@ -265,10 +285,6 @@ export class GlsProgram {
 // Attribute
 // ---------------------------------------------------------
 
-function clampInt(val: number, min: number, max: number) {
-  return Math.floor(Math.min(Math.max(min, val), max));
-}
-
 export class GlsAttribute {
   view: DataView;
   typeByte: TypeByte;
@@ -289,64 +305,105 @@ export class GlsAttribute {
     this.littleEndian = true;
   }
 
-  private getter(byteOffset: number, littleEndian?: boolean) {
-    return (
-      (this.view as unknown as Record<string, unknown>)[
-        `get${this.typeByte.name}`
-      ] as (byteOffset: number, littleEndian?: boolean) => number
-    )(byteOffset, littleEndian);
+  private getter(byteOffset: number) {
+    const view = this.view;
+    const le = this.littleEndian;
+    switch (this.typeByte.name) {
+      case 'Int8':
+        return view.getInt8(byteOffset);
+      case 'Uint8':
+        return view.getUint8(byteOffset);
+      case 'Int16':
+        return view.getInt16(byteOffset, le);
+      case 'Uint16':
+        return view.getUint16(byteOffset, le);
+      case 'Int32':
+        return view.getInt32(byteOffset, le);
+      case 'Uint32':
+        return view.getUint32(byteOffset, le);
+      case 'Float32':
+        return view.getFloat32(byteOffset, le);
+      default:
+        return assertNever(this.typeByte);
+    }
   }
 
-  private setter(byteOffset: number, value: number, littleEndian?: boolean) {
-    (
-      (this.view as unknown as Record<string, unknown>)[
-        `set${this.typeByte.name}`
-      ] as (byteOffset: number, value: number, littleEndian?: boolean) => void
-    )(byteOffset, value, littleEndian);
+  private setter(byteOffset: number, value: number) {
+    const view = this.view;
+    const le = this.littleEndian;
+    switch (this.typeByte.name) {
+      case 'Int8':
+        view.setInt8(byteOffset, value);
+        return;
+      case 'Uint8':
+        view.setUint8(byteOffset, value);
+        return;
+      case 'Int16':
+        view.setInt16(byteOffset, value, le);
+        return;
+      case 'Uint16':
+        view.setUint16(byteOffset, value, le);
+        return;
+      case 'Int32':
+        view.setInt32(byteOffset, value, le);
+        return;
+      case 'Uint32':
+        view.setUint32(byteOffset, value, le);
+        return;
+      case 'Float32':
+        view.setFloat32(byteOffset, value, le);
+        return;
+      default:
+        assertNever(this.typeByte);
+    }
   }
 
   get 0() {
-    return this.getter(this.offset, this.littleEndian);
+    return this.getter(this.offset);
   }
 
   set 0(v: number) {
-    if (this.typeByte.clamp)
+    if (this.typeByte.clamp) {
       v = clampInt(v, this.typeByte.min, this.typeByte.max);
-    this.setter(this.offset, v, this.littleEndian);
+    }
+    this.setter(this.offset, v);
   }
 
   get 1() {
-    return this.getter(this.offset + this.typeByte.byte, this.littleEndian);
+    return this.getter(this.offset + this.typeByte.byte);
   }
 
   set 1(v: number) {
-    if (this.typeByte.clamp)
+    if (this.typeByte.clamp) {
       v = clampInt(v, this.typeByte.min, this.typeByte.max);
-    this.setter(this.offset + this.typeByte.byte, v, this.littleEndian);
+    }
+    this.setter(this.offset + this.typeByte.byte, v);
   }
 
   get 2() {
     if (this.size <= 2) return 0;
-    return this.getter(this.offset + this.typeByte.byte * 2, this.littleEndian);
+    return this.getter(this.offset + this.typeByte.byte * 2);
   }
 
   set 2(v: number) {
     if (this.size <= 2) return;
-    if (this.typeByte.clamp)
+    if (this.typeByte.clamp) {
       v = clampInt(v, this.typeByte.min, this.typeByte.max);
-    this.setter(this.offset + this.typeByte.byte * 2, v, this.littleEndian);
+    }
+    this.setter(this.offset + this.typeByte.byte * 2, v);
   }
 
   get 3() {
     if (this.size <= 3) return 0;
-    return this.getter(this.offset + this.typeByte.byte * 3, this.littleEndian);
+    return this.getter(this.offset + this.typeByte.byte * 3);
   }
 
   set 3(v: number) {
     if (this.size <= 3) return;
-    if (this.typeByte.clamp)
+    if (this.typeByte.clamp) {
       v = clampInt(v, this.typeByte.min, this.typeByte.max);
-    this.setter(this.offset + this.typeByte.byte * 3, v, this.littleEndian);
+    }
+    this.setter(this.offset + this.typeByte.byte * 3, v);
   }
 
   get x() {
@@ -423,7 +480,7 @@ function getBufferAttribute(buffer: GlsBuffer, name: string, offset: number) {
   if (!info) {
     throw new Error(`Undefined buffer name: ${name}`);
   }
-  const typeByte = TYPE_BYTE[info.type];
+  const typeByte = TYPE_BYTE_MAP[info.type];
   return new GlsAttribute(
     buffer.vertexes,
     typeByte,
@@ -462,37 +519,42 @@ interface GlsBufferInfo {
 
 type GlsBufferInfos = Record<string, GlsBufferInfo>;
 
+function getAttributeSize(program: GlsProgram, info: WebGLActiveInfo) {
+  const { type: attrType, size } =
+    ATTRIBUTE_TYPE_MAP[info.type as AttributeType];
+  let type: TypeByteKey;
+  let bytes = size * 4;
+  const attr = program.exAttributes.find((attr) => attr.name === info.name);
+  if (attr) {
+    type = EX_ATTRIBUTE_TYPE_MAP[attr.type].type;
+    bytes = 4;
+  } else {
+    type = attrType as TypeByteKey;
+  }
+  return { type, size, bytes };
+}
+
 function createBufferInfos(programs: GlsProgram[]) {
   const infos = Object.create(null) as GlsBufferInfos;
   let offset = 0;
   for (const program of programs) {
     for (const info of program.attributeInfos) {
-      const { name } = info;
+      const name = info.name;
       if (!(info.type in ATTRIBUTE_TYPE_MAP)) {
-        throw new Error();
+        throw new Error(`Unexpected attribute: ${name}`);
       }
-      const { type: attrType, size } =
-        ATTRIBUTE_TYPE_MAP[info.type as AttributeType];
-      let type: TypeByteKey;
-      let bytes = size * 4;
-      const attr = program.exAttributes.find((attr) => attr.name === name);
-      if (attr) {
-        type = EX_ATTRIBUTE_TYPE_MAP[attr.type].type;
-        bytes = 4;
-      } else {
-        type = attrType as TypeByteKey;
-      }
+      const { type, size, bytes } = getAttributeSize(program, info);
       if (infos[name]) {
         if (infos[name].type !== type || infos[name].size !== size) {
           throw new Error(`Same attribute name but different type: ${name}`);
         }
-        continue;
+      } else {
+        infos[name] = { type, size, offset };
+        offset += bytes;
       }
-      infos[name] = { type, size, offset };
-      offset += bytes;
     }
   }
-  return [infos, offset] as [GlsBufferInfos, number];
+  return [infos, offset] as const;
 }
 
 export class GlsBuffer {
@@ -530,291 +592,6 @@ export class GlsBuffer {
 
   getVertex(offset: number) {
     return getBufferVertex(this, offset);
-  }
-}
-
-// ---------------------------------------------------------
-// Bind program and buffer
-// ---------------------------------------------------------
-
-function createArrayBuffer(
-  gl: WebGL2RenderingContext,
-  dataSrc: ArrayBufferLike,
-  usage: number,
-) {
-  const curr = gl.getParameter(gl.ARRAY_BUFFER_BINDING) as WebGLBuffer | null;
-  const buffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-  gl.bufferData(gl.ARRAY_BUFFER, dataSrc, usage);
-  gl.bindBuffer(gl.ARRAY_BUFFER, curr);
-  return buffer;
-}
-
-function createElementArrayBuffer(
-  gl: WebGL2RenderingContext,
-  srcData: ArrayBufferLike,
-  usage: number,
-) {
-  const curr = gl.getParameter(
-    gl.ELEMENT_ARRAY_BUFFER_BINDING,
-  ) as WebGLBuffer | null;
-  const buffer = gl.createBuffer();
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffer);
-  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, srcData, usage);
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, curr);
-  return buffer;
-}
-
-function bindProgramBuffer(
-  gl: WebGL2RenderingContext,
-  attributeInfos: WebGLActiveInfo[],
-  buffer: GlsBuffer,
-) {
-  let vao = buffer.vao.get(attributeInfos);
-  if (vao) {
-    gl.bindVertexArray(vao);
-    return;
-  }
-  vao = gl.createVertexArray();
-  buffer.vao.set(attributeInfos, vao);
-  gl.bindVertexArray(vao);
-  gl.bindBuffer(gl.ARRAY_BUFFER, buffer.vbo);
-  for (const [index, attributeInfo] of attributeInfos.entries()) {
-    const info = buffer.infos[attributeInfo.name];
-    gl.enableVertexAttribArray(index);
-    gl.vertexAttribPointer(
-      index,
-      info.size,
-      info.type,
-      true,
-      buffer.stride,
-      info.offset,
-    );
-  }
-  if (buffer.ibo) gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffer.ibo);
-}
-
-function bindProgramUniform(gls: Gls, program: GlsProgram) {
-  const gl = gls.gl;
-  for (const [info, location] of program.uniformInfos) {
-    const name = info.name;
-    const { fn, ftype } = ATTRIBUTE_TYPE_MAP[info.type];
-    const value = program.uniform[name];
-    if (ftype === 'matrix') {
-      gl[`uniformMatrix${fn}`](location, false, value);
-    } else if (ftype === 'texture') {
-      if (!gls._textureBinder) gls._textureBinder = new TextureBinder(gl);
-      gls._textureBinder.bind(
-        location,
-        (value as GlsFramebuffer).texture || value || null,
-      );
-    } else {
-      gl[`uniform${fn}`](location, value);
-    }
-  }
-}
-
-function drawProgramBuffer(program: GlsProgram, buffer: GlsBuffer) {
-  const gls = program.gls;
-  const gl = gls.gl;
-  if (!buffer.vbo) {
-    buffer.vbo = createArrayBuffer(gl, buffer.vertexes.buffer, buffer.usage);
-    buffer.ibo =
-      buffer.indices ?
-        createElementArrayBuffer(gl, buffer.indices.buffer, buffer.usage)
-      : null;
-  }
-  bindProgramBuffer(gl, program.attributeInfos, buffer);
-  gl.useProgram(program.program);
-  bindProgramUniform(gls, program);
-  if (buffer.ibo) {
-    gl.drawElements(
-      buffer.mode,
-      buffer.indices!.length,
-      buffer.vertexSize <= 256 ? gl.UNSIGNED_BYTE : gl.UNSIGNED_SHORT,
-      0,
-    );
-  } else {
-    gl.drawArrays(buffer.mode, 0, buffer.vertexSize);
-  }
-}
-
-// ---------------------------------------------------------
-// BufferController
-// ---------------------------------------------------------
-
-type GlsCreateMeshCallback = (vtx: GlsVertex, i: number) => void;
-
-const MAX_BUFFER_SIZE = 65536;
-function createMesh({
-  buffer,
-  vertexOffset,
-  indexOffset,
-  ucount,
-  vcount,
-  callback,
-  i,
-  attrName,
-}: {
-  buffer: GlsBuffer;
-  vertexOffset: number;
-  indexOffset: number;
-  ucount: number;
-  vcount: number;
-  callback: GlsCreateMeshCallback | null;
-  i: number;
-  attrName: string;
-}) {
-  if (!buffer.indices) {
-    throw new Error('Could not create the mesh without index buffer');
-  }
-  if (!buffer.infos[attrName]) {
-    throw new Error(`The attribute has not been defined: ${attrName}`);
-  }
-  const umax = ucount + 1;
-  for (let v = 0, n = vertexOffset; v <= vcount; v++) {
-    for (let u = 0; u < umax; u++, n++) {
-      const vtx = buffer.getVertex(n);
-      vtx[attrName]![0] = (u / ucount) * 2 - 1;
-      vtx[attrName]![1] = (v / vcount) * 2 - 1;
-      if (callback) callback(vtx, i);
-    }
-  }
-  const idx = buffer.indices;
-  for (let v = 0, n = indexOffset; v < vcount; v++) {
-    /* eslint-disable no-plusplus */
-    idx[n++] = vertexOffset + v * umax;
-    for (let u = 0; u < umax; u++) {
-      idx[n++] = vertexOffset + u + v * umax;
-      idx[n++] = vertexOffset + u + (v + 1) * umax;
-    }
-    idx[n++] = vertexOffset + (umax - 1) + (v + 1) * umax;
-    /* eslint-enable no-plusplus */
-  }
-}
-function buildGlsBufferController(geom: GlsBufferController) {
-  if (geom.currentVertexOffset > 0) {
-    const buffer = new GlsBuffer(
-      geom.programs,
-      geom.currentVertexOffset,
-      geom.currentIndexOffset,
-      geom.mode,
-      geom.usage,
-    );
-    for (const [callback, vertexOffset, indexOffset] of geom.callbacks) {
-      callback(buffer, vertexOffset, indexOffset);
-    }
-    geom.buffers.push(buffer);
-  }
-  geom.currentVertexOffset = 0;
-  geom.currentIndexOffset = 0;
-  geom.callbacks.length = 0;
-}
-
-type GlsBufferAllocateCallback = (
-  bufer: GlsBuffer,
-  vertexOffset: number,
-  indexOffset: number,
-) => void;
-type GlsBufferAllocateControllerCallback = [
-  GlsBufferAllocateCallback,
-  number,
-  number,
-];
-
-export class GlsBufferController {
-  programs: GlsProgram[];
-  mode: number;
-  usage: number;
-  buffers: GlsBuffer[];
-  currentVertexOffset: number;
-  currentIndexOffset: number;
-  callbacks: GlsBufferAllocateControllerCallback[];
-
-  constructor(programs: GlsProgram[], mode: number, usage: number) {
-    this.programs = programs;
-    this.mode = mode;
-    this.usage = usage;
-    this.buffers = [];
-    this.currentVertexOffset = 0;
-    this.currentIndexOffset = 0;
-    this.callbacks = [];
-  }
-
-  allocate(
-    vertexSize: number,
-    indexSize: number,
-    callback: GlsBufferAllocateCallback,
-  ) {
-    if (vertexSize > MAX_BUFFER_SIZE) {
-      throw new RangeError(
-        'The size you tried to allocate exceeds the maximum value.',
-      );
-    }
-    if (this.currentVertexOffset + vertexSize > MAX_BUFFER_SIZE) {
-      buildGlsBufferController(this);
-    }
-    this.callbacks.push([
-      callback,
-      this.currentVertexOffset,
-      this.currentIndexOffset,
-    ]);
-    this.currentVertexOffset += vertexSize;
-    this.currentIndexOffset += indexSize;
-  }
-
-  addMesh(
-    ucount = 1,
-    vcount = 1,
-    callback: GlsCreateMeshCallback | null = null,
-    attrName = 'position',
-  ) {
-    this.addMeshes(ucount, vcount, 1, callback, attrName);
-  }
-
-  addMeshes(
-    ucount = 1,
-    vcount = 1,
-    count = 1,
-    callback: GlsCreateMeshCallback | null = null,
-    attrName = 'position',
-  ) {
-    const vertexSize = (ucount + 1) * (vcount + 1);
-    const indexSize = (ucount * 2 + 4) * vcount;
-    const maxBufferCount = Math.floor(MAX_BUFFER_SIZE / vertexSize);
-    for (let offset = 0; offset < count; offset += maxBufferCount) {
-      const subCount = Math.min(count - offset, maxBufferCount);
-      this.allocate(
-        vertexSize * subCount,
-        indexSize * subCount,
-        (buffer, vertexOffset, indexOffset) => {
-          for (let i = 0; i < subCount; i++) {
-            createMesh({
-              buffer,
-              vertexOffset,
-              indexOffset,
-              ucount,
-              vcount,
-              callback,
-              i: offset + i,
-              attrName,
-            });
-            vertexOffset += vertexSize;
-            indexOffset += indexSize;
-          }
-        },
-      );
-    }
-  }
-}
-
-function drawBuffer(program: GlsProgram, buffer: GlsBufferController) {
-  if (!buffer.programs.includes(program)) {
-    throw new Error('Using a program with a different buffer');
-  }
-  buildGlsBufferController(buffer);
-  for (const b of buffer.buffers) {
-    drawProgramBuffer(program, b);
   }
 }
 
@@ -971,10 +748,79 @@ function bindFramebuffer(gls: Gls, framebuffer: GlsFramebuffer | null = null) {
   }
 }
 
+function createFramebufferTerxture(
+  gl: WebGL2RenderingContext,
+  param: GlsFramebufferParams,
+) {
+  const currentTexture = gl.getParameter(
+    gl.TEXTURE_BINDING_2D,
+  ) as WebGLTexture | null;
+  const texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texImage2D(
+    gl.TEXTURE_2D,
+    0,
+    gl.RGBA,
+    param.width,
+    param.height,
+    0,
+    gl.RGBA,
+    gl.UNSIGNED_BYTE,
+    null,
+  );
+  setTextureParameters(gl, param.texture);
+  gl.framebufferTexture2D(
+    gl.FRAMEBUFFER,
+    gl.COLOR_ATTACHMENT0,
+    gl.TEXTURE_2D,
+    texture,
+    0,
+  );
+  gl.bindTexture(gl.TEXTURE_2D, currentTexture);
+  return texture;
+}
+
+function createFramebuffer(
+  gl: WebGL2RenderingContext,
+  param: GlsFramebufferParams,
+) {
+  const currentFramebuffer = gl.getParameter(
+    gl.FRAMEBUFFER_BINDING,
+  ) as WebGLFramebuffer | null;
+  const framebuffer = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+  let depthRenderbuffer = null;
+  if (!param.depth) {
+    const currentRenderbuffer = gl.getParameter(
+      gl.RENDERBUFFER_BINDING,
+    ) as WebGLRenderbuffer | null;
+    depthRenderbuffer = gl.createRenderbuffer();
+    gl.bindRenderbuffer(gl.RENDERBUFFER, depthRenderbuffer);
+    gl.renderbufferStorage(
+      gl.RENDERBUFFER,
+      gl.DEPTH_COMPONENT16,
+      param.width,
+      param.height,
+    );
+    gl.framebufferRenderbuffer(
+      gl.FRAMEBUFFER,
+      gl.DEPTH_ATTACHMENT,
+      gl.RENDERBUFFER,
+      depthRenderbuffer,
+    );
+    gl.bindRenderbuffer(gl.RENDERBUFFER, currentRenderbuffer);
+  }
+
+  const texture = createFramebufferTerxture(gl, param);
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER, currentFramebuffer);
+  return [framebuffer, depthRenderbuffer, texture] as const;
+}
+
 export class GlsFramebuffer {
   gls: Gls;
   framebuffer: WebGLFramebuffer;
-  depthRenderbuffer: WebGLFramebuffer;
+  depthRenderbuffer: WebGLFramebuffer | null;
   texture: WebGLTexture;
   width: number;
   height: number;
@@ -989,7 +835,7 @@ export class GlsFramebuffer {
       ...params,
     };
     [this.framebuffer, this.depthRenderbuffer, this.texture] =
-      this.createFramebuffer(gls.gl, fParams);
+      createFramebuffer(gls.gl, fParams);
     this.width = fParams.width;
     this.height = fParams.height;
   }
@@ -1001,70 +847,320 @@ export class GlsFramebuffer {
 
   draw(program: GlsProgram, buffer: GlsBufferController) {
     bindFramebuffer(this.gls, this);
+    /* eslint-disable @typescript-eslint/no-use-before-define */
     drawBuffer(program, buffer);
+    /* eslint-enable @typescript-eslint/no-use-before-define */
+  }
+}
+
+// ---------------------------------------------------------
+// Bind program and buffer
+// ---------------------------------------------------------
+
+function createArrayBuffer(
+  gl: WebGL2RenderingContext,
+  dataSrc: ArrayBufferLike,
+  usage: number,
+) {
+  const curr = gl.getParameter(gl.ARRAY_BUFFER_BINDING) as WebGLBuffer | null;
+  const buffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+  gl.bufferData(gl.ARRAY_BUFFER, dataSrc, usage);
+  gl.bindBuffer(gl.ARRAY_BUFFER, curr);
+  return buffer;
+}
+
+function createElementArrayBuffer(
+  gl: WebGL2RenderingContext,
+  srcData: ArrayBufferLike,
+  usage: number,
+) {
+  const curr = gl.getParameter(
+    gl.ELEMENT_ARRAY_BUFFER_BINDING,
+  ) as WebGLBuffer | null;
+  const buffer = gl.createBuffer();
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffer);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, srcData, usage);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, curr);
+  return buffer;
+}
+
+function bindProgramBuffer(
+  gl: WebGL2RenderingContext,
+  attributeInfos: WebGLActiveInfo[],
+  buffer: GlsBuffer,
+) {
+  let vao = buffer.vao.get(attributeInfos);
+  if (vao) {
+    gl.bindVertexArray(vao);
+    return;
+  }
+  vao = gl.createVertexArray();
+  buffer.vao.set(attributeInfos, vao);
+  gl.bindVertexArray(vao);
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer.vbo);
+  for (const [index, attributeInfo] of attributeInfos.entries()) {
+    const info = buffer.infos[attributeInfo.name]!;
+    gl.enableVertexAttribArray(index);
+    gl.vertexAttribPointer(
+      index,
+      info.size,
+      info.type,
+      true,
+      buffer.stride,
+      info.offset,
+    );
+  }
+  if (buffer.ibo) gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffer.ibo);
+}
+
+function bindProgramUniform(gls: Gls, program: GlsProgram) {
+  const gl = gls.gl;
+  for (const [info, location] of program.uniformInfos) {
+    const name = info.name;
+    const { fn, ftype } = ATTRIBUTE_TYPE_MAP[info.type];
+    const value = program.uniform[name];
+    if (ftype === 'matrix') {
+      if (!(Array.isArray(value) || value instanceof Float32Array)) {
+        throw new Error(
+          `Invalid uniform type: ${name} must be of type Float32Array`,
+        );
+      }
+      gl[`uniformMatrix${fn}`](location, false, value);
+    } else if (ftype === 'texture') {
+      if (
+        !(
+          value instanceof WebGLTexture ||
+          value instanceof GlsFramebuffer ||
+          value == null
+        )
+      ) {
+        throw new Error(
+          `Invalid uniform type: ${name} must be of type WebGLTexture, GlsFramebuffer or null`,
+        );
+      }
+      gls.textureBinder ??= new TextureBinder(gl);
+      gls.textureBinder.bind(
+        location,
+        value instanceof GlsFramebuffer ? value.texture : (value ?? null),
+      );
+    } else if (fn === '1f') {
+      if (typeof value !== 'number') {
+        throw new Error(`Invalid uniform type: ${name} must be of type number`);
+      }
+      gl.uniform1f(location, value);
+    } else {
+      if (!(Array.isArray(value) || value instanceof Float32Array)) {
+        throw new Error(
+          `Invalid uniform type: ${name} must be of type Float32Array`,
+        );
+      }
+      gl[`uniform${fn}`](location, value);
+    }
+  }
+}
+
+function drawProgramBuffer(program: GlsProgram, buffer: GlsBuffer) {
+  const gls = program.gls;
+  const gl = gls.gl;
+  if (!buffer.vbo) {
+    buffer.vbo = createArrayBuffer(gl, buffer.vertexes.buffer, buffer.usage);
+    buffer.ibo =
+      buffer.indices ?
+        createElementArrayBuffer(gl, buffer.indices.buffer, buffer.usage)
+      : null;
+  }
+  bindProgramBuffer(gl, program.attributeInfos, buffer);
+  gl.useProgram(program.program);
+  bindProgramUniform(gls, program);
+  if (buffer.indices) {
+    gl.drawElements(
+      buffer.mode,
+      buffer.indices.length,
+      buffer.vertexSize <= 256 ? gl.UNSIGNED_BYTE : gl.UNSIGNED_SHORT,
+      0,
+    );
+  } else {
+    gl.drawArrays(buffer.mode, 0, buffer.vertexSize);
+  }
+}
+
+// ---------------------------------------------------------
+// BufferController
+// ---------------------------------------------------------
+
+type GlsCreateMeshCallback = (vtx: GlsVertex, i: number) => void;
+
+const MAX_BUFFER_SIZE = 65536;
+function createMesh({
+  buffer,
+  vertexOffset,
+  indexOffset,
+  ucount,
+  vcount,
+  callback,
+  i,
+  attrName,
+}: {
+  buffer: GlsBuffer;
+  vertexOffset: number;
+  indexOffset: number;
+  ucount: number;
+  vcount: number;
+  callback: GlsCreateMeshCallback | null;
+  i: number;
+  attrName: string;
+}) {
+  if (!buffer.indices) {
+    throw new Error('Could not create the mesh without index buffer');
+  }
+  if (!buffer.infos[attrName]) {
+    throw new Error(`The attribute has not been defined: ${attrName}`);
+  }
+  const umax = ucount + 1;
+  for (let n = vertexOffset, v = 0; v <= vcount; v++) {
+    for (let u = 0; u < umax; u++, n++) {
+      const vtx = buffer.getVertex(n);
+      vtx[attrName]![0] = (u / ucount) * 2 - 1;
+      vtx[attrName]![1] = (v / vcount) * 2 - 1;
+      if (callback) callback(vtx, i);
+    }
+  }
+  const idx = buffer.indices;
+  for (let n = indexOffset, v = 0; v < vcount; v++) {
+    /* eslint-disable no-plusplus */
+    idx[n++] = vertexOffset + v * umax;
+    for (let u = 0; u < umax; u++) {
+      idx[n++] = vertexOffset + u + v * umax;
+      idx[n++] = vertexOffset + u + (v + 1) * umax;
+    }
+    idx[n++] = vertexOffset + (umax - 1) + (v + 1) * umax;
+    /* eslint-enable no-plusplus */
+  }
+}
+function buildGlsBufferController(geom: GlsBufferController) {
+  if (geom.currentVertexOffset > 0) {
+    const buffer = new GlsBuffer(
+      geom.programs,
+      geom.currentVertexOffset,
+      geom.currentIndexOffset,
+      geom.mode,
+      geom.usage,
+    );
+    for (const [callback, vertexOffset, indexOffset] of geom.callbacks) {
+      callback(buffer, vertexOffset, indexOffset);
+    }
+    geom.buffers.push(buffer);
+  }
+  geom.currentVertexOffset = 0;
+  geom.currentIndexOffset = 0;
+  geom.callbacks.length = 0;
+}
+
+type GlsBufferAllocateCallback = (
+  bufer: GlsBuffer,
+  vertexOffset: number,
+  indexOffset: number,
+) => void;
+type GlsBufferAllocateControllerCallback = [
+  GlsBufferAllocateCallback,
+  number,
+  number,
+];
+
+export class GlsBufferController {
+  programs: GlsProgram[];
+  mode: number;
+  usage: number;
+  buffers: GlsBuffer[];
+  currentVertexOffset: number;
+  currentIndexOffset: number;
+  callbacks: GlsBufferAllocateControllerCallback[];
+
+  constructor(programs: GlsProgram[], mode: number, usage: number) {
+    this.programs = programs;
+    this.mode = mode;
+    this.usage = usage;
+    this.buffers = [];
+    this.currentVertexOffset = 0;
+    this.currentIndexOffset = 0;
+    this.callbacks = [];
   }
 
-  private createFramebuffer(
-    gl: WebGL2RenderingContext,
-    param: GlsFramebufferParams,
+  allocate(
+    vertexSize: number,
+    indexSize: number,
+    callback: GlsBufferAllocateCallback,
   ) {
-    const currentFramebuffer = gl.getParameter(
-      gl.FRAMEBUFFER_BINDING,
-    ) as WebGLFramebuffer | null;
-    const framebuffer = gl.createFramebuffer();
-    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
-    let depthRenderbuffer = null;
-    if (!param.depth) {
-      const currentRenderbuffer = gl.getParameter(
-        gl.RENDERBUFFER_BINDING,
-      ) as WebGLRenderbuffer | null;
-      depthRenderbuffer = gl.createRenderbuffer();
-      gl.bindRenderbuffer(gl.RENDERBUFFER, depthRenderbuffer);
-      gl.renderbufferStorage(
-        gl.RENDERBUFFER,
-        gl.DEPTH_COMPONENT16,
-        param.width,
-        param.height,
+    if (vertexSize > MAX_BUFFER_SIZE) {
+      throw new RangeError(
+        'The size you tried to allocate exceeds the maximum value.',
       );
-      gl.framebufferRenderbuffer(
-        gl.FRAMEBUFFER,
-        gl.DEPTH_ATTACHMENT,
-        gl.RENDERBUFFER,
-        depthRenderbuffer,
-      );
-      gl.bindRenderbuffer(gl.RENDERBUFFER, currentRenderbuffer);
     }
-    const currentTexture = gl.getParameter(
-      gl.TEXTURE_BINDING_2D,
-    ) as WebGLTexture | null;
-    const texture = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texImage2D(
-      gl.TEXTURE_2D,
-      0,
-      gl.RGBA,
-      param.width,
-      param.height,
-      0,
-      gl.RGBA,
-      gl.UNSIGNED_BYTE,
-      null,
-    );
-    setTextureParameters(gl, param.texture);
-    gl.framebufferTexture2D(
-      gl.FRAMEBUFFER,
-      gl.COLOR_ATTACHMENT0,
-      gl.TEXTURE_2D,
-      texture,
-      0,
-    );
-    gl.bindTexture(gl.TEXTURE_2D, currentTexture);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, currentFramebuffer);
-    return [framebuffer, depthRenderbuffer, texture] as [
-      WebGLFramebuffer,
-      WebGLRenderbuffer,
-      WebGLTexture,
-    ];
+    if (this.currentVertexOffset + vertexSize > MAX_BUFFER_SIZE) {
+      buildGlsBufferController(this);
+    }
+    this.callbacks.push([
+      callback,
+      this.currentVertexOffset,
+      this.currentIndexOffset,
+    ]);
+    this.currentVertexOffset += vertexSize;
+    this.currentIndexOffset += indexSize;
+  }
+
+  addMesh(
+    ucount = 1,
+    vcount = 1,
+    callback: GlsCreateMeshCallback | null = null,
+    attrName = 'position',
+  ) {
+    this.addMeshes(ucount, vcount, 1, callback, attrName);
+  }
+
+  addMeshes(
+    ucount = 1,
+    vcount = 1,
+    count = 1,
+    callback: GlsCreateMeshCallback | null = null,
+    attrName = 'position',
+  ) {
+    const vertexSize = (ucount + 1) * (vcount + 1);
+    const indexSize = (ucount * 2 + 4) * vcount;
+    const maxBufferCount = Math.floor(MAX_BUFFER_SIZE / vertexSize);
+    for (let offset = 0; offset < count; offset += maxBufferCount) {
+      const subCount = Math.min(count - offset, maxBufferCount);
+      this.allocate(
+        vertexSize * subCount,
+        indexSize * subCount,
+        (buffer, vertexOffset, indexOffset) => {
+          for (let i = 0; i < subCount; i++) {
+            createMesh({
+              buffer,
+              vertexOffset,
+              indexOffset,
+              ucount,
+              vcount,
+              callback,
+              i: offset + i,
+              attrName,
+            });
+            vertexOffset += vertexSize;
+            indexOffset += indexSize;
+          }
+        },
+      );
+    }
+  }
+}
+
+function drawBuffer(program: GlsProgram, buffer: GlsBufferController) {
+  if (!buffer.programs.includes(program)) {
+    throw new Error('Using a program with a different buffer');
+  }
+  buildGlsBufferController(buffer);
+  for (const b of buffer.buffers) {
+    drawProgramBuffer(program, b);
   }
 }
 
@@ -1078,7 +1174,7 @@ export class Gls {
   readonly canvas: HTMLCanvasElement;
   readonly gl: WebGL2RenderingContext;
   readonly clearMask: number;
-  _textureBinder: TextureBinder | null = null;
+  textureBinder: TextureBinder | null = null;
 
   readonly NEAREST_CLAMP = {
     MIN_FILTER: 'NEAREST',
