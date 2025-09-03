@@ -1,4 +1,4 @@
-export const VERSION = '0.4.4';
+export const VERSION = '0.4.5';
 
 const GL = window.WebGL2RenderingContext;
 
@@ -33,7 +33,7 @@ interface TypeByte {
 }
 
 const TYPE_BYTE = {
-  [GL.BYTE]: { byte: 1, name: 'Int8', clamp: true, min: -128, max: 128 },
+  [GL.BYTE]: { byte: 1, name: 'Int8', clamp: true, min: -128, max: 127 },
   [GL.UNSIGNED_BYTE]: { byte: 1, name: 'Uint8', clamp: true, min: 0, max: 255 },
   [GL.SHORT]: { byte: 2, name: 'Int16', clamp: true, min: -32768, max: 32767 },
   [GL.UNSIGNED_SHORT]: {
@@ -848,10 +848,11 @@ export class TextureBinder {
       }
       this.unbind(unit, location);
     }
-    if (!texture) return;
-    unit = this.fetchByTexture(texture) ?? this.bindTexture(texture);
-    this.bindLocation(unit, location);
-    this.moveToLast(unit);
+    if (texture) {
+      unit = this.fetchByTexture(texture) ?? this.bindTexture(texture);
+      this.bindLocation(unit, location);
+      this.moveToLast(unit);
+    }
   }
 
   private fetchByLocation(location: WebGLUniformLocation) {
@@ -864,11 +865,7 @@ export class TextureBinder {
 
   private bindTexture(texture: WebGLTexture) {
     const number = this.newNumber();
-    const key = `TEXTURE${number}`;
-    if (!hasKey(this.gl, key)) {
-      throw new Error(`Failed to get texture: ${key}`);
-    }
-    this.gl.activeTexture(this.gl[key] as number);
+    this.gl.activeTexture(this.gl.TEXTURE0 + number);
     this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
     const unit: TextureBinderUnit = { number, locations: [], texture };
     return unit;

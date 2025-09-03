@@ -284,11 +284,11 @@ export function canvas(width: number, height: number, ref?: HTMLImageElement) {
   return element;
 }
 
-export function createSwitcher() {
-  let current: Node | undefined;
-  return (newChild: Node) => {
-    current?.parentNode?.replaceChild(newChild, current);
-    current = newChild;
+export function createSwitcher(node: Node) {
+  let current = node;
+  return (newNode: Node) => {
+    current.parentNode?.replaceChild(newNode, current);
+    current = newNode;
     return current;
   };
 }

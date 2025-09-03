@@ -8,6 +8,23 @@ export function isRecord(obj: unknown): obj is Record<string, unknown> {
 }
 
 /**
+ * targetにsourceのプロパティをマージする型厳密な関数。
+ * 以下の条件を満たさない場合、コンパイルエラーを発生させます。
+ * 1. sourceのプロパティがtargetに存在すること。
+ * 2. sourceのプロパティの型が、targetの対応するプロパティの型と互換性があること。
+ *
+ * @param target マージ先のオブジェクト
+ * @param source マージ元のオブジェクト
+ * @returns マージされたオブジェクト
+ */
+export function typedAssign<
+  T extends object,
+  U extends { [P in keyof U]: P extends keyof T ? T[P] : never }
+>(target: T, source: U): T {
+  return Object.assign(target, source);
+}
+
+/**
  * 指定された時間だけ非同期で待機します。
  *
  * @param delay 待機する時間（ミリ秒単位）
