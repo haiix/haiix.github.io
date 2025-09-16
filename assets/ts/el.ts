@@ -260,6 +260,50 @@ export function label(
   return element;
 }
 
+export interface SelectOption {
+  label: string;
+  value: string;
+  disabled?: boolean;
+}
+
+export interface SelectProps {
+  value?: string;
+  onchange?: (event: Event) => unknown;
+}
+
+export function setSelectOptions(
+  element: HTMLSelectElement,
+  options: SelectOption[],
+) {
+  return build(
+    element,
+    options.map(({ label: textContent, value, disabled }) => {
+      const optionElem = create('option');
+      setProperties(optionElem, {
+        textContent,
+        value,
+        disabled: disabled ?? false,
+      });
+      return optionElem;
+    }),
+  );
+}
+
+export function select(
+  name: string,
+  options?: SelectOption[] | null,
+  props?: SelectProps | null,
+  ref?: HTMLSelectElement,
+) {
+  const element = container(null, ref ?? 'select') as HTMLSelectElement;
+  if (options) {
+    setSelectOptions(element, options);
+  }
+  // valueを反映させるため、optionsを追加後にプロパティをセットする
+  setProperties(element, { name, ...props });
+  return element;
+}
+
 export function loadImage(alt: string, src: string, ref?: HTMLImageElement) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const img = container(null, ref ?? 'img') as HTMLImageElement;
@@ -291,6 +335,18 @@ export function createSwitcher(node: Node) {
     current = newNode;
     return current;
   };
+}
+
+export function setClass(
+  element: HTMLElement,
+  className: string,
+  condition = true,
+) {
+  if (condition) {
+    element.classList.remove(className);
+  } else {
+    element.classList.add(className);
+  }
 }
 
 export function hide(...elements: Element[]) {
