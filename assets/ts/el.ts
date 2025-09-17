@@ -343,9 +343,9 @@ export function setClass(
   condition = true,
 ) {
   if (condition) {
-    element.classList.remove(className);
-  } else {
     element.classList.add(className);
+  } else {
+    element.classList.remove(className);
   }
 }
 
