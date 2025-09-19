@@ -6,7 +6,7 @@ export function create<T extends keyof HTMLElementTagNameMap>(
 
 export function removeAllChildren(...nodes: Node[]) {
   for (const node of nodes) {
-    node.textContent = '';
+    node.textContent = null;
   }
 }
 
@@ -146,16 +146,18 @@ export function button(
   classList?: string | null,
   ref?: HTMLButtonElement,
 ) {
-  const element = container(classList, ref ?? 'button') as HTMLButtonElement;
+  const element = text(
+    labelText,
+    classList,
+    ref ?? 'button',
+  ) as HTMLButtonElement;
   setProperties(element, { type: 'button', ...props });
-  element.textContent = labelText;
   return element;
 }
 
 export function submit(labelText: string, ref?: HTMLButtonElement) {
-  const element = container(null, ref ?? 'button') as HTMLButtonElement;
+  const element = text(labelText, null, ref ?? 'button') as HTMLButtonElement;
   setProperties(element, { type: 'submit' });
-  element.textContent = labelText;
   return element;
 }
 
@@ -217,15 +219,7 @@ export function checkbox(
   props?: CheckBoxProps | null,
   ref?: HTMLInputElement,
 ) {
-  return input(
-    name,
-    'checkbox',
-    {
-      checked: (props?.checked ?? props?.value ?? false) ? 'checked' : null,
-      ...props,
-    },
-    ref,
-  );
+  return input(name, 'checkbox', props, ref);
 }
 
 export interface TextAreaProps extends InputProps {
@@ -328,10 +322,10 @@ export function canvas(width: number, height: number, ref?: HTMLImageElement) {
   return element;
 }
 
-export function createSwitcher(node: Node) {
+export function createSwitcher(node?: Node) {
   let current = node;
   return (newNode: Node) => {
-    current.parentNode?.replaceChild(newNode, current);
+    current?.parentNode?.replaceChild(newNode, current);
     current = newNode;
     return current;
   };
