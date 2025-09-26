@@ -1,0 +1,25 @@
+{
+  "name": "global-variables",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "lint": "eslint --fix src/.",
+    "format": "prettier . --write"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.36.0",
+    "acorn": "^8.15.0",
+    "eslint": "^9.36.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^16.4.0",
+    "prettier": "3.6.2",
+    "source-map-js": "^1.2.1",
+    "typescript": "~5.8.3",
+    "typescript-eslint": "^8.44.1",
+    "vite": "^7.1.7"
+  }
+}
