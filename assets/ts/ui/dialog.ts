@@ -1,5 +1,40 @@
 import style from '../style';
 
+export const messages: Record<string, Record<string, string>> = {
+  en: {
+    info: 'Info',
+    confirm: 'Confirm',
+    input: 'Input',
+    error: 'Error',
+    details: 'Details',
+    ok: 'OK',
+    cancel: 'Cancel',
+    yes: 'Yes',
+    no: 'No',
+  },
+  ja: {
+    info: '情報',
+    confirm: '確認',
+    input: '入力',
+    error: 'エラー',
+    details: '詳細',
+    ok: 'OK',
+    cancel: 'キャンセル',
+    yes: 'はい',
+    no: 'いいえ',
+  },
+};
+
+let currentLocale = navigator.language.slice(0, 2);
+
+export function setLocale(value: string) {
+  currentLocale = value;
+}
+
+function t(key: string): string {
+  return (messages[currentLocale] ?? messages.en)?.[key] ?? key;
+}
+
 style(`
 .custom-dialog {
   /* デザインシステムを一元管理するカスタムプロパティ */
@@ -199,7 +234,11 @@ async function normalAlert(message: string): Promise<void> {
   const [container] = createElements('div');
   container.textContent = message;
 
-  await showDialog({ title: '情報', content: container, buttonTexts: ['OK'] });
+  await showDialog({
+    title: t('info'),
+    content: container,
+    buttonTexts: ['OK'],
+  });
 }
 
 async function errorAlert(error: Error): Promise<void> {
@@ -207,7 +246,7 @@ async function errorAlert(error: Error): Promise<void> {
     createElements('div', 'summary', 'textarea', 'details', 'div');
 
   messageContainer.textContent = `${error.name}: ${error.message}`;
-  summary.textContent = '詳細';
+  summary.textContent = t('details');
   textarea.readOnly = true;
   textarea.wrap = 'off';
   textarea.value = error.stack ?? '';
@@ -216,9 +255,9 @@ async function errorAlert(error: Error): Promise<void> {
   container.append(messageContainer, details);
 
   await showDialog({
-    title: 'エラー',
+    title: t('error'),
     content: container,
-    buttonTexts: ['OK'],
+    buttonTexts: [t('ok')],
   });
 }
 
@@ -233,9 +272,9 @@ export async function confirm(message: string): Promise<boolean> {
   container.textContent = message;
 
   const result = await showDialog({
-    title: '確認',
+    title: t('confirm'),
     content: container,
-    buttonTexts: ['はい', 'いいえ'],
+    buttonTexts: [t('yes'), t('no')],
   });
   return result === DIALOG_RESULT_OK;
 }
@@ -254,9 +293,9 @@ export async function prompt(
   container.append(messageContainer, input);
 
   const result = await showDialog({
-    title: '入力',
+    title: t('input'),
     content: container,
-    buttonTexts: ['OK', 'キャンセル'],
+    buttonTexts: [t('ok'), t('cancel')],
     setupExtraHandlers: (resolve) => {
       // EnterキーでOKボタンと同じ動作をさせる
       input.onkeydown = (event) => {

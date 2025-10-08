@@ -116,6 +116,13 @@ export function p(
   return text(labelText, classList, ref ?? 'p') as HTMLParagraphElement;
 }
 
+export function a(labelText: string, href: string) {
+  const anchor = create('a');
+  anchor.textContent = labelText;
+  anchor.href = href;
+  return anchor;
+}
+
 function setProperties(
   element: Element,
   props?: Record<string, unknown> | null,
