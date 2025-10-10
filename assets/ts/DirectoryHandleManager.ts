@@ -8,10 +8,10 @@ import * as idb from './idb';
  */
 export class DirectoryHandleManager {
   /** IndexedDB データベースインスタンス */
-  db: idb.Idb;
+  private db: idb.Idb;
 
   /** IndexedDB のオブジェクトストア */
-  store: idb.IdbStore;
+  private store: idb.IdbStore;
 
   /**
    * DirectoryHandleManagerのコンストラクタ。
@@ -46,7 +46,7 @@ export class DirectoryHandleManager {
       ) {
         return null;
       }
-      // 存在チェック
+      // ディレクトリが実際にアクセス可能か確認する
       await handle.keys().next();
       return handle;
     } catch {
@@ -59,13 +59,28 @@ export class DirectoryHandleManager {
    *
    * このメソッドは `showDirectoryPicker` を呼び出し、取得したハンドルを IndexedDB に保存します。
    *
-   * @param key - 保存時のキー。既定値は `'default'`。
+   * @param key - 保存時のキー。falseを指定した場合は保存しない。既定値は `'default'`。
    * @returns 選択された `FileSystemDirectoryHandle`。
    */
-  async showPicker(key = 'default'): Promise<FileSystemDirectoryHandle> {
+  async showPicker(
+    key: string | false = 'default',
+  ): Promise<FileSystemDirectoryHandle> {
     const handle = await showDirectoryPicker({ mode: 'readwrite' });
-    await this.store.put(handle, key);
+    if (key !== false) await this.save(handle, key);
     return handle;
+  }
+
+  /**
+   * ハンドルを IndexedDB に保存します。
+   *
+   * @param handle - 保存するハンドル。
+   * @param key - 保存時のキー。既定値は `'default'`。
+   */
+  async save(
+    handle: FileSystemDirectoryHandle,
+    key = 'default',
+  ): Promise<void> {
+    await this.store.put(handle, key);
   }
 }
 
