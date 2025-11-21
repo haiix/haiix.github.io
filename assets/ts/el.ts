@@ -35,22 +35,36 @@ export function build<T extends Element>(
 }
 
 /**
- * イベントハンドラーを安全に実行するためのラッパーを作成します。
+ * 同期・非同期関数のエラーを安全にハンドリングするラッパーを作成します。
+ *
+ * @remarks
+ * - ラップする関数は `void` または `Promise<void>` に限定。
+ *   戻り値を透過させないことで挙動を一貫させます。
+ * - 同期関数は try/catch、非同期関数は Promise.catch で共通のエラー処理を行います。
+ *
+ * @param errorCallback エラー発生時に呼ばれるコールバック
+ * @returns 指定した関数を安全に実行するラッパー関数
+ *
+ * @example
+ * const errorHandler = createSafeErrorHandler(console.error);
+ * button.onclick = errorHandler(() => {
+ *   throw new Error('Example');
+ * });
  */
 export function createSafeErrorHandler(
   errorCallback: (error: unknown) => unknown,
 ) {
-  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-  return <T extends any[]>(fn: (...args: T) => void | Promise<void>) =>
+  return <T extends unknown[]>(fn: (...args: T) => void | Promise<void>) =>
     (...args: T) => {
       try {
         const result = fn(...args);
-        if (typeof result?.catch === 'function') result.catch(errorCallback);
+        if (result instanceof Promise) {
+          result.catch(errorCallback);
+        }
       } catch (error) {
         errorCallback(error);
       }
     };
-  /* eslint-enable-next-line @typescript-eslint/no-explicit-any */
 }
 
 export function container<K extends keyof HTMLElementTagNameMap>(

@@ -17,13 +17,13 @@ overlay.style.position = 'fixed';
 overlay.style.inset = '0';
 
 export function getPageCoordinate(event: MouseEvent | TouchEvent): Point {
-  // TouchEventはブラウザで実装されていない可能性があるので注意
+  // MouseEventかTouchEventか判定 (TouchEventはブラウザで実装されていない可能性があるので使用しないように注意)
   if (event instanceof MouseEvent) {
     return { x: event.pageX, y: event.pageY };
   }
   return {
-    x: event.touches[0]?.clientX ?? 0,
-    y: event.touches[0]?.clientY ?? 0,
+    x: event.touches[0]?.pageX ?? 0,
+    y: event.touches[0]?.pageY ?? 0,
   };
 }
 
@@ -86,7 +86,7 @@ export function hold(params: HoldParams): void {
   const controller = new HoldController(params);
 
   const handleMouseDown = (event: MouseEvent | TouchEvent) => {
-    // マウスダウンのイベントを抑止すると、フォーカス処理が行われなくなる
+    // マウスダウンのイベントを抑止すると、フォーカスがされなくなるのでしない
     //event.preventDefault();
     controller.handleMouseDown(event);
   };

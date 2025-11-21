@@ -1,5 +1,11 @@
 import * as util from './util';
 
+interface Selection {
+  start: number;
+  end: number;
+  isCollapsed?: boolean;
+}
+
 /**
  * コンテナ内の全テキストノードを前順でたどる TreeWalker を返す
  */
@@ -7,8 +13,8 @@ function createTextWalker(container: Node): TreeWalker {
   return document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
     acceptNode(node: Node) {
       // 0長のテキストノードはスキップ（復元の安定性向上）
-      return node.nodeValue && node.nodeValue.length > 0
-        ? NodeFilter.FILTER_ACCEPT
+      return node.nodeValue && node.nodeValue.length > 0 ?
+          NodeFilter.FILTER_ACCEPT
         : NodeFilter.FILTER_REJECT;
     },
   });
@@ -83,7 +89,7 @@ function getRange(container: HTMLElement) {
 /**
  * 選択範囲を「コンテナ先頭からの文字オフセット」で保存
  */
-export function saveSelection(container: HTMLElement) {
+export function saveSelection(container: HTMLElement): Selection | null {
   const range = getRange(container);
   if (!range) return null;
 
@@ -133,8 +139,9 @@ export function saveSelection(container: HTMLElement) {
  */
 export function restoreSelection(
   container: HTMLElement,
-  saved: { start: number; end: number },
+  saved: Selection | null,
 ) {
+  if (!saved) return;
   let { start, end } = saved;
 
   const totalLen = getTextLength(container);

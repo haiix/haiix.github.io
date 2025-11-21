@@ -23,7 +23,7 @@ export class Style {
 
     if (!this.styleElement) {
       this.styleElement = document.createElement('style');
-      document.head.appendChild(this.styleElement);
+      document.head.insertAdjacentElement('afterbegin', this.styleElement);
     }
 
     this.styleElement.insertAdjacentText(

@@ -73,6 +73,8 @@ export async function getJSON(url: string): Promise<unknown> {
  *
  * @param url 送信先の URL
  * @param data 送信する JSON データ
+ * @param headers リクエストヘッダー
+ * @param signal アボートシグナル
  * @returns レスポンス Promise
  */
 export async function postJSONRaw(
@@ -100,6 +102,8 @@ export async function postJSONRaw(
  *
  * @param url 送信先の URL
  * @param data 送信する JSON データ
+ * @param headers リクエストヘッダー
+ * @param signal アボートシグナル
  * @returns レスポンスの JSON データを解決する Promise
  */
 export async function postJSON(
@@ -193,7 +197,9 @@ export function weightedRandomSelection<T>(
 }
 
 /**
- * HTMLエスケープ
+ * HTMLエスケープして安全にする
+ * @param  html  エスケープ対象の文字列
+ * @returns  エスケープ後の文字列
  */
 export function escapeHTML(html: string) {
   const div = document.createElement('div');
@@ -210,4 +216,31 @@ export function escapeHTML(html: string) {
  */
 export function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(min, value), max);
+}
+
+/**
+ * 文字列中に含まれる部分文字列の出現回数を数える
+ *
+ * @param  str  対象の文字列
+ * @param  subStr  探す部分文字列
+ * @param  allowOverlap  重なりをカウントするか（trueで重なりを含める）
+ * @returns  出現回数
+ */
+export function countOccurrences(
+  str: string,
+  subStr: string,
+  allowOverlap = false,
+) {
+  if (subStr === '') return 0;
+
+  const step = allowOverlap ? 1 : subStr.length;
+  let count = 0;
+  let pos = 0;
+
+  while ((pos = str.indexOf(subStr, pos)) >= 0) {
+    count += 1;
+    pos += step;
+  }
+
+  return count;
 }
