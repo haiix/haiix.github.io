@@ -21,10 +21,7 @@ export function getPageCoordinate(event: MouseEvent | TouchEvent): Point {
   if (event instanceof MouseEvent) {
     return { x: event.pageX, y: event.pageY };
   }
-  return {
-    x: event.touches[0]?.pageX ?? 0,
-    y: event.touches[0]?.pageY ?? 0,
-  };
+  return { x: event.touches[0]?.pageX ?? 0, y: event.touches[0]?.pageY ?? 0 };
 }
 
 class HoldController {

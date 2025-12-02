@@ -4,7 +4,7 @@
  * @returns オブジェクトがレコード型であればtrue、そうでなければfalse
  */
 export function isRecord(obj: unknown): obj is Record<string, unknown> {
-  return typeof obj === "object" && obj !== null;
+  return typeof obj === 'object' && obj !== null;
 }
 
 /**
@@ -19,7 +19,7 @@ export function isRecord(obj: unknown): obj is Record<string, unknown> {
  */
 export function typedAssign<
   T extends object,
-  U extends { [P in keyof U]: P extends keyof T ? T[P] : never }
+  U extends { [P in keyof U]: P extends keyof T ? T[P] : never },
 >(target: T, source: U): T {
   return Object.assign(target, source);
 }
@@ -126,7 +126,7 @@ export function deterministicRandom(source: string | Uint8Array): number {
 
   const encoder = new TextEncoder();
   const inputBytes =
-    typeof source === "string" ? encoder.encode(source) : source;
+    typeof source === 'string' ? encoder.encode(source) : source;
   const bytes = new Uint8Array(inputBytes.length + extraSalt.length);
   bytes.set(inputBytes);
   bytes.set(extraSalt, inputBytes.length);
@@ -155,26 +155,13 @@ export function deterministicRandomInt(
   return Math.floor(deterministicRandom(source) * (max - min) + min);
 }
 
-/**
- * Xorshift
- */
-export function xorshift(seed: number) {
-  let buf = seed || 0x3c6ef35f;
-  return (): number => {
-    buf ^= buf << 13;
-    buf ^= buf >>> 17;
-    buf ^= buf << 5;
-    return (buf >>> 0) / 0x100000000;
-  };
-}
-
 type RandomSelectionItem = [number, ...unknown[]];
 
 /**
  * 重み付きランダム選択
  */
-export function weightedRandomSelection<T>(
-  list: (RandomSelectionItem & T)[],
+export function weightedRandomSelection<T extends RandomSelectionItem>(
+  list: T[],
   randomSource: string,
 ): T | undefined {
   const weightSum = list.reduce(
