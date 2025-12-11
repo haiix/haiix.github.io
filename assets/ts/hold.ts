@@ -4,114 +4,132 @@ export interface Point {
 }
 
 export interface HoldParams {
-  ondragstart?: (x: number, y: number, overlay: HTMLElement) => unknown;
-  ondrag?: (x: number, y: number, overlay: HTMLElement) => unknown;
-  ondragend?: (x: number, y: number, overlay: HTMLElement) => unknown;
+  ondragstart?: (
+    x: number,
+    y: number,
+    event: MouseEvent | TouchEvent,
+  ) => unknown;
+  ondrag?: (x: number, y: number, event: MouseEvent | TouchEvent) => unknown;
+  ondragend?: (x: number, y: number, event: MouseEvent | TouchEvent) => unknown;
   onerror?: (error: unknown) => unknown;
   cursor?: string;
   container?: HTMLElement;
+  overlay?: HTMLElement | false;
 }
 
-const overlay = document.createElement('div');
-overlay.style.position = 'fixed';
-overlay.style.inset = '0';
-
 export function getPageCoordinate(event: MouseEvent | TouchEvent): Point {
-  // MouseEventかTouchEventか判定 (TouchEventはブラウザで実装されていない可能性があるので使用しないように注意)
+  // TouchEventはブラウザで実装されていない可能性があるので判定に使用しないように注意
   if (event instanceof MouseEvent) {
     return { x: event.pageX, y: event.pageY };
   }
-  return { x: event.touches[0]?.pageX ?? 0, y: event.touches[0]?.pageY ?? 0 };
+  // TouchEventの場合
+  // touchendの場合は touches が空になるため changedTouches を参照する
+  const touch = event.touches[0] ?? event.changedTouches[0];
+  return { x: touch?.pageX ?? 0, y: touch?.pageY ?? 0 };
 }
 
 class HoldController {
   params: HoldParams;
-  point: Point = { x: 0, y: 0 };
+  point: Point;
+  overlay: HTMLElement | null = null;
   dragStarted = false;
 
-  constructor(params: HoldParams) {
+  constructor(params: HoldParams, initialEvent: MouseEvent | TouchEvent) {
     this.params = params;
+    this.point = getPageCoordinate(initialEvent);
   }
 
   private callback(
-    callback?: (x: number, y: number, o: HTMLElement) => unknown,
+    event: MouseEvent | TouchEvent,
+    fn?: (x: number, y: number, event: MouseEvent | TouchEvent) => unknown,
   ): void {
-    if (!callback) return;
+    if (!fn) return;
 
-    let retVal = null;
+    let result;
     try {
-      retVal = callback(this.point.x, this.point.y, overlay);
+      result = fn(this.point.x, this.point.y, event);
     } catch (error) {
       if (this.params.onerror) {
         this.params.onerror(error);
       }
     }
 
-    if (this.params.onerror && retVal instanceof Promise) {
-      retVal.catch(this.params.onerror);
+    if (this.params.onerror && result instanceof Promise) {
+      result.catch(this.params.onerror);
     }
-  }
-
-  handleMouseDown(event: MouseEvent | TouchEvent): void {
-    this.point = getPageCoordinate(event);
   }
 
   handleMouseMove(event: MouseEvent | TouchEvent): void {
     const point = getPageCoordinate(event);
+
     if (point.x === this.point.x && point.y === this.point.y) return;
     this.point = point;
 
     if (!this.dragStarted) {
-      if (this.params.cursor) overlay.style.cursor = this.params.cursor;
-      (this.params.container ?? document.body).append(overlay);
-      this.callback(this.params.ondragstart);
+      // 初回の移動検知でドラッグ開始とみなす
+      if (this.params.overlay !== false) {
+        let overlay: HTMLElement;
+        if (this.params.overlay) {
+          overlay = this.params.overlay;
+        } else {
+          overlay = document.createElement('div');
+          overlay.style.position = 'fixed';
+          overlay.style.inset = '0';
+        }
+        if (this.params.cursor) overlay.style.cursor = this.params.cursor;
+
+        this.overlay = overlay;
+        (this.params.container ?? document.body).append(this.overlay);
+      }
+      this.callback(event, this.params.ondragstart);
       this.dragStarted = true;
     }
 
-    this.callback(this.params.ondrag);
+    this.callback(event, this.params.ondrag);
   }
 
   handleMouseUp(event: MouseEvent | TouchEvent): void {
-    overlay.remove();
-    overlay.style.cursor = '';
+    this.overlay?.remove();
     this.point = getPageCoordinate(event);
-    this.callback(this.params.ondragend);
+
+    if (this.dragStarted) {
+      this.callback(event, this.params.ondragend);
+    }
   }
 }
 
-export function hold(params: HoldParams): void {
-  const controller = new HoldController(params);
+/**
+ * ドラッグ操作を開始します。
+ * onMouseDown / onTouchStart イベントハンドラ内で呼び出してください。
+ */
+export function hold(event: MouseEvent | TouchEvent, params: HoldParams): void {
+  // デフォルト挙動は、必要に応じて呼び出し側で制御する
+  // if (event.cancelable) event.preventDefault();
 
-  const handleMouseDown = (event: MouseEvent | TouchEvent) => {
-    // マウスダウンのイベントを抑止すると、フォーカスがされなくなるのでしない
-    //event.preventDefault();
-    controller.handleMouseDown(event);
-  };
-  const handleMouseMove = (event: MouseEvent | TouchEvent) => {
-    event.preventDefault();
-    controller.handleMouseMove(event);
-  };
-  const handleMouseUp = (event: MouseEvent | TouchEvent) => {
-    event.preventDefault();
-    // eslint-disable-next-line @typescript-eslint/no-use-before-define
-    for (const handler of handlers) {
-      removeEventListener(handler.type, handler.listener);
-    }
-    controller.handleMouseUp(event);
+  const controller = new HoldController(params, event);
+
+  const handleMouseMove = (ev: MouseEvent | TouchEvent) => {
+    if (ev.cancelable) ev.preventDefault();
+    controller.handleMouseMove(ev);
   };
 
-  const handlers = [
-    { type: 'touchstart', listener: handleMouseDown },
-    { type: 'touchmove', listener: handleMouseMove },
-    { type: 'touchend', listener: handleMouseUp },
-    { type: 'mousedown', listener: handleMouseDown },
-    { type: 'mousemove', listener: handleMouseMove },
-    { type: 'mouseup', listener: handleMouseUp },
-  ] as const;
+  const handleMouseUp = (ev: MouseEvent | TouchEvent) => {
+    window.removeEventListener('mousemove', handleMouseMove);
+    window.removeEventListener('mouseup', handleMouseUp);
+    window.removeEventListener('touchmove', handleMouseMove);
+    window.removeEventListener('touchend', handleMouseUp);
+    window.removeEventListener('touchcancel', handleMouseUp);
 
-  for (const handler of handlers) {
-    addEventListener(handler.type, handler.listener, { passive: false });
-  }
+    controller.handleMouseUp(ev);
+  };
+
+  const options = { passive: false };
+
+  window.addEventListener('mousemove', handleMouseMove, options);
+  window.addEventListener('mouseup', handleMouseUp, options);
+  window.addEventListener('touchmove', handleMouseMove, options);
+  window.addEventListener('touchend', handleMouseUp, options);
+  window.addEventListener('touchcancel', handleMouseUp, options);
 }
 
 export default hold;
