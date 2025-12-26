@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>袋のネズミ - AI対戦 & ルール調整 (修正版)</title>
+    <style>
+        :root {
+            --cell-size: 55px;
+            --bg-color: #f0f4f8;
+            --board-bg: #fff;
+            --highlight-color: #d1fae5;
+            --last-move-color: #fef3c7;
+            --marble-color: #3b82f6;
+            --rat-color: #ef4444;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+
+        h1 { margin-bottom: 10px; font-size: 1.5rem; }
+        
+        /* コンテナ */
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            width: 100%;
+            max-width: 900px;
+        }
+
+        /* 設定パネル */
+        .settings-panel {
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 350px;
+            flex-shrink: 0;
+        }
+        .settings-group {
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .settings-group h3 {
+            margin: 0 0 10px 0;
+            font-size: 1rem;
+            color: #555;
+        }
+        .setting-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .setting-row label { font-size: 0.85rem; font-weight: bold; }
+        input, select { padding: 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9rem;}
+        
+        button#start-btn {
+            width: 100%;
+            padding: 12px;
+            background-color: #10b981;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        button#start-btn:hover { background-color: #059669; }
+
+        /* ゲームエリア */
+        #game-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex-grow: 1;
+        }
+
+        .game-info {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 10px;
+            font-weight: bold;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .status-box {
+            background: #fff;
+            padding: 8px 16px;
+            border-radius: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            font-size: 0.9rem;
+        }
+        .phase-indicator {
+            color: #d97706;
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+            text-align: center;
+            font-weight: bold;
+            min-height: 1.5em;
+        }
+
+        /* ボード */
+        #game-board {
+            display: grid;
+            gap: 2px;
+            background-color: #94a3b8;
+            border: 4px solid #64748b;
+            user-select: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .cell {
+            width: var(--cell-size);
+            height: var(--cell-size);
+            background-color: var(--board-bg);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2rem;
+            cursor: default;
+            transition: background-color 0.2s;
+            position: relative;
+        }
+
+        /* アニメーションとハイライト */
+        .cell.highlight { 
+            background-color: var(--highlight-color); 
+            cursor: pointer; 
+        }
+        .cell.last-move {
+            background-color: var(--last-move-color);
+        }
+        
+        .cell.marble::after {
+            content: "";
+            width: 70%;
+            height: 70%;
+            background-color: var(--marble-color);
+            border-radius: 50%;
+            box-shadow: inset -2px -2px 5px rgba(0,0,0,0.3);
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .cell.rat::after {
+            content: "🐭";
+            font-size: 1.6rem;
+            animation: slideIn 0.2s ease-out;
+        }
+
+        @keyframes popIn {
+            from { transform: scale(0); }
+            to { transform: scale(1); }
+        }
+        @keyframes slideIn {
+            from { transform: scale(0.8); opacity: 0.8; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        @media (max-width: 600px) {
+            :root { --cell-size: 40px; }
+            .container { flex-direction: column; }
+            .settings-panel { max-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>袋のネズミ - AI対戦版</h1>
+
+    <div style="background:#e0f2fe; padding:12px; border-radius:8px; margin-bottom:20px; width:90%; max-width:900px; color:#0c4a6e; font-size:0.9rem; box-sizing:border-box;">
+        <h3 style="margin:0 0 5px 0; font-size:1rem;">📖 ルール説明</h3>
+        <ul style="margin:0; padding-left:20px;">
+            <li><strong>ビー玉役</strong>：空いているマスにビー玉を置いて、ネズミを追い込みます。</li>
+            <li><strong>ネズミ役</strong>：ビー玉のないマスへ移動して逃げます。</li>
+            <li><strong>勝利条件</strong>：
+                ネズミが動けなくなれば<strong>ビー玉の勝ち</strong>、
+                玉を使い切って逃げれば<strong>ネズミの勝ち</strong>！
+            </li>
+        </ul>
+    </div>
+
+    <div class="container">
+        <!-- 設定エリア -->
+        <div class="settings-panel">
+            <div class="settings-group">
+                <h3>📜 ルール設定</h3>
+                <div class="setting-row">
+                    <label>ボードサイズ</label>
+                    <input type="number" id="board-size" value="5" min="3" max="8" style="width:50px;">
+                </div>
+                <div class="setting-row">
+                    <label>ビー玉総数</label>
+                    <input type="number" id="total-marbles" value="12" min="1" max="60" style="width:50px;">
+                </div>
+                <div class="setting-row">
+                    <label>ネズミ移動</label>
+                    <select id="move-type">
+                        <option value="4" selected>4方向 (推奨)</option>
+                        <option value="8">8方向 (標準)</option>
+                    </select>
+                </div>
+                <div class="setting-row">
+                    <label>1ターンの設置数</label>
+                    <select id="marbles-per-turn">
+                        <option value="1" selected>1個</option>
+                        <option value="2">2個</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="settings-group">
+                <h3>🤖 プレイヤー設定</h3>
+                <div class="setting-row">
+                    <label>ビー玉役 (P1)</label>
+                    <select id="p1-type">
+                        <option value="human">人間</option>
+                        <option value="ai-random">AI (よわい)</option>
+                        <option value="ai-smart">AI (かしこい)</option>
+                    </select>
+                </div>
+                <div class="setting-row">
+                    <label>ネズミ役 (P2)</label>
+                    <select id="p2-type">
+                        <option value="human">人間</option>
+                        <option value="ai-random">AI (よわい)</option>
+                        <option value="ai-smart" selected>AI (かしこい)</option>
+                    </select>
+                </div>
+                <div class="setting-row">
+                    <label>開始フェーズ</label>
+                    <select id="start-phase">
+                        <option value="place">ビー玉先攻 (標準)</option>
+                        <option value="move">ネズミ先攻</option>
+                    </select>
+                </div>
+            </div>
+
+            <button id="start-btn" onclick="initGame()">ゲームスタート</button>
+            <div style="margin-top:10px; font-size:0.8rem; color:#666;">
+                ※AI同士にすると観戦モードになります。<br>
+                ※AIの思考時間はボードサイズが大きいと長くなります。
+            </div>
+        </div>
+
+        <!-- ゲーム進行エリア -->
+        <div id="game-area" style="display:none;">
+            <div class="phase-indicator" id="phase-display">準備完了</div>
+            
+            <div class="game-info">
+                <div class="status-box">残りビー玉: <span id="marble-count">0</span></div>
+                <div class="status-box" id="turn-box">手番: <span id="current-role">-</span></div>
+            </div>
+
+            <div id="game-board"></div>
+            <div id="ai-status" style="height: 20px; color: #888; font-size: 0.8rem; margin-top:5px;"></div>
+        </div>
+    </div>
+
+    <script>
+        // --- ゲーム状態管理 ---
+        const state = {
+            boardSize: 5,
+            maxMarbles: 10,
+            marblesRemaining: 10,
+            marblesPerTurn: 1,
+            placedThisTurn: 0,
+            moveType: 4,
+            
+            board: [], // 0:Empty, 1:Marble, 2:Rat
+            ratPos: {r: 0, c: 0},
+            
+            // 役割とフェーズ
+            phase: 'place', // 'place', 'move', 'end'
+            winner: null,
+            lastMove: null, // {r, c} for highlighting
+
+            // プレイヤー設定
+            players: {
+                marble: 'human', // 'human', 'ai-random', 'ai-smart'
+                rat: 'human'
+            },
+            
+            isProcessingAI: false
+        };
+
+        const boardEl = document.getElementById('game-board');
+        const phaseEl = document.getElementById('phase-display');
+        const marbleCountEl = document.getElementById('marble-count');
+        const currentRoleEl = document.getElementById('current-role');
+        const aiStatusEl = document.getElementById('ai-status');
+
+        // --- 初期化 ---
+        function initGame() {
+            // 設定読み込み
+            state.boardSize = parseInt(document.getElementById('board-size').value);
+            state.maxMarbles = parseInt(document.getElementById('total-marbles').value);
+            state.marblesPerTurn = parseInt(document.getElementById('marbles-per-turn').value);
+            state.moveType = parseInt(document.getElementById('move-type').value);
+            state.players.marble = document.getElementById('p1-type').value;
+            state.players.rat = document.getElementById('p2-type').value;
+            const startPhase = document.getElementById('start-phase').value;
+
+            // 状態リセット
+            state.marblesRemaining = state.maxMarbles;
+            state.placedThisTurn = 0;
+            state.winner = null;
+            state.lastMove = null;
+            state.isProcessingAI = false;
+            state.board = Array(state.boardSize).fill(0).map(() => Array(state.boardSize).fill(0));
+
+            // ネズミを中央に配置
+            const center = Math.floor(state.boardSize / 2);
+            state.ratPos = { r: center, c: center };
+            state.board[center][center] = 2;
+
+            // フェーズ設定
+            state.phase = startPhase;
+
+            // UI表示切替
+            document.getElementById('game-area').style.display = 'flex';
+            boardEl.style.gridTemplateColumns = `repeat(${state.boardSize}, 1fr)`;
+
+            updateUI();
+            renderBoard();
+            
+            // AIの手番なら開始
+            checkAI();
+        }
+
+        // --- 描画関連 ---
+        function renderBoard() {
+            boardEl.innerHTML = '';
+            const validMoves = (state.phase === 'move' && !state.winner) 
+                               ? getValidMoves(state.board, state.ratPos, state.moveType) : [];
+
+            // 現在の手番プレイヤーが人間かどうか
+            const isHumanTurn = (state.phase === 'place' && state.players.marble === 'human') ||
+                                (state.phase === 'move' && state.players.rat === 'human');
+
+            for (let r = 0; r < state.boardSize; r++) {
+                for (let c = 0; c < state.boardSize; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    
+                    const cellValue = state.board[r][c];
+                    if (cellValue === 1) cell.classList.add('marble');
+                    if (cellValue === 2) cell.classList.add('rat');
+                    
+                    // 直前の手のハイライト
+                    if (state.lastMove && state.lastMove.r === r && state.lastMove.c === c) {
+                        cell.classList.add('last-move');
+                    }
+
+                    // 入力イベント（人間かつ勝負がついている場合以外、かつAI処理中ではない）
+                    if (isHumanTurn && !state.winner && !state.isProcessingAI) {
+                        // ビー玉配置
+                        if (state.phase === 'place' && cellValue === 0) {
+                            cell.style.cursor = 'pointer';
+                            cell.onclick = () => handlePlaceMarble(r, c);
+                        }
+                        // ネズミ移動
+                        else if (state.phase === 'move' && validMoves.some(m => m.r === r && m.c === c)) {
+                            cell.classList.add('highlight');
+                            cell.onclick = () => handleRatMove(r, c);
+                        }
+                    }
+                    boardEl.appendChild(cell);
+                }
+            }
+        }
+
+        function updateUI() {
+            marbleCountEl.textContent = state.marblesRemaining;
+            
+            if (state.winner) {
+                const winnerName = state.winner === 'rat' ? 'ネズミ' : 'ビー玉落とし役';
+                const color = state.winner === 'rat' ? '#ef4444' : '#3b82f6';
+                phaseEl.innerHTML = `<span style="color:${color}">勝負あり！ ${winnerName} の勝利！</span>`;
+                currentRoleEl.textContent = '終了';
+                aiStatusEl.textContent = '';
+                return;
+            }
+
+            if (state.phase === 'place') {
+                const remaining = state.marblesPerTurn - state.placedThisTurn;
+                phaseEl.textContent = `ビー玉配置 (${remaining}個)`;
+                phaseEl.style.color = '#3b82f6';
+                currentRoleEl.textContent = `ビー玉役 (${getPlayerLabel(state.players.marble)})`;
+            } else {
+                phaseEl.textContent = 'ネズミ移動';
+                phaseEl.style.color = '#ef4444';
+                currentRoleEl.textContent = `ネズミ役 (${getPlayerLabel(state.players.rat)})`;
+            }
+        }
+
+        function getPlayerLabel(type) {
+            if (type === 'human') return 'あなた';
+            if (type === 'ai-random') return 'AI(弱)';
+            return 'AI(強)';
+        }
+
+        // --- ゲーム進行ロジック ---
+
+        function handlePlaceMarble(r, c) {
+            if (state.board[r][c] !== 0) return;
+
+            state.board[r][c] = 1;
+            state.marblesRemaining--;
+            state.placedThisTurn++;
+            state.lastMove = {r, c};
+
+            // 1. ネズミ詰み判定
+            if (getValidMoves(state.board, state.ratPos, state.moveType).length === 0) {
+                state.winner = 'marble';
+                updateAndRender();
+                return;
+            }
+
+            // 2. フェーズ進行判定
+            if (state.placedThisTurn >= state.marblesPerTurn || state.marblesRemaining <= 0) {
+                state.phase = 'move';
+                state.placedThisTurn = 0;
+            }
+
+            updateAndRender();
+            checkAI();
+        }
+
+        function handleRatMove(r, c) {
+            // 移動処理
+            state.board[state.ratPos.r][state.ratPos.c] = 0;
+            state.ratPos = {r, c};
+            state.board[r][c] = 2;
+            state.lastMove = {r, c};
+
+            // 3. ビー玉切れ判定（ネズミ勝利）
+            if (state.marblesRemaining === 0) {
+                state.winner = 'rat';
+                updateAndRender();
+                return;
+            }
+
+            // フェーズ切り替え
+            state.phase = 'place';
+            updateAndRender();
+            checkAI();
+        }
+
+        function updateAndRender() {
+            updateUI();
+            renderBoard();
+        }
+
+        // --- AIロジック ---
+
+        function checkAI() {
+            if (state.winner) return;
+
+            let aiType = null;
+            if (state.phase === 'place' && state.players.marble.startsWith('ai')) {
+                aiType = state.players.marble;
+            } else if (state.phase === 'move' && state.players.rat.startsWith('ai')) {
+                aiType = state.players.rat;
+            }
+
+            if (aiType) {
+                state.isProcessingAI = true;
+                aiStatusEl.textContent = 'AI思考中...';
+                renderBoard(); // ロック状態で一回描画
+                setTimeout(() => runAI(aiType), 500);
+            } else {
+                aiStatusEl.textContent = '';
+            }
+        }
+
+        function runAI(aiType) {
+            const isSmart = aiType === 'ai-smart';
+            
+            if (state.phase === 'place') {
+                // ビー玉AI
+                let move;
+                if (!isSmart) {
+                    move = getRandomMarbleMove();
+                } else {
+                    move = getSmartMarbleMove();
+                }
+                
+                if (move) {
+                    handlePlaceMarble(move.r, move.c);
+                } else {
+                    // 置ける場所がない（理論上ありえないが念のため）
+                    state.phase = 'move'; 
+                    state.placedThisTurn = 0;
+                    updateAndRender();
+                    checkAI();
+                }
+
+            } else {
+                // ネズミAI
+                let move;
+                if (!isSmart) {
+                    move = getRandomRatMove();
+                } else {
+                    move = getSmartRatMove();
+                }
+
+                if (move) {
+                    handleRatMove(move.r, move.c);
+                } else {
+                    // 動けない（詰み）は handlePlaceMarble で判定済みだが念のため
+                    state.winner = 'marble';
+                    updateAndRender();
+                }
+            }
+            
+            // ★修正ポイント: AI処理完了後にフラグを戻し、再描画して人間の入力を受け付けるようにする
+            state.isProcessingAI = false;
+            renderBoard();
+        }
+
+        // ランダムAI
+        function getRandomMarbleMove() {
+            const emptyCells = [];
+            for(let r=0; r<state.boardSize; r++) {
+                for(let c=0; c<state.boardSize; c++) {
+                    if (state.board[r][c] === 0) emptyCells.push({r, c});
+                }
+            }
+            if (emptyCells.length === 0) return null;
+            return emptyCells[Math.floor(Math.random() * emptyCells.length)];
+        }
+
+        function getRandomRatMove() {
+            const moves = getValidMoves(state.board, state.ratPos, state.moveType);
+            if (moves.length === 0) return null;
+            return moves[Math.floor(Math.random() * moves.length)];
+        }
+
+        // かしこいAI (探索付き)
+        function getSmartRatMove() {
+            const moves = getValidMoves(state.board, state.ratPos, state.moveType);
+            if (moves.length === 0) return null;
+
+            // 1手読み + 到達可能領域評価 (Flood Fill)
+            let bestScore = -1;
+            let bestMoves = [];
+
+            for (let move of moves) {
+                // 仮移動
+                const originalPos = state.ratPos;
+                state.board[originalPos.r][originalPos.c] = 0;
+                state.board[move.r][move.c] = 2;
+                state.ratPos = move;
+
+                // 評価: この位置から到達できるマスの数をカウント
+                const score = countReachableCells(state.board, move, state.moveType);
+
+                // 状態戻す
+                state.board[move.r][move.c] = 0;
+                state.board[originalPos.r][originalPos.c] = 2;
+                state.ratPos = originalPos;
+
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestMoves = [move];
+                } else if (score === bestScore) {
+                    bestMoves.push(move);
+                }
+            }
+            
+            return bestMoves[Math.floor(Math.random() * bestMoves.length)];
+        }
+
+        function getSmartMarbleMove() {
+            // ネズミの周囲2マス以内の空きマスを候補とする
+            const candidates = [];
+            const range = 2; 
+            const rMin = Math.max(0, state.ratPos.r - range);
+            const rMax = Math.min(state.boardSize - 1, state.ratPos.r + range);
+            const cMin = Math.max(0, state.ratPos.c - range);
+            const cMax = Math.min(state.boardSize - 1, state.ratPos.c + range);
+
+            for (let r = rMin; r <= rMax; r++) {
+                for (let c = cMin; c <= cMax; c++) {
+                    if (state.board[r][c] === 0) {
+                        candidates.push({r, c});
+                    }
+                }
+            }
+
+            if (candidates.length === 0) {
+                return getRandomMarbleMove();
+            }
+
+            let bestScore = 9999;
+            let bestMoves = [];
+
+            for (let move of candidates) {
+                // 仮置き
+                state.board[move.r][move.c] = 1;
+
+                // 評価: ネズミの次の手の自由度
+                const ratMoves = getValidMoves(state.board, state.ratPos, state.moveType);
+                let score = ratMoves.length * 10;
+                
+                // 状態戻す
+                state.board[move.r][move.c] = 0;
+
+                if (score < bestScore) {
+                    bestScore = score;
+                    bestMoves = [move];
+                } else if (score === bestScore) {
+                    bestMoves.push(move);
+                }
+            }
+
+            return bestMoves[Math.floor(Math.random() * bestMoves.length)];
+        }
+
+        // 到達可能マス数をカウント
+        function countReachableCells(board, startPos, moveType) {
+            const q = [startPos];
+            const visited = new Set();
+            visited.add(`${startPos.r},${startPos.c}`);
+            let count = 0;
+
+            while(q.length > 0) {
+                const curr = q.shift();
+                count++;
+                
+                const moves = getValidMoves(board, curr, moveType);
+                for(let m of moves) {
+                    const key = `${m.r},${m.c}`;
+                    if(!visited.has(key)) {
+                        visited.add(key);
+                        q.push(m);
+                    }
+                }
+            }
+            return count;
+        }
+
+        // --- 共通ロジック ---
+        function getValidMoves(board, pos, moveType) {
+            const moves = [];
+            const directions = [];
+            // 4方向
+            directions.push({dr:-1, dc:0}, {dr:1, dc:0}, {dr:0, dc:-1}, {dr:0, dc:1});
+            // 8方向
+            if (moveType === 8) {
+                directions.push({dr:-1, dc:-1}, {dr:-1, dc:1}, {dr:1, dc:-1}, {dr:1, dc:1});
+            }
+
+            for (let d of directions) {
+                const nr = pos.r + d.dr;
+                const nc = pos.c + d.dc;
+                if (nr >= 0 && nr < state.boardSize && nc >= 0 && nc < state.boardSize) {
+                    if (board[nr][nc] === 0) {
+                        moves.push({r: nr, c: nc});
+                    }
+                }
+            }
+            return moves;
+        }
+    </script>
+</body>
+</html>
