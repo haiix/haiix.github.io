@@ -1,6 +1,6 @@
 import DirectoryHandleManager from '../DirectoryHandleManager';
 
-export class SelectFolderButton {
+export class FolderSelectionButton {
   readonly element: HTMLButtonElement;
   #handle: FileSystemDirectoryHandle;
 
@@ -13,7 +13,7 @@ export class SelectFolderButton {
     button.textContent = '✅ フォルダー選択';
     button.onclick = async () => {
       this.#handle =
-        (await SelectFolderButton.showPicker(manager, key)) ?? this.#handle;
+        (await FolderSelectionButton.showPicker(manager, key)) ?? this.#handle;
     };
     this.element = button;
     this.#handle = handle;
@@ -39,7 +39,7 @@ export class SelectFolderButton {
 
   static create(key: string) {
     const { promise, resolve, reject } =
-      Promise.withResolvers<SelectFolderButton>();
+      Promise.withResolvers<FolderSelectionButton>();
 
     const button = document.createElement('button');
     button.textContent = 'フォルダー選択';
@@ -49,15 +49,15 @@ export class SelectFolderButton {
     (async () => {
       const handle = await manager.load(key);
       if (handle) {
-        resolve(new SelectFolderButton(button, manager, handle, key));
+        resolve(new FolderSelectionButton(button, manager, handle, key));
         return;
       }
 
       button.onclick = async () => {
         try {
-          const picked = await SelectFolderButton.showPicker(manager, key);
+          const picked = await FolderSelectionButton.showPicker(manager, key);
           if (picked) {
-            resolve(new SelectFolderButton(button, manager, picked, key));
+            resolve(new FolderSelectionButton(button, manager, picked, key));
           }
         } catch (error) {
           reject(error);
@@ -69,4 +69,4 @@ export class SelectFolderButton {
   }
 }
 
-export default SelectFolderButton;
+export default FolderSelectionButton;
