@@ -36,7 +36,7 @@ function createExecWorker() {
       const whitelist = [
         'Object', 'Function', 'Array', 'Number', 'Boolean', 'String', 'Symbol', 'Date', 'Promise', 'RegExp', 'JSON', 'Math', 'BigInt',
         'parseFloat', 'parseInt', 'Infinity', 'NaN', 'undefined', 'isFinite', 'isNaN',
-        'escape', 'unescape',
+        //'escape', 'unescape',
         'Error', 'AggregateError', 'EvalError', 'RangeError', 'ReferenceError', 'SyntaxError', 'TypeError', 'URIError',
         'ArrayBuffer', 'Uint8Array', 'Int8Array', 'Uint16Array', 'Int16Array', 'Uint32Array', 'Int32Array', 'Float32Array', 'Float64Array', 'Uint8ClampedArray', 'BigUint64Array', 'BigInt64Array', 'DataView',
         'Map', 'Set', 'WeakMap', 'WeakSet',
@@ -46,7 +46,7 @@ function createExecWorker() {
         'Intl', 'Proxy', 'Reflect',
         'TextEncoder', 'TextDecoder',
         'FileReaderSync', 'FileReader', 'FileList', 'File', 'Blob',
-        //'Crypto', 'CryptoKey', 'SubtleCrypto', 'crypto',
+        'Crypto', 'CryptoKey', 'SubtleCrypto', 'crypto',
         'ImageData',
         'OffscreenCanvas', 'OffscreenCanvasRenderingContext2D',
         'createImageBitmap', 'ImageBitmap',
@@ -55,19 +55,18 @@ function createExecWorker() {
       ];
 
       // グローバル変数とプロトタイプ継承から、削除可能なものは削除し、削除できないものは隠す変数に追加
-      const hiddenVariableNames = Object.create(null);
+      const hiddenVariableNames = new Set();
       for (let curr = self; curr.constructor !== Object; curr = Object.getPrototypeOf(curr)) {
         for (const [name, descriptor] of Object.entries(Object.getOwnPropertyDescriptors(curr))) {
           if (whitelist.includes(name)) continue;
           if (descriptor.configurable) {
             delete curr[name];
           } else {
-            hiddenVariableNames[name] = true;
+            hiddenVariableNames.add(name);
           }
         }
       }
-      const hiddenVariableNamesArr = Object.keys(hiddenVariableNames);
-      //console.log(hiddenVariableNamesArr); // debug
+      //console.log([...hiddenVariableNames.keys()]); // debug
 
       // Function を置き換える
       for (const OldFunc of [
@@ -80,18 +79,17 @@ function createExecWorker() {
           const code = args.length > 0 ? (args.pop() + '') : '';
           // 禁止ワード: import
           // importはキーワードであり変数の置き換えができないが、動的インポート「import('url')」を防ぐ必要がある
-          const fw = ['import'].filter(s => (code).indexOf(s) >= 0);
-          if (fw.length > 0) throw new Error('Forbidden word(s): ' + fw.join());
+          if (/\bimport\s*\(|\bimport\b/.test(code)) {
+            throw new Error('Forbidden word: import');
+          }
           const dummyFunc = OldFunc(...args, code);
-          const func = OldFunc(...(args.concat(hiddenVariableNamesArr)), '"use strict";' + code);
+          const func = OldFunc([...args, ...hiddenVariableNames.keys()], '"use strict";' + code);
           func.toString = dummyFunc.toString.bind(dummyFunc);
           return func;
         }
         Function.toString = OldFunc.toString.bind(OldFunc);
         delete OldFunc.prototype.constructor;
         OldFunc.prototype.constructor = Function;
-        Object.freeze(Function);
-        Object.freeze(OldFunc);
       }
       self.Function = self.Function.prototype.constructor;
 
@@ -110,18 +108,27 @@ function createExecWorker() {
       }
 
       // グローバル変数凍結
-      for (const name of whitelist) {
-        if (!(name in self) || self[name] == null) continue;
-        Object.freeze(self[name]);
-        Object.freeze(self[name].prototype);
+      function deepFreeze(obj, frozen = new Set()) {
+        if (obj == null || typeof obj !== 'object' && typeof obj !== 'function') return;
+        if (frozen.has(obj)) return;
+        frozen.add(obj);
+        Object.freeze(obj);
+        for (const key of Reflect.ownKeys(obj)) {
+          try {
+            deepFreeze(obj[key], frozen);
+          } catch {
+            // Do nothing
+          }
+        }
       }
-      Object.freeze(self);
+      deepFreeze(self);
     },
 
     onmessage: async function (event) {
       try {
         // 実行
-        let retVal = await new Function(event.data)();
+        const AsyncFunction = (async function () {}).constructor;
+        let retVal = await new AsyncFunction(event.data)();
         if (retVal instanceof OffscreenCanvas) {
           retVal = retVal.getContext('2d');
         }
@@ -177,7 +184,7 @@ export class Executer {
         this.timeout = setTimeout(() => this.terminate('Timeout.'), option.timeout);
       }
       if (option && option.signal) {
-        option.signal.addEventListener('abort', event => this.terminate('Worker terminated by the abort signal.'));
+        option.signal.addEventListener('abort', event => this.terminate('Worker terminated by the abort signal.'), { once: true });
       }
       this.worker.postMessage(code);
     })
@@ -189,9 +196,9 @@ export class Executer {
     this.worker.terminate();
     this.worker = null;
     URL.revokeObjectURL(this.objectURL);
+    if (!this.proc) return;
     const [resolve, reject] = this.proc;
     this.proc = null;
     reject(new Error(message));
   }
 }
-
