@@ -1,29 +1,10 @@
-let executer = null;
-
-/**
- * Run the JavaScript code on the worker.
- *
- * @async
- * @function execCode
- * @param {string} code - The JavaScript code.
- * @param {Object} [option] - Options.
- * @param {AbortSignal} [option.signal] - The AbortSignal.
- * @param {number} [option.timeout] - Timeout (ms).
- * @return {Promise<string|ImageData>} The resulting string or ImageData.
- * @throws {Error}
- */
-export default function execCode(code, option = null) {
-  if (!executer) executer = new Executer();
-  return executer.execCode(code, option);
-}
-
 function createWorker({ oncreate, onmessage, options }) {
   const objectURL = URL.createObjectURL(new Blob([`
-    'use strict'
-    ;((Object, self, postMessage, addEventListener) => {
-      ;(${oncreate})()
-      addEventListener('message', ${onmessage})
-    })(Object, self, postMessage.bind(self), addEventListener.bind(self))
+    'use strict';
+    ((Object, self, postMessage, addEventListener) => {
+      (${oncreate})();
+      addEventListener('message', ${onmessage});
+    })(Object, self, postMessage.bind(self), addEventListener.bind(self));
   `], { type: 'text/javascript' }));
   return [objectURL, new Worker(objectURL, options)];
 }
@@ -69,42 +50,47 @@ function createExecWorker() {
       //console.log([...hiddenVariableNames.keys()]); // debug
 
       // Function を置き換える
-      for (const OldFunc of [
+      const sFunction = self.Function;
+      for (const OrgFunction of [
         self.Function,
         (function * () {}).constructor,
         (async function () {}).constructor,
         (async function * () {}).constructor
       ]) {
         const Function = function (...args) {
-          const code = args.length > 0 ? (args.pop() + '') : '';
+          // 事前にすべての引数を文字列に変換しておく (副作用を確定させる)
+          const stringArgs = args.map(arg => String(arg));
           // 禁止ワード: import
-          // importはキーワードであり変数の置き換えができないが、動的インポート「import('url')」を防ぐ必要がある
-          if (/\bimport\s*\(|\bimport\b/.test(code)) {
+          // importはキーワードであり変数への置き換えができないが、動的インポート「import('url')」を防ぐ必要がある
+          if (/\bimport\s*\(|\bimport\b/.test(stringArgs.join(','))) {
             throw new Error('Forbidden word: import');
           }
-          const dummyFunc = OldFunc(...args, code);
-          const func = OldFunc([...args, ...hiddenVariableNames.keys()], '"use strict";' + code);
-          func.toString = dummyFunc.toString.bind(dummyFunc);
-          return func;
+          const code = stringArgs.pop() ?? '';
+          const fn = OrgFunction(...[...stringArgs, ...hiddenVariableNames.keys()], `'use strict';${code}`);
+          const tmpFn = OrgFunction(...stringArgs, code);
+          fn.toString = tmpFn.toString.bind(tmpFn);
+          return fn;
         }
-        Function.toString = OldFunc.toString.bind(OldFunc);
-        delete OldFunc.prototype.constructor;
-        OldFunc.prototype.constructor = Function;
+        Function.toString = OrgFunction.toString.bind(OrgFunction);
+        delete OrgFunction.prototype.constructor;
+        OrgFunction.prototype.constructor = Function;
       }
       self.Function = self.Function.prototype.constructor;
 
       // setTimeout, setInterval からグローバルへのアクセスを防ぐ
-      for (const fn of ['setTimeout', 'setInterval']) {
-        const tmp = self[fn];
-        if (!tmp) continue;
-        self[fn] = (func, ...rest) => {
-          if (func != null) {
-            if (typeof func !== 'function') func = new Function(func);
-            func = func.bind(void 0);
+      for (const name of ['setTimeout', 'setInterval']) {
+        const fn = self[name];
+        if (!fn) continue;
+        self[name] = (callback, ...rest) => {
+          if (callback != null) {
+            if (typeof callback !== 'function') {
+              callback = new Function(callback);
+            }
+            callback = callback.bind(void 0);
           }
-          return tmp(func, ...rest);
+          return fn(callback, ...rest);
         }
-        self[fn].toString = tmp.toString.bind(tmp);
+        self[name].toString = fn.toString.bind(fn);
       }
 
       // グローバル変数凍結
@@ -124,7 +110,7 @@ function createExecWorker() {
       deepFreeze(self);
     },
 
-    onmessage: async function (event) {
+    onmessage: async (event) => {
       try {
         // 実行
         const AsyncFunction = (async function () {}).constructor;
@@ -141,12 +127,12 @@ function createExecWorker() {
           }
         } else {
           retVal = '' + JSON.stringify(retVal, (key, val) => typeof val === 'function' ? val + '' : (val != null && !Array.isArray(val) && typeof val !== 'string' && typeof val[Symbol.iterator] === 'function') ? Array.from(val) : val);
-          retVal = retVal.length < 1000 ? retVal : retVal.slice(0, 997) + '...';
+          retVal = retVal.length < 1000 ? retVal : `${retVal.slice(0, 997)}...`;
         }
         postMessage(['resolve', retVal]);
       } catch (error) {
-        const retVal = '[' + error.name + '] ' + error.message;
-        postMessage(['reject', retVal.length < 1000 ? retVal : retVal.slice(0, 997) + '...']);
+        const retVal = error instanceof Error ? `[${error.name}] ${error.message}` : String(error);
+        postMessage(['reject', retVal.length < 1000 ? retVal : `${retVal.slice(0, 997)}...`]);
       }
     }
   })
@@ -161,7 +147,7 @@ export class Executer {
   initialize() {
     if (this.worker) return;
     [this.objectURL, this.worker] = createExecWorker();
-    this.worker.onmessage = event => {
+    this.worker.onmessage = (event) => {
       clearTimeout(this.timeout);
       const [type, value] = event.data;
       if (!this.proc) return;
@@ -172,22 +158,32 @@ export class Executer {
       } else {
         reject(new Error(value));
       }
-    }
+    };
   }
 
   execCode(code, option = null) {
-    return new Promise((resolve, reject) => {
-      if (this.proc) throw new Error('Currently working.');
-      this.proc = [resolve, reject];
-      this.initialize();
-      if (option && option.timeout) {
-        this.timeout = setTimeout(() => this.terminate('Timeout.'), option.timeout);
-      }
-      if (option && option.signal) {
-        option.signal.addEventListener('abort', event => this.terminate('Worker terminated by the abort signal.'), { once: true });
-      }
-      this.worker.postMessage(code);
-    })
+    if (this.proc) {
+      throw new Error('Currently working.');
+    }
+    const { promise, resolve, reject } = Promise.withResolvers();
+    this.proc = [resolve, reject];
+    this.initialize();
+    if (option?.timeout) {
+      this.timeout = setTimeout(() => {
+        this.terminate('Timeout.');
+      }, option.timeout);
+    }
+    if (option?.signal) {
+      option.signal.addEventListener(
+        'abort',
+        () => {
+          this.terminate('Worker terminated by the abort signal.');
+        },
+        { once: true },
+      );
+    }
+    this.worker?.postMessage(code);
+    return promise;
   }
 
   terminate(message) {
@@ -195,10 +191,33 @@ export class Executer {
     if (!this.worker) return;
     this.worker.terminate();
     this.worker = null;
-    URL.revokeObjectURL(this.objectURL);
+    if (this.objectURL) {
+      URL.revokeObjectURL(this.objectURL);
+    }
     if (!this.proc) return;
-    const [resolve, reject] = this.proc;
+    const [, reject] = this.proc;
     this.proc = null;
     reject(new Error(message));
   }
 }
+
+let executer = null;
+
+/**
+ * Run the JavaScript code on the worker.
+ *
+ * @async
+ * @function execCode
+ * @param {string} code - The JavaScript code.
+ * @param {Object} [option] - Options.
+ * @param {AbortSignal} [option.signal] - The AbortSignal.
+ * @param {number} [option.timeout] - Timeout (ms).
+ * @return {Promise<string|ImageData>} The resulting string or ImageData.
+ * @throws {Error}
+ */
+export function execCode(code, option = null) {
+  if (!executer) executer = new Executer();
+  return executer.execCode(code, option);
+}
+
+export default execCode;
