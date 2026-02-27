@@ -1,86 +1,101 @@
-function createWorker({ oncreate, onmessage, options }) {
-  const objectURL = URL.createObjectURL(new Blob([`
+function createSandboxWorker({ onInit, onMessage, options }) {
+  const workerScriptURL = URL.createObjectURL(new Blob([`
     'use strict';
-    ((Object, self, postMessage, addEventListener) => {
-      (${oncreate})();
-      addEventListener('message', ${onmessage});
-    })(Object, self, postMessage.bind(self), addEventListener.bind(self));
+    ((self, postMessage, addEventListener) => {
+      (${onInit})();
+      addEventListener('message', ${onMessage});
+    })(self, postMessage.bind(self), addEventListener.bind(self));
   `], { type: 'text/javascript' }));
-  return [objectURL, new Worker(objectURL, options)];
+
+  return [workerScriptURL, new Worker(workerScriptURL, options)];
 }
 
-function createExecWorker() {
-  return createWorker({
+function createExecutionWorker() {
+  return createSandboxWorker({
     options: { type: 'classic', credentials: 'omit' },
-    oncreate: () => {
-      // グローバル変数のうち、許可する変数のリスト
-      const whitelist = [
-        'Object', 'Function', 'Array', 'Number', 'Boolean', 'String', 'Symbol', 'Date', 'Promise', 'RegExp', 'JSON', 'Math', 'BigInt',
+
+    onInit: () => {
+      // 許可するグローバル変数のホワイトリスト
+      const allowedGlobals = new Set([
+        'Object', 'Function', 'Array', 'Number', 'Boolean', 'String', 'Symbol', 'Date', 'Promise', 'RegExp', 'JSON', 'Math', 'BigInt', 'Iterator',
         'parseFloat', 'parseInt', 'Infinity', 'NaN', 'undefined', 'isFinite', 'isNaN',
         //'escape', 'unescape',
-        'Error', 'AggregateError', 'EvalError', 'RangeError', 'ReferenceError', 'SyntaxError', 'TypeError', 'URIError',
-        'ArrayBuffer', 'Uint8Array', 'Int8Array', 'Uint16Array', 'Int16Array', 'Uint32Array', 'Int32Array', 'Float32Array', 'Float64Array', 'Uint8ClampedArray', 'BigUint64Array', 'BigInt64Array', 'DataView',
+        'Error', 'AggregateError', 'EvalError', 'RangeError', 'ReferenceError', 'SyntaxError', 'TypeError', 'URIError', 'SuppressedError',
+        'Event', 'CustomEvent', 'EventTarget', 'PromiseRejectionEvent', 'ErrorEvent',
+        'DisposableStack', 'AsyncDisposableStack',
+        'ArrayBuffer', 'Uint8Array', 'Int8Array', 'Uint16Array', 'Int16Array', 'Uint32Array', 'Int32Array', 'Float16Array', 'Float32Array', 'Float64Array', 'Uint8ClampedArray', 'BigUint64Array', 'BigInt64Array', 'DataView',
+        'structuredClone',
         'Map', 'Set', 'WeakMap', 'WeakSet',
-        'decodeURI', 'decodeURIComponent', 'encodeURI', 'encodeURIComponent',
-        'setTimeout', 'setInterval', 'clearInterval', 'clearTimeout', 'requestAnimationFrame', 'cancelAnimationFrame',
+        'FinalizationRegistry', 'WeakRef',
+        'Temporal',
+        'decodeURI', 'decodeURIComponent', 'encodeURI', 'encodeURIComponent', 'URL', 'URLSearchParams',
+        'setTimeout', 'setInterval', 'clearInterval', 'clearTimeout', 'requestAnimationFrame', 'cancelAnimationFrame', 'queueMicrotask',
         'atob', 'btoa',
         'Intl', 'Proxy', 'Reflect',
-        'TextEncoder', 'TextDecoder',
+        'ReadableStream', 'WritableStream', 'TransformStream',
+        'TextEncoder', 'TextDecoder', 'TextEncoderStream', 'TextDecoderStream', 'CompressionStream', 'DecompressionStream',
         'FileReaderSync', 'FileReader', 'FileList', 'File', 'Blob',
         'Crypto', 'CryptoKey', 'SubtleCrypto', 'crypto',
-        'ImageData',
-        'OffscreenCanvas', 'OffscreenCanvasRenderingContext2D',
-        'createImageBitmap', 'ImageBitmap',
-        'AbortSignal', 'AbortController',
-        //'console' // debug
-      ];
+        'ImageData', 'OffscreenCanvas', 'OffscreenCanvasRenderingContext2D',
+        'Path2D', 'TextMetrics', 'CanvasGradient', 'CanvasPattern',
+        'DOMMatrix', 'DOMMatrixReadOnly', 'DOMPoint', 'DOMPointReadOnly', 'DOMRect', 'DOMRectReadOnly', 'DOMQuad',
+        'createImageBitmap', 'ImageBitmap', 'ImageBitmapRenderingContext',
+        'AbortController', 'AbortSignal',
+        //'console', // debug
+      ]);
 
-      // グローバル変数とプロトタイプ継承から、削除可能なものは削除し、削除できないものは隠す変数に追加
-      const hiddenVariableNames = new Set();
-      for (let curr = self; curr.constructor !== Object; curr = Object.getPrototypeOf(curr)) {
-        for (const [name, descriptor] of Object.entries(Object.getOwnPropertyDescriptors(curr))) {
-          if (whitelist.includes(name)) continue;
-          if (descriptor.configurable) {
-            delete curr[name];
+      // 非公開にすべきグローバル変数名
+      const hiddenGlobalNames = new Set();
+
+      // グローバルオブジェクトとプロトタイプから不要なプロパティを除去
+      for (let current = self; current.constructor !== Object; current = Object.getPrototypeOf(current)) {
+        for (const key of Reflect.ownKeys(current)) {
+          if (allowedGlobals.has(key)) continue;
+
+          if (Object.getOwnPropertyDescriptor(current, key).configurable) {
+            delete current[key];
           } else {
-            hiddenVariableNames.add(name);
+            hiddenGlobalNames.add(key);
           }
         }
       }
-      //console.log([...hiddenVariableNames.keys()]); // debug
+      //console.log([...hiddenGlobalNames.keys()]); // debug
 
-      // Function を置き換える
-      const sFunction = self.Function;
-      for (const OrgFunction of [
+      // Function コンストラクタを安全なものに差し替える
+      for (const OriginalFunction of [
         self.Function,
         (function * () {}).constructor,
         (async function () {}).constructor,
         (async function * () {}).constructor
       ]) {
-        const Function = function (...args) {
+        const SafeFunction = function (...args) {
           // 事前にすべての引数を文字列に変換しておく (副作用を確定させる)
           const stringArgs = args.map(arg => String(arg));
-          // 禁止ワード: import
-          // importはキーワードであり変数への置き換えができないが、動的インポート「import('url')」を防ぐ必要がある
+
+          // 動的 import を禁止
           if (/\bimport\s*\(|\bimport\b/.test(stringArgs.join(','))) {
             throw new Error('Forbidden word: import');
           }
+
           const code = stringArgs.pop() ?? '';
-          const fn = OrgFunction(...[...stringArgs, ...hiddenVariableNames.keys()], `'use strict';${code}`);
-          const tmpFn = OrgFunction(...stringArgs, code);
+          const fn = OriginalFunction(...[...stringArgs, ...hiddenGlobalNames.keys()], `'use strict';${code}`);
+          const tmpFn = OriginalFunction(...stringArgs, code);
           fn.toString = tmpFn.toString.bind(tmpFn);
           return fn;
-        }
-        Function.toString = OrgFunction.toString.bind(OrgFunction);
-        delete OrgFunction.prototype.constructor;
-        OrgFunction.prototype.constructor = Function;
+        };
+
+        SafeFunction.toString = OriginalFunction.toString.bind(OriginalFunction);
+        delete OriginalFunction.prototype.constructor;
+        OriginalFunction.prototype.constructor = SafeFunction;
       }
+
       self.Function = self.Function.prototype.constructor;
 
-      // setTimeout, setInterval からグローバルへのアクセスを防ぐ
+      // setTimeout / setInterval からグローバルへアクセスできないようにする
       for (const name of ['setTimeout', 'setInterval']) {
-        const fn = self[name];
-        if (!fn) continue;
+        const originalTimer = self[name];
+        if (!originalTimer) continue;
+
         self[name] = (callback, ...rest) => {
           if (callback != null) {
             if (typeof callback !== 'function') {
@@ -88,71 +103,92 @@ function createExecWorker() {
             }
             callback = callback.bind(void 0);
           }
-          return fn(callback, ...rest);
-        }
-        self[name].toString = fn.toString.bind(fn);
+          return originalTimer(callback, ...rest);
+        };
+
+        self[name].toString = originalTimer.toString.bind(originalTimer);
       }
 
-      // グローバル変数凍結
-      function deepFreeze(obj, frozen = new Set()) {
-        if (obj == null || typeof obj !== 'object' && typeof obj !== 'function') return;
-        if (frozen.has(obj)) return;
-        frozen.add(obj);
-        Object.freeze(obj);
-        for (const key of Reflect.ownKeys(obj)) {
+      // グローバルオブジェクトを再帰的に凍結
+      function deepFreeze(target, frozen = new Set()) {
+        if (target == null || typeof target !== 'object' && typeof target !== 'function') return;
+        if (frozen.has(target)) return;
+
+        frozen.add(target);
+        Object.freeze(target);
+
+        for (const key of Reflect.ownKeys(target)) {
           try {
-            deepFreeze(obj[key], frozen);
+            deepFreeze(target[key], frozen);
           } catch {
-            // Do nothing
+            // 無視
           }
         }
       }
+
       deepFreeze(self);
     },
 
-    onmessage: async (event) => {
+    onMessage: async (event) => {
       try {
-        // 実行
         const AsyncFunction = (async function () {}).constructor;
-        let retVal = await new AsyncFunction(event.data)();
-        if (retVal instanceof OffscreenCanvas) {
-          retVal = retVal.getContext('2d');
+        let result = await new AsyncFunction(event.data)();
+
+        if (result instanceof OffscreenCanvas) {
+          result = result.getContext('2d');
         }
-        if (retVal instanceof OffscreenCanvasRenderingContext2D) {
-          retVal = retVal.getImageData(0, 0, retVal.canvas.width, retVal.canvas.height);
+
+        if (result instanceof OffscreenCanvasRenderingContext2D) {
+          result = result.getImageData(0, 0, result.canvas.width, result.canvas.height);
         }
-        if (retVal instanceof ImageData) {
-          if (retVal.width > 256 || retVal.height > 256) {
+
+        if (result instanceof ImageData) {
+          if (result.width > 256 || result.height > 256) {
             throw new Error('Too large ImageData');
           }
         } else {
-          retVal = '' + JSON.stringify(retVal, (key, val) => typeof val === 'function' ? val + '' : (val != null && !Array.isArray(val) && typeof val !== 'string' && typeof val[Symbol.iterator] === 'function') ? Array.from(val) : val);
-          retVal = retVal.length < 1000 ? retVal : `${retVal.slice(0, 997)}...`;
+          result = '' + JSON.stringify(
+            result,
+            (key, val) =>
+              typeof val === 'function'
+                ? val + ''
+                : (val != null && !Array.isArray(val) && typeof val !== 'string' && typeof val[Symbol.iterator] === 'function')
+                  ? Array.from(val)
+                  : val
+          );
+
+          result = result.length < 1000 ? result : `${result.slice(0, 997)}...`;
         }
-        postMessage(['resolve', retVal]);
+
+        postMessage(['resolve', result]);
       } catch (error) {
-        const retVal = error instanceof Error ? `[${error.name}] ${error.message}` : String(error);
-        postMessage(['reject', retVal.length < 1000 ? retVal : `${retVal.slice(0, 997)}...`]);
+        const message = error instanceof Error ? `[${error.name}] ${error.message}` : String(error);
+        postMessage(['reject', message.length < 1000 ? message : `${message.slice(0, 997)}...`]);
       }
-    }
-  })
+    },
+  });
 }
 
-export class Executer {
-  proc = null;
-  objectURL = null;
+export class CodeExecutor {
+  pendingPromise = null;
+  workerScriptURL = null;
   worker = null;
-  timeout = null;
+  timeoutId = null;
 
   initialize() {
     if (this.worker) return;
-    [this.objectURL, this.worker] = createExecWorker();
+
+    [this.workerScriptURL, this.worker] = createExecutionWorker();
+
     this.worker.onmessage = (event) => {
-      clearTimeout(this.timeout);
+      clearTimeout(this.timeoutId);
+
       const [type, value] = event.data;
-      if (!this.proc) return;
-      const [resolve, reject] = this.proc;
-      this.proc = null;
+      if (!this.pendingPromise) return;
+
+      const [resolve, reject] = this.pendingPromise;
+      this.pendingPromise = null;
+
       if (type === 'resolve') {
         resolve(value);
       } else {
@@ -161,63 +197,73 @@ export class Executer {
     };
   }
 
-  execCode(code, option = null) {
-    if (this.proc) {
-      throw new Error('Currently working.');
+  execute(code, options) {
+    if (this.pendingPromise) {
+      throw new Error('Execution already in progress.');
     }
+
     const { promise, resolve, reject } = Promise.withResolvers();
-    this.proc = [resolve, reject];
+    this.pendingPromise = [resolve, reject];
+
     this.initialize();
-    if (option?.timeout) {
-      this.timeout = setTimeout(() => {
+
+    if (options?.timeout) {
+      this.timeoutId = setTimeout(() => {
         this.terminate('Timeout.');
-      }, option.timeout);
+      }, options.timeout);
     }
-    if (option?.signal) {
-      option.signal.addEventListener(
+
+    if (options?.signal) {
+      options.signal.addEventListener(
         'abort',
         () => {
-          this.terminate('Worker terminated by the abort signal.');
+          this.terminate('Worker terminated by abort signal.');
         },
         { once: true },
       );
     }
+
     this.worker?.postMessage(code);
     return promise;
   }
 
   terminate(message) {
-    clearTimeout(this.timeout);
+    clearTimeout(this.timeoutId);
+
     if (!this.worker) return;
+
     this.worker.terminate();
     this.worker = null;
-    if (this.objectURL) {
-      URL.revokeObjectURL(this.objectURL);
+
+    if (this.workerScriptURL) {
+      URL.revokeObjectURL(this.workerScriptURL);
     }
-    if (!this.proc) return;
-    const [, reject] = this.proc;
-    this.proc = null;
+
+    if (!this.pendingPromise) return;
+
+    const [, reject] = this.pendingPromise;
+    this.pendingPromise = null;
+
     reject(new Error(message));
   }
 }
 
-let executer = null;
+let executorInstance;
 
 /**
- * Run the JavaScript code on the worker.
+ * Execute JavaScript code in a sandboxed Worker.
  *
  * @async
- * @function execCode
- * @param {string} code - The JavaScript code.
- * @param {Object} [option] - Options.
- * @param {AbortSignal} [option.signal] - The AbortSignal.
- * @param {number} [option.timeout] - Timeout (ms).
- * @return {Promise<string|ImageData>} The resulting string or ImageData.
- * @throws {Error}
+ * @function execute
+ * @param {string} code - JavaScript code to run.
+ * @param {Object} [options] - Execution options.
+ * @param {AbortSignal} [options.signal] - Abort signal.
+ * @param {number} [options.timeout] - Timeout in milliseconds.
+ * @return {Promise<string|ImageData>}
  */
-export function execCode(code, option = null) {
-  if (!executer) executer = new Executer();
-  return executer.execCode(code, option);
+export function execute(code, options) {
+  executorInstance ??= new CodeExecutor();
+  return executorInstance.execute(code, options);
 }
 
-export default execCode;
+export default execute;
