@@ -1,11 +1,15 @@
 function createSandboxWorker({ onInit, onMessage, options }) {
-  const workerScriptURL = URL.createObjectURL(new Blob([`
-    'use strict';
-    ((self, postMessage, addEventListener) => {
-      (${onInit})();
-      addEventListener('message', ${onMessage});
-    })(self, postMessage.bind(self), addEventListener.bind(self));
-  `], { type: 'text/javascript' }));
+  const code = `
+  'use strict';
+  ((self, postMessage, addEventListener) => {
+    (${onInit})();
+    addEventListener('message', ${onMessage});
+  })(self, postMessage.bind(self), addEventListener.bind(self));
+  `;
+
+  const workerScriptURL = URL.createObjectURL(
+    new Blob([code], { type: 'text/javascript' }),
+  );
 
   return [workerScriptURL, new Worker(workerScriptURL, options)];
 }
@@ -23,7 +27,10 @@ function createExecutionWorker() {
         'Error', 'AggregateError', 'EvalError', 'RangeError', 'ReferenceError', 'SyntaxError', 'TypeError', 'URIError', 'SuppressedError',
         'Event', 'CustomEvent', 'EventTarget', 'PromiseRejectionEvent', 'ErrorEvent',
         'DisposableStack', 'AsyncDisposableStack',
-        'ArrayBuffer', 'Uint8Array', 'Int8Array', 'Uint16Array', 'Int16Array', 'Uint32Array', 'Int32Array', 'Float16Array', 'Float32Array', 'Float64Array', 'Uint8ClampedArray', 'BigUint64Array', 'BigInt64Array', 'DataView',
+        'ArrayBuffer', 'DataView',
+        'Float16Array', 'Float32Array', 'Float64Array',
+        'Int8Array', 'Uint8Array', 'Uint8ClampedArray', 'Int16Array', 'Uint16Array', 'Int32Array', 'Uint32Array',
+        'BigInt64Array', 'BigUint64Array',
         'structuredClone',
         'Map', 'Set', 'WeakMap', 'WeakSet',
         'FinalizationRegistry', 'WeakRef',
@@ -48,13 +55,17 @@ function createExecutionWorker() {
       const hiddenGlobalNames = new Set();
 
       // グローバルオブジェクトとプロトタイプから不要なプロパティを除去
-      for (let current = self; current.constructor !== Object; current = Object.getPrototypeOf(current)) {
+      for (
+        let current = self;
+        current.constructor !== Object;
+        current = Object.getPrototypeOf(current)
+      ) {
         for (const key of Reflect.ownKeys(current)) {
           if (allowedGlobals.has(key)) continue;
 
           if (Object.getOwnPropertyDescriptor(current, key).configurable) {
             delete current[key];
-          } else {
+          } else if (typeof key === 'string') {
             hiddenGlobalNames.add(key);
           }
         }
@@ -64,21 +75,24 @@ function createExecutionWorker() {
       // Function コンストラクタを安全なものに差し替える
       for (const OriginalFunction of [
         self.Function,
-        (function * () {}).constructor,
-        (async function () {}).constructor,
-        (async function * () {}).constructor
+        function* () {}.constructor,
+        async function () {}.constructor,
+        async function* () {}.constructor,
       ]) {
         const SafeFunction = function (...args) {
           // 事前にすべての引数を文字列に変換しておく (副作用を確定させる)
-          const stringArgs = args.map(arg => String(arg));
+          const stringArgs = args.map((arg) => String(arg));
 
           // 動的 import を禁止
-          if (/\bimport\s*\(|\bimport\b/.test(stringArgs.join(','))) {
+          if (/\bimport\s*\(|\bimport\b/u.test(stringArgs.join(','))) {
             throw new Error('Forbidden word: import');
           }
 
           const code = stringArgs.pop() ?? '';
-          const fn = OriginalFunction(...[...stringArgs, ...hiddenGlobalNames.keys()], `'use strict';${code}`);
+          const fn = OriginalFunction(
+            ...[...stringArgs, ...hiddenGlobalNames.keys()],
+            `'use strict';${code}`,
+          );
           const tmpFn = OriginalFunction(...stringArgs, code);
           fn.toString = tmpFn.toString.bind(tmpFn);
           return fn;
@@ -94,15 +108,11 @@ function createExecutionWorker() {
       // setTimeout / setInterval からグローバルへアクセスできないようにする
       for (const name of ['setTimeout', 'setInterval']) {
         const originalTimer = self[name];
-        if (!originalTimer) continue;
-
         self[name] = (callback, ...rest) => {
-          if (callback != null) {
-            if (typeof callback !== 'function') {
-              callback = new Function(callback);
-            }
-            callback = callback.bind(void 0);
+          if (typeof callback !== 'function') {
+            callback = new Function(callback);
           }
+          callback = callback.bind(void 0);
           return originalTimer(callback, ...rest);
         };
 
@@ -111,7 +121,7 @@ function createExecutionWorker() {
 
       // グローバルオブジェクトを再帰的に凍結
       function deepFreeze(target, frozen = new Set()) {
-        if (target == null || typeof target !== 'object' && typeof target !== 'function') return;
+        if (target == null || (typeof target !== 'object' && typeof target !== 'function')) return;
         if (frozen.has(target)) return;
 
         frozen.add(target);
@@ -131,7 +141,7 @@ function createExecutionWorker() {
 
     onMessage: async (event) => {
       try {
-        const AsyncFunction = (async function () {}).constructor;
+        const AsyncFunction = async function () {}.constructor;
         let result = await new AsyncFunction(event.data)();
 
         if (result instanceof OffscreenCanvas) {
@@ -147,14 +157,18 @@ function createExecutionWorker() {
             throw new Error('Too large ImageData');
           }
         } else {
-          result = '' + JSON.stringify(
+          result = JSON.stringify(
             result,
             (key, val) =>
-              typeof val === 'function'
-                ? val + ''
-                : (val != null && !Array.isArray(val) && typeof val !== 'string' && typeof val[Symbol.iterator] === 'function')
-                  ? Array.from(val)
-                  : val
+              typeof val === 'function' ? String(val)
+              : (
+                val != null &&
+                !Array.isArray(val) &&
+                typeof val !== 'string' &&
+                typeof val[Symbol.iterator] === 'function'
+              ) ?
+                Array.from(val)
+              : val,
           );
 
           result = result.length < 1000 ? result : `${result.slice(0, 997)}...`;
@@ -213,15 +227,13 @@ export class CodeExecutor {
       }, options.timeout);
     }
 
-    if (options?.signal) {
-      options.signal.addEventListener(
-        'abort',
-        () => {
-          this.terminate('Worker terminated by abort signal.');
-        },
-        { once: true },
-      );
-    }
+    options?.signal?.addEventListener(
+      'abort',
+      () => {
+        this.terminate('Worker terminated by abort signal.');
+      },
+      { once: true },
+    );
 
     this.worker?.postMessage(code);
     return promise;
@@ -238,6 +250,7 @@ export class CodeExecutor {
     if (this.workerScriptURL) {
       URL.revokeObjectURL(this.workerScriptURL);
     }
+    this.workerScriptURL = null;
 
     if (!this.pendingPromise) return;
 
