@@ -1,4 +1,4 @@
-import style from '../style';
+import css from '../css';
 
 export const messages: Record<string, Record<string, string>> = {
   en: {
@@ -35,7 +35,7 @@ function t(key: string): string {
   return (messages[currentLocale] ?? messages.en)?.[key] ?? key;
 }
 
-style(`
+css`
 .custom-dialog {
   /* デザインシステムを一元管理するカスタムプロパティ */
   --dialog-padding: 1em;
@@ -107,7 +107,7 @@ style(`
   height: 8em;
   max-width: 100%;
 }
-`);
+`;
 
 // ダイアログの戻り値を表す定数
 const DIALOG_RESULT_OK = 0;

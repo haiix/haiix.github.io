@@ -10,6 +10,17 @@ export function isRecord(obj: unknown): obj is Record<string, unknown> {
 }
 
 /**
+ * 配列からnullとundefinedを除去します。
+ * @param array nullまたはundefinedが含まれる配列
+ * @returns nullとundefinedを取り除いた配列
+ */
+export function filterNotNull<T>(
+  array: readonly (T | null | undefined)[],
+): T[] {
+  return array.filter((value): value is T => value != null);
+}
+
+/**
  * targetにsourceのプロパティをマージする型厳密な関数。
  * 以下の条件を満たさない場合、コンパイルエラーを発生させます。
  * 1. sourceのプロパティがtargetに存在すること。
@@ -25,6 +36,27 @@ export function typedAssign<
 >(target: T, source: U): T {
   return Object.assign(target, source);
 }
+
+/**
+ * オブジェクトの各プロパティを `await` し、解決済みの値を同じキー構造で返します。
+ * 各プロパティの値が Promise の場合は解決され、Promise でない場合はそのまま返されます。
+ *
+ * @param obj - 各プロパティを `await` する対象のオブジェクト
+ * @returns 各プロパティが `Awaited<T[K]>` に変換されたオブジェクトを返す Promise
+ */
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return */
+export async function resolveAll<T extends Record<string, any>>(
+  obj: T,
+): Promise<{ [K in keyof T]: Awaited<T[K]> }> {
+  const entries = Object.entries(obj);
+
+  const resolvedEntries = await Promise.all(
+    entries.map(async ([key, value]) => [key, await value] as const),
+  );
+
+  return Object.fromEntries(resolvedEntries) as any;
+}
+/* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return */
 
 /**
  * 指定された時間だけ非同期で待機します。
@@ -316,20 +348,60 @@ export function canvasToBlob(
 }
 
 /**
- * 指定のディレクトリーのファイルの一覧を取得する
+ * Blob から Object URL を生成し、指定された AbortSignal が中断された時点で
+ * 自動的に `URL.revokeObjectURL` により解放します。
+ *
+ * @param blob - Object URL を生成する元の Blob。
+ * @param cleanupSignal - このシグナルが `abort` されたタイミングで、
+ * 生成した Object URL が自動的に破棄されます。
+ *
+ * @returns 生成された Object URL。
+ * すでに `cleanupSignal` が `aborted` 状態の場合は空文字列を返します。
+ */
+export function createObjectURL(
+  blob: Blob,
+  cleanupSignal: AbortSignal,
+): string {
+  if (cleanupSignal.aborted) {
+    return '';
+  }
+
+  const url = URL.createObjectURL(blob);
+
+  const handleAbort = () => {
+    URL.revokeObjectURL(url);
+  };
+
+  cleanupSignal.addEventListener('abort', handleAbort, { once: true });
+
+  return url;
+}
+
+/**
+ * 指定のディレクトリー内のファイルまたはディレクトリーの一覧を取得する
  * @param dir 対象ディレクトリ
+ * @param kind 'file' または 'directory'。省略時は両方
  * @returns ファイル一覧
  */
 export async function getFileList(
   dir: FileSystemDirectoryHandle,
-): Promise<{ fileName: string; handle: FileSystemHandle }[]> {
+  kind?: 'file',
+): Promise<{ name: string; handle: FileSystemFileHandle }[]>;
+export async function getFileList(
+  dir: FileSystemDirectoryHandle,
+  kind?: 'directory',
+): Promise<{ name: string; handle: FileSystemDirectoryHandle }[]>;
+export async function getFileList(
+  dir: FileSystemDirectoryHandle,
+  kind?: FileSystemHandleKind,
+): Promise<{ name: string; handle: FileSystemHandle }[]> {
   const list = [];
-  for await (const [fileName, handle] of dir.entries()) {
-    if (handle.kind === 'file') {
-      list.push({ fileName, handle });
+  for await (const [name, handle] of dir.entries()) {
+    if (!kind || handle.kind === kind) {
+      list.push({ name, handle });
     }
   }
-  return list.sort((a, b) => a.fileName.localeCompare(b.fileName));
+  return list.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /**
@@ -341,7 +413,7 @@ export async function getFileList(
 export async function existsFile(
   dir: FileSystemDirectoryHandle,
   fileName: string,
-) {
+): Promise<boolean> {
   try {
     await dir.getFileHandle(fileName);
     return true;
@@ -359,23 +431,42 @@ export async function existsFile(
 export async function loadFile(
   dir: FileSystemDirectoryHandle,
   fileName: string,
-) {
+): Promise<File> {
   const fileHandle = await dir.getFileHandle(fileName);
   const file = await fileHandle.getFile();
   return file;
 }
 
 /**
+ * ファイルが存在する場合は読み込む。存在しない場合はnullを返す
+ * @param dir 対象ディレクトリ
+ * @param fileName ファイル名
+ * @returns 読み込んだファイルオブジェクトまたはnull
+ */
+export async function loadFileIfExists(
+  dir: FileSystemDirectoryHandle,
+  fileName: string,
+): Promise<File | null> {
+  try {
+    const fileHandle = await dir.getFileHandle(fileName);
+    const file = await fileHandle.getFile();
+    return file;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * ファイル保存
  * @params dir 保存先
- * @params data 保存対象
  * @params fileName ファイル名
+ * @params data 保存対象
  */
 export async function saveFile(
   dir: FileSystemDirectoryHandle,
-  data: FileSystemWriteChunkType,
   fileName: string,
-) {
+  data: FileSystemWriteChunkType,
+): Promise<void> {
   const fileHandle = await dir.getFileHandle(fileName, { create: true });
   const stream = await fileHandle.createWritable();
   await stream.write(data);
