@@ -533,3 +533,31 @@ export function uuidv7(): string {
     .join('')
     .replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/u, '$1-$2-$3-$4-$5');
 }
+
+/**
+ * 親の AbortSignal を受け取り、子の AbortController を作る
+ * 親が abort されたら子も abort される
+ *
+ * @param signal - 親シグナル
+ * @returns 子コントローラー
+ */
+function createChildAbortController(parent: AbortSignal): AbortController {
+  const controller = new AbortController();
+
+  if (parent.aborted) {
+    controller.abort(parent.reason);
+    return controller;
+  }
+
+  const abort = () => {
+    controller.abort(parent.reason);
+  };
+
+  parent.addEventListener("abort", abort, { once: true });
+
+  controller.signal.addEventListener("abort", () => {
+    parent.removeEventListener("abort", abort);
+  });
+
+  return controller;
+}
