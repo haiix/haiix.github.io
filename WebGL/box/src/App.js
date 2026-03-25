@@ -13,8 +13,6 @@ export default class App extends TComponent {
     </div>
   `
 
-  canvas = this.id('canvas')
-
   mainVertexShader () {
     return `
       attribute vec3 position;
@@ -50,7 +48,7 @@ export default class App extends TComponent {
   constructor () {
     super()
 
-    this.gl = new Gls(this.canvas, { alpha: true, antialias: true, depth: true })
+    this.gl = new Gls(this.idMap.canvas, { alpha: true, antialias: true, depth: true })
     this.gl.clearColor(0.9, 0.8, 0.7, 1)
     this.gl.enable(this.gl.CULL_FACE)
 

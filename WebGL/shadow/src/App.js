@@ -8,11 +8,9 @@ export default class App extends TComponent {
     <canvas id="canvas" width="400" height="400"></canvas>
   `
 
-  canvas = this.id('canvas')
-
   constructor () {
     super()
-    const gl = new Gls(this.canvas, { alpha: false, depth: true, antialias: true })
+    const gl = new Gls(this.idMap.canvas, { alpha: false, depth: true, antialias: true })
     this.gl = gl
 
     gl.enable(gl.CULL_FACE)

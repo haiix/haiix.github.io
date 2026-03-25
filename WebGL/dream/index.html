@@ -24,7 +24,7 @@ input[type="number"] {
   <body>
     <script type="module">
 import Gls from '../../assets/js/Gls.mjs'
-import TComponent from '../../TComponent/dist/TComponent.mjs'
+import TComponent from '../../assets/js/TComponent.mjs'
 
 class XorShift32 {
   constructor (seed = Date.now()) {
@@ -219,13 +219,9 @@ class App extends TComponent {
     </div>
   `
 
-  seedInput = this.id('seedInput')
-  resoSelect = this.id('resoSelect')
-  view = this.id('view')
-
   constructor () {
     super()
-    this.main = new Main(this.view)
+    this.main = new Main(this.idMap.view)
     this.tid = null
   }
 
@@ -234,15 +230,15 @@ class App extends TComponent {
   }
 
   setSeed (seed) {
-    this.seedInput.value = Math.min(Math.max(parseInt(this.seedInput.min), parseInt(seed)), parseInt(this.seedInput.max))
+    this.idMap.seedInput.value = Math.min(Math.max(parseInt(this.idMap.seedInput.min), parseInt(seed)), parseInt(this.idMap.seedInput.max))
   }
 
   getSeed () {
-    return parseInt(this.seedInput.value)
+    return parseInt(this.idMap.seedInput.value)
   }
 
   getReso () {
-    return parseInt(this.resoSelect.value)
+    return parseInt(this.idMap.resoSelect.value)
   }
 
   handlePrevButton (event) {
@@ -256,7 +252,7 @@ class App extends TComponent {
   }
 
   async handleSaveButton (event) {
-    const blob = this.view.toBlob ? (await new Promise(resolve => this.view.toBlob(resolve))) : this.view.msToBlob()
+    const blob = this.idMap.view.toBlob ? (await new Promise(resolve => this.idMap.view.toBlob(resolve))) : this.idMap.view.msToBlob()
     const seed = this.getSeed()
     const reso = this.getReso()
     saveBlob(blob, seed + '-' + reso + '.png')

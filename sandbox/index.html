@@ -18,7 +18,7 @@ textarea {
 }
     </style>
     <script type="module">
-import TComponent from '../TComponent/dist/TComponent.mjs';
+import TComponent from '../assets/js/TComponent.mjs';
 import execCode from './execCode.mjs';
 
 class App extends TComponent {
@@ -33,9 +33,6 @@ class App extends TComponent {
     </div>
   `;
 
-  code = this.id('code', HTMLTextAreaElement);
-  result = this.id('result', HTMLElement);
-
   delayTid = null;
   prevCode = null;
   prevAbortController = null;
@@ -43,8 +40,8 @@ class App extends TComponent {
   ctx = null;
 
   async main() {
-    if (this.prevCode === this.code.value) return;
-    this.prevCode = this.code.value;
+    if (this.prevCode === this.idMap.code.value) return;
+    this.prevCode = this.idMap.code.value;
     if (this.prevAbortController) this.prevAbortController.abort();
     const abortController = new AbortController();
     this.prevAbortController = abortController;
@@ -52,7 +49,7 @@ class App extends TComponent {
       this.setText('Processing...');
     }, 100);
     try {
-      const retVal = await execCode(this.code.value, { signal: abortController.signal, timeout: 10000 });
+      const retVal = await execCode(this.idMap.code.value, { signal: abortController.signal, timeout: 10000 });
       if (retVal instanceof ImageData) {
         this.setCanvas(retVal);
       } else {
@@ -72,7 +69,7 @@ class App extends TComponent {
     if (!this.canvas) {
       this.setText('');
       this.canvas = document.createElement('canvas');
-      this.result.appendChild(this.canvas);
+      this.idMap.result.appendChild(this.canvas);
       this.ctx = this.canvas.getContext('2d');
     }
     this.canvas.width = imageData.width;
@@ -81,10 +78,10 @@ class App extends TComponent {
   }
 
   setText(text, color = '#000') {
-    this.result.textContent = text;
+    this.idMap.result.textContent = text;
     this.canvas = null;
     this.ctx = null;
-    this.result.style.color = color;
+    this.idMap.result.style.color = color;
   }
 
   handleInputCode(event) {
