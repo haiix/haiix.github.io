@@ -4,7 +4,7 @@ export function create<T extends keyof HTMLElementTagNameMap>(
   return document.createElement(tagName);
 }
 
-export function removeAllChildren(...nodes: Node[]) {
+export function removeAllChildren(...nodes: Node[]): void {
   for (const node of nodes) {
     node.textContent = null;
   }
@@ -55,7 +55,7 @@ export function createSafeErrorHandler(
   errorCallback: (error: unknown) => unknown,
 ) {
   return <T extends unknown[]>(fn: (...args: T) => void | Promise<void>) =>
-    (...args: T) => {
+    (...args: T): void => {
       try {
         const result = fn(...args);
         if (result instanceof Promise) {
@@ -82,7 +82,7 @@ export function container(
 export function container(
   classList?: string | null,
   tagName: keyof HTMLElementTagNameMap | HTMLElement = 'div',
-) {
+): HTMLElement {
   const element = typeof tagName === 'string' ? create(tagName) : tagName;
   if (classList) element.setAttribute('class', classList);
   return element;
@@ -92,7 +92,7 @@ export function text(
   value: string,
   classList?: string | null,
   tagName: keyof HTMLElementTagNameMap | HTMLElement = 'div',
-) {
+): HTMLElement {
   const element = container(classList, tagName);
   element.textContent = value;
   return element;
@@ -102,7 +102,7 @@ export function h1(
   labelText: string,
   classList?: string,
   ref?: HTMLHeadingElement,
-) {
+): HTMLHeadingElement {
   return text(labelText, classList, ref ?? 'h1') as HTMLHeadingElement;
 }
 
@@ -110,7 +110,7 @@ export function h2(
   labelText: string,
   classList?: string,
   ref?: HTMLHeadingElement,
-) {
+): HTMLHeadingElement {
   return text(labelText, classList, ref ?? 'h2') as HTMLHeadingElement;
 }
 
@@ -118,7 +118,7 @@ export function h3(
   labelText: string,
   classList?: string,
   ref?: HTMLHeadingElement,
-) {
+): HTMLHeadingElement {
   return text(labelText, classList, ref ?? 'h3') as HTMLHeadingElement;
 }
 
@@ -126,11 +126,11 @@ export function p(
   labelText: string,
   classList?: string,
   ref?: HTMLParagraphElement,
-) {
+): HTMLParagraphElement {
   return text(labelText, classList, ref ?? 'p') as HTMLParagraphElement;
 }
 
-export function a(labelText: string, href: string) {
+export function a(labelText: string, href: string): HTMLAnchorElement {
   const anchor = create('a');
   anchor.textContent = labelText;
   anchor.href = href;
@@ -140,7 +140,7 @@ export function a(labelText: string, href: string) {
 function setProperties(
   element: Element,
   props?: Record<string, unknown> | null,
-) {
+): void {
   if (props) Object.assign(element, props);
 }
 
@@ -151,7 +151,7 @@ export function form(
   } | null,
   classList?: string | null,
   ref?: HTMLFormElement,
-) {
+): HTMLFormElement {
   const element = container(classList, ref ?? 'form') as HTMLFormElement;
   setProperties(element, props);
   return element;
@@ -166,7 +166,7 @@ export function button(
   } | null,
   classList?: string | null,
   ref?: HTMLButtonElement,
-) {
+): HTMLButtonElement {
   const element = text(
     labelText,
     classList,
@@ -176,7 +176,10 @@ export function button(
   return element;
 }
 
-export function submit(labelText: string, ref?: HTMLButtonElement) {
+export function submit(
+  labelText: string,
+  ref?: HTMLButtonElement,
+): HTMLButtonElement {
   const element = text(labelText, null, ref ?? 'button') as HTMLButtonElement;
   setProperties(element, { type: 'submit' });
   return element;
@@ -213,7 +216,7 @@ export function input(
   type: string | null = 'text',
   props?: InputProps | NumberInputProps | null,
   ref?: HTMLInputElement,
-) {
+): HTMLInputElement {
   const element = container(null, ref ?? 'input') as HTMLInputElement;
   setProperties(element, { name, type, ...props });
   return element;
@@ -223,7 +226,7 @@ export function textInput(
   name: string,
   props?: TextInputProps | null,
   ref?: HTMLInputElement,
-) {
+): HTMLInputElement {
   return input(name, 'text', props, ref);
 }
 
@@ -231,7 +234,7 @@ export function numberInput(
   name: string,
   props?: NumberInputProps | null,
   ref?: HTMLInputElement,
-) {
+): HTMLInputElement {
   return input(name, 'number', props, ref);
 }
 
@@ -239,7 +242,7 @@ export function checkbox(
   name: string,
   props?: CheckBoxProps | null,
   ref?: HTMLInputElement,
-) {
+): HTMLInputElement {
   return input(name, 'checkbox', props, ref);
 }
 
@@ -251,7 +254,7 @@ export function textarea(
   name: string,
   props?: TextAreaProps | null,
   ref?: HTMLTextAreaElement,
-) {
+): HTMLTextAreaElement {
   const element = container(null, ref ?? 'textarea') as HTMLTextAreaElement;
   setProperties(element, { name, ...props });
   return element;
@@ -261,7 +264,7 @@ export function label(
   labelText: string,
   target: HTMLElement,
   ref?: HTMLLabelElement,
-) {
+): HTMLLabelElement {
   const element = container(null, ref ?? 'label') as HTMLLabelElement;
   const span = text(labelText, null, 'span');
   if (
@@ -289,7 +292,7 @@ export interface SelectProps {
 export function setSelectOptions(
   element: HTMLSelectElement,
   options: SelectOption[],
-) {
+): HTMLSelectElement {
   return build(
     element,
     options.map(({ label: textContent, value, disabled }) => {
@@ -309,7 +312,7 @@ export function select(
   options?: SelectOption[] | null,
   props?: SelectProps | null,
   ref?: HTMLSelectElement,
-) {
+): HTMLSelectElement {
   const element = container(null, ref ?? 'select') as HTMLSelectElement;
   if (options) {
     setSelectOptions(element, options);
@@ -319,16 +322,20 @@ export function select(
   return element;
 }
 
-export function loadImage(alt: string, src: string, ref?: HTMLImageElement) {
+export function loadImage(
+  alt: string,
+  src: string,
+  ref?: HTMLImageElement,
+): Promise<HTMLImageElement> {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const img = container(null, ref ?? 'img') as HTMLImageElement;
     img.alt = alt;
-    img.onload = () => {
+    img.onload = (): void => {
       img.onload = null;
       img.onerror = null;
       resolve(img);
     };
-    img.onerror = () => {
+    img.onerror = (): void => {
       img.onload = null;
       img.onerror = null;
       reject(new Error(`Failed to load image: ${src}`));
@@ -337,7 +344,11 @@ export function loadImage(alt: string, src: string, ref?: HTMLImageElement) {
   });
 }
 
-export function canvas(width: number, height: number, ref?: HTMLImageElement) {
+export function canvas(
+  width: number,
+  height: number,
+  ref?: HTMLImageElement,
+): HTMLCanvasElement {
   const element = container(null, ref ?? 'canvas') as HTMLCanvasElement;
   setProperties(element, { width, height });
   return element;
@@ -345,7 +356,7 @@ export function canvas(width: number, height: number, ref?: HTMLImageElement) {
 
 export function createSwitcher(node?: Node) {
   let current = node;
-  return (newNode: Node) => {
+  return (newNode: Node): Node => {
     current?.parentNode?.replaceChild(newNode, current);
     current = newNode;
     return current;
@@ -356,7 +367,7 @@ export function setClass(
   element: HTMLElement,
   className: string,
   condition = true,
-) {
+): void {
   if (condition) {
     element.classList.add(className);
   } else {
@@ -364,13 +375,13 @@ export function setClass(
   }
 }
 
-export function hide(...elements: Element[]) {
+export function hide(...elements: Element[]): void {
   for (const element of elements) {
     element.classList.add('hidden');
   }
 }
 
-export function show(...elements: Element[]) {
+export function show(...elements: Element[]): void {
   for (const element of elements) {
     element.classList.remove('hidden');
   }
