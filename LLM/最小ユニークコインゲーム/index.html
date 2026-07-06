@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>最小ユニークコインゲーム</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700;800&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0e1015;
+    --bg-panel: #171a22;
+    --bg-panel-2: #1d212b;
+    --border: #2a2f3a;
+    --gold: #d4af6a;
+    --gold-soft: #a98a52;
+    --teal: #4fd1c5;
+    --red: #e5595d;
+    --text: #f2efe8;
+    --text-muted: #939aa8;
+    --shadow: 0 12px 32px rgba(0,0,0,0.45);
+  }
+  *{ box-sizing: border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:
+      radial-gradient(1200px 600px at 50% -10%, #1c2130 0%, var(--bg) 55%),
+      var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+    padding: 28px 16px 60px;
+  }
+  h1,h2,h3, .serif{ font-family: 'Shippori Mincho', serif; }
+  .wrap{ max-width: 880px; margin: 0 auto; }
+
+  /* ---------- setup screen ---------- */
+  .setup-card{
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 40px 32px;
+    box-shadow: var(--shadow);
+    text-align: center;
+  }
+  .eyebrow{
+    letter-spacing: 0.28em;
+    font-size: 11px;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .setup-card h1{
+    font-size: 30px;
+    font-weight: 800;
+    margin: 0 0 6px;
+    color: var(--text);
+  }
+  .setup-card p{
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height: 1.9;
+    max-width: 560px;
+    margin: 16px auto 28px;
+  }
+  .rule-box{
+    text-align: left;
+    background: var(--bg-panel-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 22px;
+    font-size: 13px;
+    line-height: 2;
+    color: #c7cbd6;
+    margin-bottom: 28px;
+  }
+  .rule-box b{ color: var(--gold); }
+  .round-select{
+    display:flex; gap:10px; justify-content:center; margin-bottom: 26px; flex-wrap: wrap;
+  }
+  .round-btn{
+    background: var(--bg-panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 20px;
+    border-radius: 999px;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: 'Noto Sans JP', sans-serif;
+    transition: all .15s ease;
+  }
+  .round-btn.active{
+    background: linear-gradient(135deg, var(--gold), var(--gold-soft));
+    color: #1a1305;
+    border-color: transparent;
+    font-weight: 700;
+  }
+  .primary-btn{
+    background: linear-gradient(135deg, var(--gold), var(--gold-soft));
+    color: #1a1305;
+    border: none;
+    padding: 14px 40px;
+    border-radius: 999px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.03em;
+    box-shadow: 0 8px 20px rgba(212,175,106,0.25);
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+  .primary-btn:hover{ filter: brightness(1.08); }
+  .primary-btn:disabled{ opacity:.4; cursor:not-allowed; }
+  .ghost-btn{
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 10px 22px;
+    border-radius: 999px;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+  .ghost-btn:hover{ color: var(--text); border-color: var(--gold-soft); }
+
+  /* ---------- game screen ---------- */
+  #game-screen{ display:none; }
+  .top-bar{
+    display:flex; justify-content: space-between; align-items:flex-end;
+    margin-bottom: 22px; flex-wrap: wrap; gap: 10px;
+  }
+  .top-bar .status-line{
+    font-size: 12px; color: var(--text-muted); letter-spacing: 0.05em;
+  }
+  .top-bar .status-line b{ color: var(--gold); }
+  .top-bar h2{ margin: 2px 0 0; font-size: 22px; }
+
+  .pool-zone{
+    display:flex; flex-direction:column; align-items:center; margin: 10px 0 30px;
+  }
+  .pool-circle{
+    width: 168px; height: 168px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #2a2110, #14161c 70%);
+    border: 2px solid var(--gold-soft);
+    display:flex; align-items:center; justify-content:center; flex-direction:column;
+    position: relative;
+    box-shadow: 0 0 0 6px rgba(212,175,106,0.06), var(--shadow);
+    transition: box-shadow .3s ease;
+  }
+  .pool-circle .num{
+    font-family:'Shippori Mincho', serif; font-size: 44px; font-weight:800; color: var(--gold);
+    line-height:1;
+  }
+  .pool-circle .label{
+    font-size: 10px; color: var(--text-muted); letter-spacing:0.2em; margin-top:6px;
+  }
+  .pool-ring{
+    position:absolute; inset:-2px; border-radius:50%;
+    background: conic-gradient(var(--gold) calc(var(--pct,100) * 1%), transparent 0);
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 5px));
+            mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 5px));
+    opacity: 0.55;
+  }
+
+  .players-grid{
+    display:grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px;
+  }
+  @media (max-width: 700px){ .players-grid{ grid-template-columns: repeat(2, 1fr);} }
+
+  .player-card{
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px 14px;
+    text-align:center;
+    position:relative;
+    transition: all .2s ease;
+  }
+  .player-card.active{ border-color: rgba(79,209,197,0.4); }
+  .player-card.dropped{ opacity: .45; }
+  .player-card.human{ box-shadow: 0 0 0 1px var(--gold-soft) inset; }
+  .player-card .pname{ font-size: 13px; font-weight:700; margin-bottom: 4px; }
+  .player-card .pstrategy{
+    display:inline-block; font-size: 9px; color: var(--teal); letter-spacing:.06em;
+    background: rgba(79,209,197,0.1); border: 1px solid rgba(79,209,197,0.3);
+    padding: 2px 8px; border-radius: 999px; margin-bottom: 8px;
+  }
+  .player-card .pstrategy.hidden{
+    color: var(--text-muted); background: rgba(147,154,168,0.08); border-color: var(--border);
+  }
+  .player-card .pstate{
+    font-size: 10px; letter-spacing:0.12em; margin-bottom: 10px;
+    color: var(--teal); text-transform: uppercase;
+  }
+  .player-card.dropped .pstate{ color: var(--red); }
+  .player-card .ptotal{ font-family:'Shippori Mincho',serif; font-size: 22px; font-weight: 800; color: var(--gold); }
+  .player-card .ptotal-label{ font-size: 9px; color: var(--text-muted); letter-spacing: .1em; margin-top:2px;}
+  .player-card .pdeclare{
+    margin-top: 10px; font-size: 12px; color: var(--text-muted);
+    border-top: 1px dashed var(--border); padding-top: 8px; min-height: 18px;
+  }
+  .player-card .pdeclare .val{ color: var(--text); font-weight:700; }
+  .badge-win{
+    position:absolute; top:-9px; right: 10px;
+    background: var(--gold); color:#1a1305; font-size: 10px; font-weight:800;
+    padding: 3px 8px; border-radius: 999px; letter-spacing:.05em;
+  }
+  .badge-drop{
+    position:absolute; top:-9px; right: 10px;
+    background: var(--red); color:#2a0505; font-size: 10px; font-weight:800;
+    padding: 3px 8px; border-radius: 999px; letter-spacing:.05em;
+  }
+
+  .action-area{
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 22px 24px;
+    margin-bottom: 22px;
+  }
+  .action-title{ font-size: 13px; color: var(--text-muted); margin-bottom: 14px; letter-spacing: .05em;}
+  .input-row{ display:flex; gap: 12px; align-items:center; flex-wrap: wrap; }
+  .num-input{
+    width: 110px; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--bg-panel-2); color: var(--text); font-size: 20px; font-family:'Shippori Mincho',serif;
+    text-align:center;
+  }
+  .num-input:focus{ outline: none; border-color: var(--gold-soft); }
+  .quick-btns{ display:flex; gap:8px; flex-wrap:wrap; }
+  .quick-btn{
+    background: var(--bg-panel-2); border:1px solid var(--border); color: var(--text-muted);
+    padding: 8px 12px; border-radius: 8px; font-size: 12px; cursor:pointer;
+  }
+  .quick-btn:hover{ color: var(--text); border-color: var(--gold-soft); }
+  .hint{ font-size: 11px; color: var(--text-muted); margin-top: 10px; }
+
+  .reveal-list{ display:flex; flex-direction:column; gap: 8px; margin-bottom: 16px; }
+  .reveal-row{
+    display:flex; justify-content: space-between; align-items:center;
+    background: var(--bg-panel-2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 14px; font-size: 13px;
+  }
+  .reveal-row .rname{ font-weight: 700; }
+  .reveal-row .rnum{ font-family:'Shippori Mincho',serif; font-size:17px; color: var(--gold); font-weight:800;}
+  .tag{
+    font-size: 10px; padding: 3px 9px; border-radius: 999px; letter-spacing:.05em; font-weight:700;
+  }
+  .tag-win{ background: rgba(212,175,106,0.18); color: var(--gold); border:1px solid rgba(212,175,106,0.4); }
+  .tag-drop{ background: rgba(229,89,93,0.15); color: var(--red); border: 1px solid rgba(229,89,93,0.35); }
+  .tag-safe{ background: rgba(79,209,197,0.12); color: var(--teal); border: 1px solid rgba(79,209,197,0.3); }
+  .result-msg{ font-size: 14px; line-height: 1.9; color: var(--text); margin-bottom: 18px; }
+  .result-msg b{ color: var(--gold); }
+
+  .round-summary-table{ width:100%; border-collapse: collapse; margin-bottom: 20px; }
+  .round-summary-table th, .round-summary-table td{
+    text-align:left; padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px;
+  }
+  .round-summary-table th{ color: var(--text-muted); font-weight:500; font-size: 11px; letter-spacing:.06em; }
+  .round-summary-table td.num{ text-align:right; font-family:'Shippori Mincho',serif; color: var(--gold); font-weight:700; }
+
+  .strategy-change-list{
+    margin: 0 0 20px; padding: 14px 18px; background: var(--bg-panel-2);
+    border: 1px solid var(--border); border-radius: 10px; font-size: 12px; line-height: 1.9; color: #c7cbd6;
+  }
+  .strategy-change-list b{ color: var(--teal); }
+
+  .log-panel{
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px 20px;
+  }
+  .log-panel summary{ cursor:pointer; font-size: 12px; color: var(--text-muted); letter-spacing:.05em; }
+  .log-entries{ margin-top: 14px; max-height: 260px; overflow-y:auto; font-size: 12px; color: #b8bdc9; line-height: 2; }
+  .log-entries .lr{ margin-bottom: 4px; padding-bottom: 4px; border-bottom: 1px dotted #23262f; }
+  .log-round-mark{ color: var(--gold); font-weight:700; margin-top: 8px; display:block; }
+
+  .final-podium{ display:flex; flex-direction:column; gap: 10px; margin: 20px 0 26px; }
+  .podium-row{
+    display:flex; align-items:center; gap: 14px; background: var(--bg-panel-2);
+    border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px;
+  }
+  .podium-row.first{ border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
+  .podium-rank{ font-family:'Shippori Mincho',serif; font-size: 22px; color: var(--gold); width: 30px; }
+  .podium-name{ flex:1; font-weight:700; font-size: 14px; }
+  .podium-score{ font-family:'Shippori Mincho',serif; font-size: 20px; font-weight:800; color: var(--gold); }
+
+  .center-btns{ display:flex; justify-content:center; gap: 12px; margin-top: 8px; }
+  .footer-note{ text-align:center; color: var(--text-muted); font-size: 11px; margin-top: 30px; letter-spacing:.03em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ============ SETUP SCREEN ============ -->
+  <div id="setup-screen">
+    <div class="setup-card">
+      <div class="eyebrow">Minimum Unique Number · Coin Game</div>
+      <h1>最小ユニークコインゲーム</h1>
+      <p>4人でコインを奪い合う心理戦。あなた1人 + AI 3人で対戦します。<br>
+      毎ラウンド場に置かれる99枚のコインを、宣言する数字の駆け引きで奪い合いましょう。</p>
+
+      <div class="rule-box rule-basic-content"></div>
+      <div class="rule-box rule-strategy-content"></div>
+
+      <div class="action-title" style="margin-bottom:10px;">ラウンド数を選択</div>
+      <div class="round-select" id="round-select">
+        <div class="round-btn" data-rounds="3">3ラウンド</div>
+        <div class="round-btn active" data-rounds="5">5ラウンド</div>
+        <div class="round-btn" data-rounds="10">10ラウンド</div>
+      </div>
+
+      <div class="action-title" style="margin-bottom:10px;">AIの戦略表示モード</div>
+      <div class="round-select" id="visibility-select">
+        <div class="round-btn active" data-hide="false">戦略を表示する（初心者向け）</div>
+        <div class="round-btn" data-hide="true">戦略を隠す（上級者向け）</div>
+      </div>
+
+      <button class="primary-btn" id="start-btn">ゲーム開始</button>
+    </div>
+  </div>
+
+  <!-- ============ GAME SCREEN ============ -->
+  <div id="game-screen">
+    <div class="top-bar">
+      <div>
+        <div class="eyebrow serif">Coin Game</div>
+        <div class="status-line">ROUND <b id="round-num">1</b> / <span id="total-rounds">5</span>　―　TURN <b id="turn-num">1</b></div>
+      </div>
+      <h2 id="phase-title">あなたの番です</h2>
+    </div>
+
+    <div class="pool-zone">
+      <div class="pool-circle">
+        <div class="pool-ring" id="pool-ring"></div>
+        <div class="num" id="pool-num">99</div>
+        <div class="label">COINS IN POOL</div>
+      </div>
+    </div>
+
+    <div class="players-grid" id="players-grid"></div>
+
+    <div class="action-area" id="action-area"></div>
+
+    <details class="log-panel" open>
+      <summary>対戦ログを表示 / 非表示</summary>
+      <div class="log-entries" id="log-entries"></div>
+    </details>
+
+    <details class="log-panel" open style="margin-top:14px;">
+      <summary>ルール概要・AIの戦略を表示 / 非表示</summary>
+      <div class="rule-box rule-basic-content" style="margin-top:14px; margin-bottom:0;"></div>
+      <div class="rule-box rule-strategy-content" style="margin-top:12px; margin-bottom:0;"></div>
+    </details>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ================= 定数・共通コンテンツ =================
+  const PLAYER_NAMES = ["あなた", "AI-アオイ", "AI-ベニ", "AI-キイロ"];
+  const POOL_START = 99;
+
+  const RULE_BASIC_HTML = `
+    <b>ルール概要</b><br>
+    ・各ラウンド開始時、場のコインは <b>${POOL_START}枚</b> にリセットされます。<br>
+    ・参加者は毎ターン「1以上・場のコイン以下」の整数を1つ同時に宣言します。<br>
+    ・宣言された数字のうち、<b>誰とも被らない最小の数字</b>を宣言した人がその数字分のコインを獲得します。<br>
+    ・獲得者と、他人と数字が被った人はそのラウンドから<b>脱落</b>します。<br>
+    ・全員が被った場合は誰も獲得できず、参加者全員が脱落してラウンド終了です。<br>
+    ・残り1人になった時点で、その人が場に残る全コインを自動獲得します。<br>
+    ・ラウンド終了時に場に残ったコインは消滅します。全ラウンド終了時の合計コインで勝敗を競います。<br>
+    ・各ラウンド終了時、そのラウンドで最も獲得コインが少なかったプレイヤー（AIのみが対象）は、戦略がランダムに変更されます。
+  `;
+
+  const RULE_STRATEGY_HTML = `
+    <b>AIの戦略について</b><br>
+    ゲーム開始時、AI 3人にはそれぞれ以下のいずれかの戦略がランダムに割り当てられます（同じ戦略が重複することもあります）。「戦略を表示する」モードでは各プレイヤーカードに割り当てられた戦略が表示され、「戦略を隠す」モードでは非公開になり、相手の言動から傾向を読み取る駆け引きが楽しめます。<br><br>
+    ・<b>慎重型</b>：常に場のコインの3割程度までの数字を狙う<br>
+    ・<b>好戦型</b>：参加者が多いうちは強気に大きめの数字、一騎討ちになったら残り枚数の半分程度に切り替える<br>
+    ・<b>バランス型</b>：常に「場のコイン ÷ 参加人数」付近を狙う<br>
+    ・<b>中庸型</b>：常に場のコインの半分程度を狙う<br>
+    ・<b>ランダム型</b>：1〜場のコイン全体から完全ランダムに宣言<br><br>
+    さらに、各ラウンドの最下位プレイヤー（AIのみ対象）は次のラウンドに向けて戦略がランダムに変更されます。
+  `;
+
+  // ================= ゲーム状態 =================
+  let numRounds = 5;
+  let hideStrategy = false;
+  let players = [];   // {id, name, isHuman, total, roundTotal, active, lastDeclare, strategy}
+  let pool = POOL_START;
+  let round = 0;
+  let turn = 1;
+  let lastReveal = null;
+  let lastStrategyChanges = []; // [{name, from, to}]
+  let phase = 'setup'; // setup | turn_input | turn_reveal | auto_award_reveal | round_summary | game_summary
+  let logLines = [];
+
+  // ================= 汎用ユーティリティ =================
+  function randInt(min, max){ return Math.floor(Math.random() * (max - min + 1) + min); }
+  function clamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
+  function getActivePlayers(){ return players.filter(p => p.active); }
+  function getAiPlayers(){ return players.filter(p => !p.isHuman); }
+
+  function log(line){
+    logLines.push(line);
+    renderLog();
+  }
+
+  // ================= AI戦略定義 =================
+  // どの戦略も「中心値 ± ランダムなマージン」で数字を決めることで、
+  // 同じ戦略のAI同士が完全に同じ数字を宣言して不必要に共倒れする事態を減らしている。
+  const STRATEGY_DEFS = {
+    cautious: {
+      label: '慎重型',
+      desc: '常に場のコインの3割程度までの数字を狙う',
+      decide(currentPool){
+        const low = Math.min(currentPool, Math.max(1, Math.round(currentPool * 0.1)));
+        const high = Math.min(currentPool, Math.max(1, Math.round(currentPool * 0.3)));
+        return randInt(low, high);
+      }
+    },
+    aggressive: {
+      label: '好戦型',
+      desc: '序盤は大きめの数字、一騎討ちになったら残り枚数の半分程度',
+      decide(currentPool, activeCount){
+        if (activeCount >= 3){
+          const low  = Math.min(currentPool, Math.max(1, Math.round(currentPool * 0.5)));
+          const high = Math.min(currentPool, Math.max(low, Math.round(currentPool * 0.9)));
+          return randInt(low, high);
+        } else {
+          const center = Math.round(currentPool * 0.5);
+          const margin = Math.max(1, Math.round(currentPool * 0.12));
+          const low  = Math.max(1, center - margin);
+          const high = Math.max(low, Math.min(currentPool, center + margin));
+          return randInt(low, high);
+        }
+      }
+    },
+    balanced: {
+      label: 'バランス型',
+      desc: '「場のコイン ÷ 参加人数」付近を狙う',
+      decide(currentPool, activeCount){
+        const center = currentPool / Math.max(1, activeCount);
+        const margin = Math.max(1, Math.round(center * 0.2));
+        const low  = Math.max(1, Math.round(center - margin));
+        const high = Math.max(low, Math.min(currentPool, Math.round(center + margin)));
+        return randInt(low, high);
+      }
+    },
+    moderate: {
+      label: '中庸型',
+      desc: '「場のコイン ÷ 2」付近を狙う',
+      decide(currentPool){
+        const center = currentPool / 2;
+        const margin = Math.max(1, Math.round(center * 0.2));
+        const low  = Math.max(1, Math.round(center - margin));
+        const high = Math.max(low, Math.min(currentPool, Math.round(center + margin)));
+        return randInt(low, high);
+      }
+    },
+    random: {
+      label: 'ランダム型',
+      desc: '1〜場のコイン全体から完全ランダム',
+      decide(currentPool){
+        return randInt(1, currentPool);
+      }
+    }
+  };
+  const STRATEGY_KEYS = Object.keys(STRATEGY_DEFS);
+
+  function pickRandomStrategy(excludeKey){
+    let candidates = STRATEGY_KEYS;
+    if (excludeKey){
+      candidates = STRATEGY_KEYS.filter(k => k !== excludeKey);
+      if (candidates.length === 0) candidates = STRATEGY_KEYS;
+    }
+    return candidates[randInt(0, candidates.length - 1)];
+  }
+
+  function strategyLabel(key){
+    return STRATEGY_DEFS[key].label;
+  }
+
+  // ================= 初期化 =================
+  function injectRuleBoxes(){
+    document.querySelectorAll('.rule-basic-content').forEach(el => { el.innerHTML = RULE_BASIC_HTML; });
+    document.querySelectorAll('.rule-strategy-content').forEach(el => { el.innerHTML = RULE_STRATEGY_HTML; });
+  }
+
+  function initPlayers(){
+    players = PLAYER_NAMES.map((name, i) => ({
+      id: i,
+      name,
+      isHuman: i === 0,
+      total: 0,
+      roundTotal: 0,
+      active: true,
+      lastDeclare: null,
+      strategy: i === 0 ? null : pickRandomStrategy()
+    }));
+    getAiPlayers().forEach(p => {
+      if (hideStrategy){
+        log(`　${p.name} の戦略が決定しました（非公開モードのため詳細は伏せられます）。`);
+      } else {
+        log(`　${p.name} の戦略が「${strategyLabel(p.strategy)}」に決定しました。`);
+      }
+    });
+  }
+
+  // ================= ラウンド制御 =================
+  function startGame(rounds){
+    numRounds = rounds;
+    round = 0;
+    logLines = [];
+    lastStrategyChanges = [];
+    initPlayers();
+    document.getElementById('total-rounds').textContent = numRounds;
+    document.getElementById('setup-screen').style.display = 'none';
+    document.getElementById('game-screen').style.display = 'block';
+    startRound();
+  }
+
+  function startRound(){
+    round += 1;
+    pool = POOL_START;
+    turn = 1;
+    players.forEach(p => { p.active = true; p.roundTotal = 0; p.lastDeclare = null; });
+    log(`◆ ラウンド ${round} 開始（場のコイン: ${POOL_START}枚）`);
+    goToTurnStart();
+  }
+
+  function goToTurnStart(){
+    const activeList = getActivePlayers();
+
+    if (activeList.length === 1){
+      const winner = activeList[0];
+      winner.total += pool;
+      winner.roundTotal += pool;
+      lastReveal = { type: 'auto', winner, amount: pool };
+      log(`　最後の1人となった ${winner.name} が残りの ${pool} 枚を自動獲得！`);
+      pool = 0;
+      winner.active = false;
+      phase = 'auto_award_reveal';
+      render();
+      return;
+    }
+
+    if (activeList.length === 0){
+      finishRound();
+      return;
+    }
+
+    // 理論上は起こり得ないが、念のための防御的ガード：
+    // 場のコインが0枚だと「1以上」の宣言ができる人がいないため、強制的にラウンドを終了する。
+    if (pool === 0){
+      log(`　場のコインが0枚になり、これ以上誰も宣言できないためラウンド終了。`);
+      activeList.forEach(p => { p.active = false; });
+      finishRound();
+      return;
+    }
+
+    players.forEach(p => { p.lastDeclare = null; });
+
+    const human = players[0];
+    if (human.active){
+      phase = 'turn_input';
+      render();
+    } else {
+      resolveTurn(null);
+    }
+  }
+
+  function decideAiDeclaration(p, currentPool, activeCount){
+    const raw = STRATEGY_DEFS[p.strategy].decide(currentPool, activeCount);
+    return clamp(raw, 1, currentPool);
+  }
+
+  function resolveTurn(humanNum){
+    const activeList = getActivePlayers();
+    const declarations = {}; // id -> number
+
+    activeList.forEach(p => {
+      declarations[p.id] = p.isHuman ? humanNum : decideAiDeclaration(p, pool, activeList.length);
+      p.lastDeclare = declarations[p.id];
+    });
+
+    const counts = {};
+    Object.values(declarations).forEach(n => { counts[n] = (counts[n] || 0) + 1; });
+
+    const uniqueNums = Object.keys(counts).filter(n => counts[n] === 1).map(Number);
+
+    log(`　ターン ${turn}：` + activeList.map(p => `${p.name}=${declarations[p.id]}`).join(' / '));
+
+    if (uniqueNums.length === 0){
+      activeList.forEach(p => { p.active = false; });
+      lastReveal = { type: 'all_dup', declarations, activeSnapshot: activeList.map(p => p.id) };
+      log(`　→ 全員の数字が被り、獲得者なし。参加者全員が脱落しラウンド終了。`);
+      turn += 1;
+      phase = 'turn_reveal';
+      render();
+      return;
+    }
+
+    const minUnique = Math.min(...uniqueNums);
+    const winner = activeList.find(p => declarations[p.id] === minUnique);
+    winner.total += minUnique;
+    winner.roundTotal += minUnique;
+    pool -= minUnique;
+
+    const droppedIds = [];
+    activeList.forEach(p => {
+      const d = declarations[p.id];
+      if (p.id === winner.id || counts[d] > 1){
+        p.active = false;
+        droppedIds.push(p.id);
+      }
+    });
+
+    lastReveal = {
+      type: 'normal', declarations, winner, minUnique, droppedIds,
+      poolAfter: pool, activeSnapshot: activeList.map(p => p.id)
+    };
+    log(`　→ ${winner.name} が最小ユニーク数字 ${minUnique} で ${minUnique} 枚獲得（残り場: ${pool}枚）`);
+
+    turn += 1;
+    phase = 'turn_reveal';
+    render();
+  }
+
+  function continueFromReveal(){
+    if (lastReveal && lastReveal.type === 'auto'){
+      finishRound();
+      return;
+    }
+    if (getActivePlayers().length === 0){
+      finishRound();
+      return;
+    }
+    goToTurnStart();
+  }
+
+  function finishRound(){
+    log(`◆ ラウンド ${round} 終了（場の残りコインは消滅）`);
+    applyLoserStrategyShuffle();
+    phase = 'round_summary';
+    render();
+  }
+
+  // ラウンド最下位（獲得コインが最も少なかった）AIプレイヤーの戦略をランダムに変更する。
+  // 人間プレイヤーは戦略を持たないため、対象は常にAIのみ。
+  function applyLoserStrategyShuffle(){
+    lastStrategyChanges = [];
+    const minRoundTotal = Math.min(...players.map(p => p.roundTotal));
+    const losers = getAiPlayers().filter(p => p.roundTotal === minRoundTotal);
+
+    losers.forEach(p => {
+      const oldStrategy = p.strategy;
+      p.strategy = pickRandomStrategy(oldStrategy);
+      lastStrategyChanges.push({ name: p.name, from: oldStrategy, to: p.strategy });
+      if (hideStrategy){
+        log(`　${p.name} はこのラウンドの最下位となり、戦略が変更されました（非公開モード）。`);
+      } else {
+        log(`　${p.name} はこのラウンドの最下位となり、戦略が「${strategyLabel(oldStrategy)}」→「${strategyLabel(p.strategy)}」に変更されました。`);
+      }
+    });
+  }
+
+  function nextRoundOrEnd(){
+    if (round >= numRounds){
+      phase = 'game_summary';
+      render();
+    } else {
+      startRound();
+    }
+  }
+
+  // ================= 描画 =================
+  function render(){
+    document.getElementById('round-num').textContent = round;
+    document.getElementById('pool-num').textContent = pool;
+    document.getElementById('pool-ring').style.setProperty('--pct', Math.round((pool / POOL_START) * 100));
+    document.getElementById('turn-num').textContent = turn;
+
+    renderPlayers();
+    renderAction();
+  }
+
+  function getBadgeHtml(p){
+    if (!lastReveal || (phase !== 'turn_reveal' && phase !== 'auto_award_reveal')) return '';
+
+    if (lastReveal.type === 'auto' && lastReveal.winner.id === p.id){
+      return '<div class="badge-win">自動獲得</div>';
+    }
+    if (lastReveal.type === 'normal' && lastReveal.winner && lastReveal.winner.id === p.id){
+      return '<div class="badge-win">獲得</div>';
+    }
+    if (lastReveal.droppedIds && lastReveal.droppedIds.includes(p.id) && (!lastReveal.winner || lastReveal.winner.id !== p.id)){
+      return '<div class="badge-drop">脱落</div>';
+    }
+    if (lastReveal.type === 'all_dup' && lastReveal.activeSnapshot && lastReveal.activeSnapshot.includes(p.id)){
+      return '<div class="badge-drop">脱落</div>';
+    }
+    return '';
+  }
+
+  function getStrategyBadgeHtml(p){
+    if (p.isHuman) return '';
+    if (hideStrategy) return '<div class="pstrategy hidden">非公開</div>';
+    return `<div class="pstrategy">${strategyLabel(p.strategy)}</div>`;
+  }
+
+  function renderPlayers(){
+    const grid = document.getElementById('players-grid');
+    grid.innerHTML = '';
+    players.forEach(p => {
+      const card = document.createElement('div');
+      card.className = 'player-card' + (p.active ? ' active' : ' dropped') + (p.isHuman ? ' human' : '');
+
+      const declareHtml = (p.lastDeclare !== null && (phase === 'turn_reveal' || phase === 'auto_award_reveal'))
+        ? `宣言: <span class="val">${p.lastDeclare}</span>`
+        : '&nbsp;';
+
+      card.innerHTML = `
+        ${getBadgeHtml(p)}
+        <div class="pname">${p.name}${p.isHuman ? ' (YOU)' : ''}</div>
+        ${getStrategyBadgeHtml(p)}
+        <div class="pstate">${p.active ? '参加中' : '脱落済み'}</div>
+        <div class="ptotal">${p.total}</div>
+        <div class="ptotal-label">総合コイン</div>
+        <div class="pdeclare">${declareHtml}</div>
+      `;
+      grid.appendChild(card);
+    });
+  }
+
+  function renderStrategyChangeNotice(){
+    if (lastStrategyChanges.length === 0) return '';
+    const items = lastStrategyChanges.map(c => {
+      if (hideStrategy){
+        return `<div>・<b>${c.name}</b> の戦略が変更されました（非公開モード）。</div>`;
+      }
+      return `<div>・<b>${c.name}</b>：「${strategyLabel(c.from)}」 → 「${strategyLabel(c.to)}」</div>`;
+    }).join('');
+    return `<div class="strategy-change-list">このラウンドの最下位AIの戦略が変更されました。${items}</div>`;
+  }
+
+  function renderAction(){
+    const area = document.getElementById('action-area');
+    const title = document.getElementById('phase-title');
+
+    if (phase === 'turn_input'){
+      title.textContent = 'あなたの番です';
+      area.innerHTML = `
+        <div class="action-title">1 〜 ${pool} の整数を1つ宣言してください</div>
+        <div class="input-row">
+          <input type="number" id="human-input" class="num-input" min="1" max="${pool}" value="1">
+          <div class="quick-btns">
+            <div class="quick-btn" data-v="1">1</div>
+            <div class="quick-btn" data-v="${Math.max(1, Math.floor(pool/3))}">1/3 (${Math.max(1, Math.floor(pool/3))})</div>
+            <div class="quick-btn" data-v="${Math.max(1, Math.floor(pool/2))}">中間 (${Math.max(1, Math.floor(pool/2))})</div>
+            <div class="quick-btn" data-v="${pool}">最大 (${pool})</div>
+          </div>
+          <button class="primary-btn" id="declare-btn">宣言する</button>
+        </div>
+        <div class="hint">他の誰とも被らない最小の数字を宣言できればその数字分のコインを獲得できます。獲得者と被った人は脱落します。</div>
+      `;
+      const input = document.getElementById('human-input');
+      area.querySelectorAll('.quick-btn').forEach(btn => {
+        btn.addEventListener('click', () => { input.value = btn.dataset.v; });
+      });
+      document.getElementById('declare-btn').addEventListener('click', () => {
+        let v = parseInt(input.value, 10);
+        if (isNaN(v) || v < 1) v = 1;
+        if (v > pool) v = pool;
+        resolveTurn(v);
+      });
+      return;
+    }
+
+    if (phase === 'turn_reveal'){
+      title.textContent = 'このターンの結果';
+      let rowsHtml = '';
+      let msg = '';
+
+      if (lastReveal.type === 'all_dup'){
+        const decl = lastReveal.declarations;
+        players.filter(p => lastReveal.activeSnapshot.includes(p.id)).forEach(p => {
+          rowsHtml += `<div class="reveal-row"><span class="rname">${p.name}</span><span class="rnum">${decl[p.id]}</span><span class="tag tag-drop">脱落</span></div>`;
+        });
+        msg = `全員の数字が他の誰かと被ってしまい、<b>獲得者はいません</b>。参加者は全員脱落し、このラウンドは終了です。`;
+      } else {
+        const decl = lastReveal.declarations;
+        players.filter(p => lastReveal.activeSnapshot.includes(p.id))
+          .sort((a,b) => decl[a.id] - decl[b.id])
+          .forEach(p => {
+            let tag = 'tag-safe', tagText = '継続';
+            if (p.id === lastReveal.winner.id){ tag = 'tag-win'; tagText = '獲得 & 脱落'; }
+            else if (lastReveal.droppedIds.includes(p.id)){ tag = 'tag-drop'; tagText = '重複脱落'; }
+            rowsHtml += `<div class="reveal-row"><span class="rname">${p.name}</span><span class="rnum">${decl[p.id]}</span><span class="tag ${tag}">${tagText}</span></div>`;
+          });
+        msg = `最小ユニーク数字は <b>${lastReveal.minUnique}</b>。<b>${lastReveal.winner.name}</b> が ${lastReveal.minUnique} 枚のコインを獲得しました（場の残り: ${lastReveal.poolAfter}枚）。`;
+      }
+
+      area.innerHTML = `
+        <div class="action-title">数字が公開されました</div>
+        <div class="reveal-list">${rowsHtml}</div>
+        <div class="result-msg">${msg}</div>
+        <div class="center-btns"><button class="primary-btn" id="continue-btn">次へ</button></div>
+      `;
+      document.getElementById('continue-btn').addEventListener('click', continueFromReveal);
+      return;
+    }
+
+    if (phase === 'auto_award_reveal'){
+      title.textContent = '最後の1人による自動獲得';
+      area.innerHTML = `
+        <div class="result-msg">残り参加者が1人になったため、<b>${lastReveal.winner.name}</b> が場に残っていた <b>${lastReveal.amount}</b> 枚のコインを自動的に獲得しました。</div>
+        <div class="center-btns"><button class="primary-btn" id="continue-btn">ラウンド結果へ</button></div>
+      `;
+      document.getElementById('continue-btn').addEventListener('click', continueFromReveal);
+      return;
+    }
+
+    if (phase === 'round_summary'){
+      title.textContent = `ラウンド ${round} 結果`;
+      const sorted = [...players].sort((a,b) => b.roundTotal - a.roundTotal);
+      let rows = sorted.map(p => `
+        <tr>
+          <td>${p.name}${p.isHuman ? ' (YOU)' : ''}</td>
+          <td class="num">+${p.roundTotal}</td>
+          <td class="num">${p.total}</td>
+        </tr>`).join('');
+      const isLast = round >= numRounds;
+      area.innerHTML = `
+        <div class="action-title">このラウンドの獲得コインと総合コイン</div>
+        <table class="round-summary-table">
+          <thead><tr><th>プレイヤー</th><th style="text-align:right;">今ラウンド獲得</th><th style="text-align:right;">総合コイン</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        ${renderStrategyChangeNotice()}
+        <div class="center-btns"><button class="primary-btn" id="next-round-btn">${isLast ? '最終結果を見る' : '次のラウンドへ'}</button></div>
+      `;
+      document.getElementById('next-round-btn').addEventListener('click', nextRoundOrEnd);
+      return;
+    }
+
+    if (phase === 'game_summary'){
+      title.textContent = 'ゲーム終了';
+      const sorted = [...players].sort((a,b) => b.total - a.total);
+      let rows = sorted.map((p, i) => `
+        <div class="podium-row ${i===0 ? 'first' : ''}">
+          <div class="podium-rank">${i+1}</div>
+          <div class="podium-name">${p.name}${p.isHuman ? ' (YOU)' : ''}</div>
+          <div class="podium-score">${p.total} 枚</div>
+        </div>`).join('');
+      const championText = sorted[0].isHuman ? 'あなたの勝利です！おめでとうございます。' : `${sorted[0].name} の勝利です。`;
+      area.innerHTML = `
+        <div class="result-msg" style="text-align:center; font-size:16px;">全 ${numRounds} ラウンドが終了しました。<br><b>${championText}</b></div>
+        <div class="final-podium">${rows}</div>
+        <div class="center-btns"><button class="primary-btn" id="restart-btn">もう一度プレイする</button></div>
+      `;
+      document.getElementById('restart-btn').addEventListener('click', () => {
+        document.getElementById('setup-screen').style.display = 'block';
+        document.getElementById('game-screen').style.display = 'none';
+      });
+      return;
+    }
+  }
+
+  function renderLog(){
+    const box = document.getElementById('log-entries');
+    if (!box) return;
+    box.innerHTML = logLines.map(l => `<div class="lr">${l}</div>`).join('');
+    box.scrollTop = box.scrollHeight;
+  }
+
+  // ================= セットアップ画面のイベント =================
+  function setupExclusiveToggle(containerId, onSelect){
+    const container = document.getElementById(containerId);
+    container.querySelectorAll('.round-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        container.querySelectorAll('.round-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        onSelect(btn);
+      });
+    });
+  }
+
+  setupExclusiveToggle('round-select', (btn) => {
+    numRounds = parseInt(btn.dataset.rounds, 10);
+  });
+
+  setupExclusiveToggle('visibility-select', (btn) => {
+    hideStrategy = btn.dataset.hide === 'true';
+  });
+
+  document.getElementById('start-btn').addEventListener('click', () => {
+    startGame(numRounds);
+  });
+
+  injectRuleBoxes();
+
+})();
+</script>
+</body>
+</html>
