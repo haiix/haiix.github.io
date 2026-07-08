@@ -110,18 +110,6 @@
   }
   .primary-btn:hover{ filter: brightness(1.08); }
   .primary-btn:disabled{ opacity:.4; cursor:not-allowed; }
-  .ghost-btn{
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--text-muted);
-    padding: 10px 22px;
-    border-radius: 999px;
-    font-size: 13px;
-    cursor: pointer;
-    font-family: 'Noto Sans JP', sans-serif;
-  }
-  .ghost-btn:hover{ color: var(--text); border-color: var(--gold-soft); }
-
   /* ---------- game screen ---------- */
   #game-screen{ display:none; }
   .top-bar{
@@ -165,32 +153,11 @@
     display:grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px;
   }
 
-  @media (max-width: 700px){
-    .pool-zone{ margin: 4px 0 20px; }
-    .pool-circle{ width: 128px; height: 128px; }
-    .pool-circle .num{ font-size: 32px; }
-    .pool-circle .label{ font-size: 9px; margin-top: 4px; }
-
-    .players-grid{ grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 18px; }
-    .player-card{ height: 168px; padding: 20px 8px 12px; }
-    .player-card .pname{ font-size: 12px; }
-    .corner-badge{ font-size: 8px; padding: 2px 6px; top: -7px; }
-    .corner-badge-left{ left: 6px; }
-    .corner-badge-right{ right: 6px; }
-    .player-card .reveal-number{ font-size: 22px; }
-    .player-card .reveal-number .rlabel{ font-size: 8px; margin-bottom: 2px; }
-    .player-card .total-coin-circle{ width: 50px; height: 50px; }
-    .player-card .tcc-num{ font-size: 15px; }
-    .player-card .tcc-label{ font-size: 7px; }
-
-    .action-area{ padding: 16px 16px; }
-  }
-
   .player-card{
     background: var(--bg-panel);
     border: 1px solid var(--border);
     border-radius: 14px;
-    padding: 24px 12px 16px;
+    padding: 24px 12px 24px;
     text-align:center;
     position:relative;
     height: 216px;
@@ -219,14 +186,14 @@
   .player-card.coin-received{ animation: coinPulse 0.9s ease; }
   .player-card .pname{ font-size: 13px; font-weight:700; }
 
-  /* カード四隅に固定表示するバッジ（戦略＝左上／獲得・脱落＝右上）。
+  /* カード上の固定バッジ（獲得・脱落＝右上／戦略＝下端中央）。
      position:absolute にすることで、表示・非表示の切り替えがあってもカード内の他要素の位置には影響しない。 */
   .corner-badge{
     position:absolute; top:-9px; font-size: 9px; font-weight:800;
     padding: 3px 8px; border-radius: 999px; letter-spacing:.05em; z-index:2; white-space:nowrap;
   }
-  .corner-badge-left{ left: 10px; }
   .corner-badge-right{ right: 10px; }
+  .corner-badge-bottom-center{ top: auto; bottom: -9px; left: 50%; transform: translateX(-50%); }
 
   .player-card .pstrategy{
     color: var(--teal); background: #1c3336; border: 1px solid #2c5957;
@@ -346,7 +313,6 @@
   .log-panel summary{ cursor:pointer; font-size: 12px; color: var(--text-muted); letter-spacing:.05em; }
   .log-entries{ margin-top: 14px; max-height: 260px; overflow-y:auto; font-size: 12px; color: #b8bdc9; line-height: 2; }
   .log-entries .lr{ margin-bottom: 4px; padding-bottom: 4px; border-bottom: 1px dotted #23262f; }
-  .log-round-mark{ color: var(--gold); font-weight:700; margin-top: 8px; display:block; }
 
   .final-podium{ display:flex; flex-direction:column; gap: 10px; margin: 20px 0 26px; }
   .podium-row{
@@ -359,7 +325,27 @@
   .podium-score{ font-family:'Shippori Mincho',serif; font-size: 20px; font-weight:800; color: var(--gold); }
 
   .center-btns{ display:flex; justify-content:center; gap: 12px; margin-top: 8px; }
-  .footer-note{ text-align:center; color: var(--text-muted); font-size: 11px; margin-top: 30px; letter-spacing:.03em; }
+
+  @media (max-width: 700px){
+    .pool-zone{ margin: 4px 0 20px; }
+    .pool-circle{ width: 128px; height: 128px; }
+    .pool-circle .num{ font-size: 32px; }
+    .pool-circle .label{ font-size: 9px; margin-top: 4px; }
+
+    .players-grid{ grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 18px; }
+    .player-card{ height: 168px; padding: 20px 8px 20px; }
+    .player-card .pname{ font-size: 12px; }
+    .corner-badge{ font-size: 8px; padding: 2px 6px; top: -7px; }
+    .corner-badge-right{ right: 6px; }
+    .corner-badge-bottom-center{ top: auto; bottom: -7px; }
+    .player-card .reveal-number{ font-size: 22px; }
+    .player-card .reveal-number .rlabel{ font-size: 8px; margin-bottom: 2px; }
+    .player-card .total-coin-circle{ width: 40px; height: 40px; }
+    .player-card .tcc-num{ font-size: 13px; }
+    .player-card .tcc-label{ display: none; }
+
+    .action-area{ padding: 16px 16px; }
+  }
 </style>
 </head>
 <body>
@@ -813,7 +799,7 @@
   function getStrategyBadgeHtml(p){
     if (p.isHuman) return '';
     if (hideStrategy) return ''; // 非公開モードでは、バッジ自体を出さない（有無で人間/AIが分からないように）
-    return `<div class="corner-badge corner-badge-left pstrategy">${strategyLabel(p.strategy)}</div>`;
+    return `<div class="corner-badge corner-badge-bottom-center pstrategy">${strategyLabel(p.strategy)}</div>`;
   }
 
   function renderPlayers(){
@@ -824,7 +810,9 @@
 
     players.forEach((p, idx) => {
       // 今回のターンで決着したプレイヤー（獲得者・脱落者）は、いったん通常表示のまま描画し、
-      // 少し間を置いてから .dropped クラスを付与することでゆっくりフェードアウトさせる。
+      // 少し間を置いてから .dropped クラスを付与する。カード自体を非表示にはせず、
+      // .player-card の transition（border-color / box-shadow）によって枠の強調表示が
+      // なめらかに消える程度に留め、右上の「脱落」バッジのみで状態を明示する。
       const showAsActiveForNow = p.active || resolvedIds.includes(p.id);
       const status = getRevealStatus(p);
 
@@ -855,39 +843,35 @@
   }
 
   // ================= 数字公開の演出 =================
-  function animateNumber(el, from, to, duration){
-    if (!el) return;
+  // from → to の値を easeOutCubic で補間しながら requestAnimationFrame で刻む共通ヘルパー。
+  // onUpdate(val, done) は毎フレーム呼ばれ、done===true のフレームでは丸め誤差を避けるため
+  // 呼び出し側で最終値(to)をそのまま使うことを想定している。
+  function animateValue(from, to, duration, onUpdate){
     const start = performance.now();
     function step(now){
       const t = Math.min(1, (now - start) / duration);
       const eased = 1 - Math.pow(1 - t, 3);
-      const val = Math.round(from + (to - from) * eased);
-      el.textContent = val;
-      if (t < 1) requestAnimationFrame(step);
-      else el.textContent = to;
+      const done = t >= 1;
+      const val = done ? to : Math.round(from + (to - from) * eased);
+      onUpdate(val, done);
+      if (!done) requestAnimationFrame(step);
     }
     requestAnimationFrame(step);
+  }
+
+  function animateNumber(el, from, to, duration){
+    if (!el) return;
+    animateValue(from, to, duration, (val) => { el.textContent = val; });
   }
 
   function animatePoolDisplay(fromVal, toVal, duration){
     const numEl = document.getElementById('pool-num');
     const ring = document.getElementById('pool-ring');
     if (!numEl || !ring) return;
-    const start = performance.now();
-    function step(now){
-      const t = Math.min(1, (now - start) / duration);
-      const eased = 1 - Math.pow(1 - t, 3);
-      const val = Math.round(fromVal + (toVal - fromVal) * eased);
+    animateValue(fromVal, toVal, duration, (val) => {
       numEl.textContent = val;
       ring.style.setProperty('--pct', Math.round((val / POOL_START) * 100));
-      if (t < 1){
-        requestAnimationFrame(step);
-      } else {
-        numEl.textContent = toVal;
-        ring.style.setProperty('--pct', Math.round((toVal / POOL_START) * 100));
-      }
-    }
-    requestAnimationFrame(step);
+    });
   }
 
   // ラウンド開始時の軽い演出：場のコインが弾みながら0→99枚へカウントアップする。
@@ -952,7 +936,7 @@
   // REVEAL_POP_SETTLE_MS : 各カードの宣言数字ポップインが一通り落ち着くまでの時間
   // PRE_COIN_PAUSE_MS    : ポップイン後、コインが動き出すまでにあえて置く「一拍」の間
   // COIN_FLIGHT_DURATION_MS : コインが飛び終わるまでのおおよその所要時間
-  // POST_COIN_BUFFER_MS  : コイン到着後、カードのフェードアウトを始めるまでの余韻
+  // POST_COIN_BUFFER_MS  : コイン到着後、カードを dropped 状態に切り替えるまでの余韻
   const REVEAL_POP_SETTLE_MS = 700;
   const PRE_COIN_PAUSE_MS = 550;
   const COIN_START_DELAY_MS = REVEAL_POP_SETTLE_MS + PRE_COIN_PAUSE_MS; // 1250ms
@@ -962,7 +946,7 @@
   // ターン結果公開時のアニメーション一式を実行する。
   // ・宣言数字のポップイン（renderPlayers側のCSSアニメーションに任せる）
   // ・一拍間を置いてから、コインがプールから獲得者へ飛んでいく演出＋数値のカウントアップ
-  // ・コインが到着し終えた頃、獲得者／脱落者のカードをゆっくりフェードアウトさせる
+  // ・コインが到着し終えた頃、獲得者／脱落者のカードを dropped 状態に切り替える（枠の強調表示のみ変化）
   function playRevealAnimations(){
     if (!lastReveal || !isRevealPhase()) return;
     const grid = document.getElementById('players-grid');
@@ -1015,6 +999,17 @@
     return `<div class="strategy-change-list">このラウンドの最下位AIの戦略が変更されました。${items}</div>`;
   }
 
+  // turn_reveal / auto_award_reveal 共通の「結果キャプション＋次へボタン」画面を描画する。
+  function renderRevealScreen(titleText, captionHtml, btnLabel){
+    document.getElementById('phase-title').textContent = titleText;
+    const area = document.getElementById('action-area');
+    area.innerHTML = `
+      <div class="reveal-caption">${captionHtml}</div>
+      <div class="center-btns"><button class="primary-btn" id="continue-btn">${btnLabel}</button></div>
+    `;
+    document.getElementById('continue-btn').addEventListener('click', continueFromReveal);
+  }
+
   function renderAction(){
     const area = document.getElementById('action-area');
     const title = document.getElementById('phase-title');
@@ -1049,28 +1044,16 @@
     }
 
     if (phase === 'turn_reveal'){
-      title.textContent = 'このターンの結果';
-      let caption;
-      if (lastReveal.type === 'all_dup'){
-        caption = '全員の数字が被り、<b>獲得者はいません</b>でした。参加者は全員脱落し、ラウンドが終了します。';
-      } else {
-        caption = `最小ユニーク数字は <b>${lastReveal.minUnique}</b>。<b>${lastReveal.winner.name}</b> が ${lastReveal.minUnique} 枚を獲得しました。`;
-      }
-      area.innerHTML = `
-        <div class="reveal-caption">${caption}</div>
-        <div class="center-btns"><button class="primary-btn" id="continue-btn">次へ</button></div>
-      `;
-      document.getElementById('continue-btn').addEventListener('click', continueFromReveal);
+      const caption = lastReveal.type === 'all_dup'
+        ? '全員の数字が被り、<b>獲得者はいません</b>でした。参加者は全員脱落し、ラウンドが終了します。'
+        : `最小ユニーク数字は <b>${lastReveal.minUnique}</b>。<b>${lastReveal.winner.name}</b> が ${lastReveal.minUnique} 枚を獲得しました。`;
+      renderRevealScreen('このターンの結果', caption, '次へ');
       return;
     }
 
     if (phase === 'auto_award_reveal'){
-      title.textContent = '最後の1人による自動獲得';
-      area.innerHTML = `
-        <div class="reveal-caption">残り参加者が1人になったため、<b>${lastReveal.winner.name}</b> が場に残っていた <b>${lastReveal.amount}</b> 枚を自動的に獲得しました。</div>
-        <div class="center-btns"><button class="primary-btn" id="continue-btn">ラウンド結果へ</button></div>
-      `;
-      document.getElementById('continue-btn').addEventListener('click', continueFromReveal);
+      const caption = `残り参加者が1人になったため、<b>${lastReveal.winner.name}</b> が場に残っていた <b>${lastReveal.amount}</b> 枚を自動的に獲得しました。`;
+      renderRevealScreen('最後の1人による自動獲得', caption, 'ラウンド結果へ');
       return;
     }
 
