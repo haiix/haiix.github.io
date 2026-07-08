@@ -802,6 +802,23 @@
     return `<div class="corner-badge corner-badge-bottom-center pstrategy">${strategyLabel(p.strategy)}</div>`;
   }
 
+  // 獲得者がそのターンで獲得した枚数（type: 'auto' なら amount、それ以外なら minUnique）。
+  function getWinAmount(reveal){
+    return reveal.type === 'auto' ? reveal.amount : reveal.minUnique;
+  }
+
+  // プレイヤーカードに表示すべき「総合コイン」の値を返す。
+  // 獲得者は resolveTurn 時点で既に p.total に加算済みだが、コインがプールから
+  // カードへ飛んでいくアニメーション（animateCoinFlight / animateNumber）が始まるまでは、
+  // 加算前の枚数を表示しておく。そうしないと、コインがまだ画面上を移動していないのに
+  // 枚数表示だけ先に加算後の値になってしまう（アニメーション開始前の見た目の不整合）。
+  function getDisplayTotal(p){
+    if (isRevealPhase() && lastReveal && lastReveal.winner && lastReveal.winner.id === p.id){
+      return p.total - getWinAmount(lastReveal);
+    }
+    return p.total;
+  }
+
   function renderPlayers(){
     const grid = document.getElementById('players-grid');
     grid.innerHTML = '';
@@ -834,7 +851,7 @@
         <div class="pname">${p.name}</div>
         <div class="reveal-slot">${revealNumberHtml}</div>
         <div class="total-coin-circle">
-          <div class="tcc-num" data-role="total">${p.total}</div>
+          <div class="tcc-num" data-role="total">${getDisplayTotal(p)}</div>
           <div class="tcc-label">総合コイン</div>
         </div>
       `;
@@ -955,8 +972,8 @@
     const winner = lastReveal.type !== 'all_dup' ? lastReveal.winner : null;
 
     if (winner){
-      const amount = lastReveal.type === 'auto' ? lastReveal.amount : lastReveal.minUnique;
-      const winnerTotalBefore = winner.total - amount;
+      const amount = getWinAmount(lastReveal);
+      const winnerTotalBefore = getDisplayTotal(winner);
 
       setTimeout(() => {
         if (!isRevealPhase() || lastReveal.winner !== winner) return;
@@ -1076,7 +1093,13 @@
         ${renderStrategyChangeNotice()}
         <div class="center-btns"><button class="primary-btn" id="next-round-btn">${isLast ? '最終結果を見る' : '次のラウンドへ'}</button></div>
       `;
-      document.getElementById('next-round-btn').addEventListener('click', nextRoundOrEnd);
+      document.getElementById('next-round-btn').addEventListener('click', () => {
+        const goingToNextRound = round < numRounds;
+        nextRoundOrEnd();
+        if (goingToNextRound){
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      });
       return;
     }
 
