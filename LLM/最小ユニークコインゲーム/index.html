@@ -120,7 +120,7 @@
     font-size: 12px; color: var(--text-muted); letter-spacing: 0.05em;
   }
   .top-bar .status-line b{ color: var(--gold); }
-  .top-bar h2{ margin: 2px 0 0; font-size: 22px; }
+  .top-bar h2{ margin: 2px 0 0; font-size: 16px; }
 
   .pool-zone{
     display:flex; flex-direction:column; align-items:center; margin: 10px 0 30px;
@@ -386,7 +386,7 @@
         <div class="eyebrow serif">Coin Game</div>
         <div class="status-line">ROUND <b id="round-num">1</b> / <span id="total-rounds">5</span>　―　TURN <b id="turn-num">1</b></div>
       </div>
-      <h2 id="phase-title">あなたの番です</h2>
+      <h2 id="phase-title">宣言</h2>
     </div>
 
     <div class="pool-zone">
@@ -1015,7 +1015,7 @@
     const title = document.getElementById('phase-title');
 
     if (phase === 'turn_input'){
-      title.textContent = 'あなたの番です';
+      title.textContent = '宣言';
       area.innerHTML = `
         <div class="action-title">1 〜 ${pool} の整数を1つ宣言してください</div>
         <div class="input-row">
@@ -1047,13 +1047,13 @@
       const caption = lastReveal.type === 'all_dup'
         ? '全員の数字が被り、<b>獲得者はいません</b>でした。参加者は全員脱落し、ラウンドが終了します。'
         : `最小ユニーク数字は <b>${lastReveal.minUnique}</b>。<b>${lastReveal.winner.name}</b> が ${lastReveal.minUnique} 枚を獲得しました。`;
-      renderRevealScreen('このターンの結果', caption, '次へ');
+      renderRevealScreen('ターン結果', caption, '次へ');
       return;
     }
 
     if (phase === 'auto_award_reveal'){
       const caption = `残り参加者が1人になったため、<b>${lastReveal.winner.name}</b> が場に残っていた <b>${lastReveal.amount}</b> 枚を自動的に獲得しました。`;
-      renderRevealScreen('最後の1人による自動獲得', caption, 'ラウンド結果へ');
+      renderRevealScreen('自動獲得', caption, 'ラウンド結果へ');
       return;
     }
 
