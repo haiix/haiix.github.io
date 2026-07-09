@@ -183,7 +183,18 @@
     70%{ box-shadow: 0 0 0 16px rgba(212,175,106,0); }
     100%{ box-shadow: 0 0 0 0 rgba(212,175,106,0); }
   }
-  .player-card.coin-received{ animation: coinPulse 0.9s ease; }
+  /* coin-received のパルス演出は .player-card 自身の box-shadow を直接アニメーションさせない。
+     win-glow / drop-glow / safe-glow も同じ box-shadow プロパティを使っており、
+     同一要素で両方を同時に指定すると後勝ちで片方が消えてしまう（見た目のちらつき）ため、
+     ::after 疑似要素側で独立してパルスさせ、カード本体の枠色付けとは別レイヤーで表示する。 */
+  .player-card.coin-received::after{
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    animation: coinPulse 0.9s ease;
+  }
   .player-card .pname{ font-size: 13px; font-weight:700; }
 
   /* カード上の固定バッジ（獲得・脱落＝右上／戦略＝下端中央）。
@@ -326,7 +337,7 @@
 
   .center-btns{ display:flex; justify-content:center; gap: 12px; margin-top: 8px; }
 
-  @media (max-width: 700px){
+  @media (max-width: 768px){
     .pool-zone{ margin: 4px 0 20px; }
     .pool-circle{ width: 128px; height: 128px; }
     .pool-circle .num{ font-size: 32px; }
@@ -1045,7 +1056,7 @@
           </div>
           <button class="primary-btn" id="declare-btn">宣言する</button>
         </div>
-        <div class="hint">他の誰とも被らない最小の数字を宣言できればその数字分のコインを獲得できます。獲得者と被った人は脱落します。</div>
+        <div class="hint">他の誰とも被らない最小の数字を宣言できればその数字分のコインを獲得できます。獲得者、および他者と被った人は脱落します。</div>
       `;
       const input = document.getElementById('human-input');
       area.querySelectorAll('.quick-btn').forEach(btn => {
