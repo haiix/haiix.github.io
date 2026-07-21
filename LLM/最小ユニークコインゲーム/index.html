@@ -286,6 +286,17 @@
     text-align:center;
   }
   .num-input:focus{ outline: none; border-color: var(--gold-soft); }
+  .num-input::placeholder{ color: var(--text-muted); opacity: .6; }
+  .stepper{ display:flex; align-items:center; gap:8px; }
+  .step-btn{
+    width: 38px; height: 38px; flex: none;
+    background: var(--bg-panel-2); border:1px solid var(--border); color: var(--text-muted);
+    border-radius: 8px; font-size: 17px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    font-family: 'Shippori Mincho', serif;
+  }
+  .step-btn:hover{ color: var(--text); border-color: var(--gold-soft); }
+  .step-btn:active{ transform: scale(0.94); }
   .quick-btns{ display:flex; gap:8px; flex-wrap:wrap; }
   .quick-btn{
     background: var(--bg-panel-2); border:1px solid var(--border); color: var(--text-muted);
@@ -457,25 +468,56 @@
   `;
 
   // ================= ゲーム状態 =================
-  let numRounds = 5;
-  let hideStrategy = false;
-  let players = [];   // {id, name, isHuman, total, roundTotal, active, lastDeclare, strategy}
-  let pool = POOL_START;
-  let round = 0;
-  let turn = 1;
-  let lastReveal = null;
-  let lastStrategyChanges = []; // [{name, from, to}]
-  let phase = 'setup'; // setup | turn_input | turn_reveal | auto_award_reveal | round_summary | game_summary
-  let logLines = [];
+  // ゲーム進行に関わる状態は、個別の let 変数として並べるのではなく
+  // 1つの state オブジェクトにまとめて持たせる。こうすることで、
+  // 「何がゲームの状態なのか」が一覧しやすくなり、関数間でも
+  // state. を経由してアクセスすることで参照元が明確になる。
+  const state = {
+    numRounds: 5,
+    hideStrategy: false,
+    players: [],   // {id, name, isHuman, total, roundTotal, active, lastDeclare, strategy}
+    pool: POOL_START,
+    round: 0,
+    turn: 1,
+    lastReveal: null,
+    lastStrategyChanges: [], // [{name, from, to}]
+    phase: 'setup', // setup | turn_input | turn_reveal | auto_award_reveal | round_summary | game_summary
+    logLines: []
+  };
+
+  // ================= DOM要素 =================
+  // レンダリングのたびに document.getElementById / querySelector を呼び直すのではなく、
+  // ページ読み込み時（script はbody末尾にあるため要素は既に存在する）に一度だけ取得し、
+  // 1つの dom オブジェクトにまとめておく。
+  // なお、renderAction() 内で動的に生成される要素（action-area の中身、宣言入力欄や
+  // 各種ボタンなど）は render() のたびに作り直されるため、ここでは対象外とし、
+  // 生成直後にその都度 querySelector で取得する（キャッシュしても無意味なため）。
+  const dom = {
+    totalRounds: document.getElementById('total-rounds'),
+    setupScreen: document.getElementById('setup-screen'),
+    gameScreen: document.getElementById('game-screen'),
+    roundNum: document.getElementById('round-num'),
+    poolNum: document.getElementById('pool-num'),
+    poolRing: document.getElementById('pool-ring'),
+    poolCircle: document.querySelector('.pool-circle'),
+    turnNum: document.getElementById('turn-num'),
+    playersGrid: document.getElementById('players-grid'),
+    actionArea: document.getElementById('action-area'),
+    phaseTitle: document.getElementById('phase-title'),
+    logEntries: document.getElementById('log-entries'),
+    roundSelect: document.getElementById('round-select'),
+    visibilitySelect: document.getElementById('visibility-select'),
+    startBtn: document.getElementById('start-btn')
+  };
 
   // ================= 汎用ユーティリティ =================
   function randInt(min, max){ return Math.floor(Math.random() * (max - min + 1) + min); }
   function clamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
-  function getActivePlayers(){ return players.filter(p => p.active); }
-  function getAiPlayers(){ return players.filter(p => !p.isHuman); }
+  function getActivePlayers(){ return state.players.filter(p => p.active); }
+  function getAiPlayers(){ return state.players.filter(p => !p.isHuman); }
 
   function log(line){
-    logLines.push(line);
+    state.logLines.push(line);
     renderLog();
   }
 
@@ -561,7 +603,7 @@
   }
 
   function initPlayers(){
-    players = PLAYER_NAMES.map((name, i) => ({
+    state.players = PLAYER_NAMES.map((name, i) => ({
       id: i,
       name,
       isHuman: i === 0,
@@ -572,7 +614,7 @@
       strategy: i === 0 ? null : pickRandomStrategy()
     }));
     getAiPlayers().forEach(p => {
-      if (hideStrategy){
+      if (state.hideStrategy){
         log(`　${p.name} の戦略が決定しました（非公開モードのため詳細は伏せられます）。`);
       } else {
         log(`　${p.name} の戦略が「${strategyLabel(p.strategy)}」に決定しました。`);
@@ -582,23 +624,23 @@
 
   // ================= ラウンド制御 =================
   function startGame(rounds){
-    numRounds = rounds;
-    round = 0;
-    logLines = [];
-    lastStrategyChanges = [];
+    state.numRounds = rounds;
+    state.round = 0;
+    state.logLines = [];
+    state.lastStrategyChanges = [];
     initPlayers();
-    document.getElementById('total-rounds').textContent = numRounds;
-    document.getElementById('setup-screen').style.display = 'none';
-    document.getElementById('game-screen').style.display = 'block';
+    dom.totalRounds.textContent = state.numRounds;
+    dom.setupScreen.style.display = 'none';
+    dom.gameScreen.style.display = 'block';
     startRound();
   }
 
   function startRound(){
-    round += 1;
-    pool = POOL_START;
-    turn = 1;
-    players.forEach(p => { p.active = true; p.roundTotal = 0; p.lastDeclare = null; });
-    log(`◆ ラウンド ${round} 開始（場のコイン: ${POOL_START}枚）`);
+    state.round += 1;
+    state.pool = POOL_START;
+    state.turn = 1;
+    state.players.forEach(p => { p.active = true; p.roundTotal = 0; p.lastDeclare = null; });
+    log(`◆ ラウンド ${state.round} 開始（場のコイン: ${POOL_START}枚）`);
     goToTurnStart();
     requestAnimationFrame(playRoundStartAnimation);
   }
@@ -608,14 +650,14 @@
 
     if (activeList.length === 1){
       const winner = activeList[0];
-      const amount = pool;
+      const amount = state.pool;
       winner.total += amount;
       winner.roundTotal += amount;
-      lastReveal = { type: 'auto', winner, amount, poolBefore: amount };
+      state.lastReveal = { type: 'auto', winner, amount, poolBefore: amount };
       log(`　最後の1人となった ${winner.name} が残りの ${amount} 枚を自動獲得！`);
-      pool = 0;
+      state.pool = 0;
       winner.active = false;
-      phase = 'auto_award_reveal';
+      state.phase = 'auto_award_reveal';
       render();
       requestAnimationFrame(playRevealAnimations);
       return;
@@ -628,18 +670,18 @@
 
     // 理論上は起こり得ないが、念のための防御的ガード：
     // 場のコインが0枚だと「1以上」の宣言ができる人がいないため、強制的にラウンドを終了する。
-    if (pool === 0){
+    if (state.pool === 0){
       log(`　場のコインが0枚になり、これ以上誰も宣言できないためラウンド終了。`);
       activeList.forEach(p => { p.active = false; });
       finishRound();
       return;
     }
 
-    players.forEach(p => { p.lastDeclare = null; });
+    state.players.forEach(p => { p.lastDeclare = null; });
 
-    const human = players[0];
+    const human = state.players[0];
     if (human.active){
-      phase = 'turn_input';
+      state.phase = 'turn_input';
       render();
     } else {
       resolveTurn(null);
@@ -653,11 +695,11 @@
 
   function resolveTurn(humanNum){
     const activeList = getActivePlayers();
-    const poolBeforeTurn = pool;
+    const poolBeforeTurn = state.pool;
     const declarations = {}; // id -> number
 
     activeList.forEach(p => {
-      declarations[p.id] = p.isHuman ? humanNum : decideAiDeclaration(p, pool, activeList.length);
+      declarations[p.id] = p.isHuman ? humanNum : decideAiDeclaration(p, state.pool, activeList.length);
       p.lastDeclare = declarations[p.id];
     });
 
@@ -666,14 +708,14 @@
 
     const uniqueNums = Object.keys(counts).filter(n => counts[n] === 1).map(Number);
 
-    log(`　ターン ${turn}：` + activeList.map(p => `${p.name}=${declarations[p.id]}`).join(' / '));
+    log(`　ターン ${state.turn}：` + activeList.map(p => `${p.name}=${declarations[p.id]}`).join(' / '));
 
     if (uniqueNums.length === 0){
       activeList.forEach(p => { p.active = false; });
-      lastReveal = { type: 'all_dup', declarations, activeSnapshot: activeList.map(p => p.id) };
+      state.lastReveal = { type: 'all_dup', declarations, activeSnapshot: activeList.map(p => p.id) };
       log(`　→ 全員の数字が被り、獲得者なし。参加者全員が脱落しラウンド終了。`);
-      turn += 1;
-      phase = 'turn_reveal';
+      state.turn += 1;
+      state.phase = 'turn_reveal';
       render();
       requestAnimationFrame(playRevealAnimations);
       return;
@@ -683,7 +725,7 @@
     const winner = activeList.find(p => declarations[p.id] === minUnique);
     winner.total += minUnique;
     winner.roundTotal += minUnique;
-    pool -= minUnique;
+    state.pool -= minUnique;
 
     const droppedIds = [];
     activeList.forEach(p => {
@@ -694,20 +736,20 @@
       }
     });
 
-    lastReveal = {
+    state.lastReveal = {
       type: 'normal', declarations, winner, minUnique, droppedIds,
-      poolAfter: pool, poolBefore: poolBeforeTurn, activeSnapshot: activeList.map(p => p.id)
+      poolAfter: state.pool, poolBefore: poolBeforeTurn, activeSnapshot: activeList.map(p => p.id)
     };
-    log(`　→ ${winner.name} が最小ユニーク数字 ${minUnique} で ${minUnique} 枚獲得（残り場: ${pool}枚）`);
+    log(`　→ ${winner.name} が最小ユニーク数字 ${minUnique} で ${minUnique} 枚獲得（残り場: ${state.pool}枚）`);
 
-    turn += 1;
-    phase = 'turn_reveal';
+    state.turn += 1;
+    state.phase = 'turn_reveal';
     render();
     requestAnimationFrame(playRevealAnimations);
   }
 
   function continueFromReveal(){
-    if (lastReveal && lastReveal.type === 'auto'){
+    if (state.lastReveal && state.lastReveal.type === 'auto'){
       finishRound();
       return;
     }
@@ -719,24 +761,24 @@
   }
 
   function finishRound(){
-    log(`◆ ラウンド ${round} 終了（場の残りコインは消滅）`);
+    log(`◆ ラウンド ${state.round} 終了（場の残りコインは消滅）`);
     applyLoserStrategyShuffle();
-    phase = 'round_summary';
+    state.phase = 'round_summary';
     render();
   }
 
   // ラウンド最下位（獲得コインが最も少なかった）AIプレイヤーの戦略をランダムに変更する。
   // 人間プレイヤーは戦略を持たないため、対象は常にAIのみ。
   function applyLoserStrategyShuffle(){
-    lastStrategyChanges = [];
-    const minRoundTotal = Math.min(...players.map(p => p.roundTotal));
+    state.lastStrategyChanges = [];
+    const minRoundTotal = Math.min(...state.players.map(p => p.roundTotal));
     const losers = getAiPlayers().filter(p => p.roundTotal === minRoundTotal);
 
     losers.forEach(p => {
       const oldStrategy = p.strategy;
       p.strategy = pickRandomStrategy(oldStrategy);
-      lastStrategyChanges.push({ name: p.name, from: oldStrategy, to: p.strategy });
-      if (hideStrategy){
+      state.lastStrategyChanges.push({ name: p.name, from: oldStrategy, to: p.strategy });
+      if (state.hideStrategy){
         log(`　${p.name} はこのラウンドの最下位となり、戦略が変更されました（非公開モード）。`);
       } else {
         log(`　${p.name} はこのラウンドの最下位となり、戦略が「${strategyLabel(oldStrategy)}」→「${strategyLabel(p.strategy)}」に変更されました。`);
@@ -745,8 +787,8 @@
   }
 
   function nextRoundOrEnd(){
-    if (round >= numRounds){
-      phase = 'game_summary';
+    if (state.round >= state.numRounds){
+      state.phase = 'game_summary';
       render();
     } else {
       startRound();
@@ -755,44 +797,44 @@
 
   // ================= 描画 =================
   function render(){
-    document.getElementById('round-num').textContent = round;
+    dom.roundNum.textContent = state.round;
 
     // 数字公開演出（turn_reveal / auto_award_reveal）の間は、コインが実際に
     // 減る「前」の枚数をいったん表示しておく。ここで最終値を表示してしまうと、
     // 演出（animatePoolDisplay）が始まるまでの一瞬だけ結果後の枚数がちらついて見えてしまうため。
-    const displayPool = (isRevealPhase() && lastReveal && typeof lastReveal.poolBefore === 'number')
-      ? lastReveal.poolBefore
-      : pool;
-    document.getElementById('pool-num').textContent = displayPool;
-    document.getElementById('pool-ring').style.setProperty('--pct', Math.round((displayPool / POOL_START) * 100));
-    document.getElementById('turn-num').textContent = turn;
+    const displayPool = (isRevealPhase() && state.lastReveal && typeof state.lastReveal.poolBefore === 'number')
+      ? state.lastReveal.poolBefore
+      : state.pool;
+    dom.poolNum.textContent = displayPool;
+    dom.poolRing.style.setProperty('--pct', Math.round((displayPool / POOL_START) * 100));
+    dom.turnNum.textContent = state.turn;
 
     renderPlayers();
     renderAction();
   }
 
   function isRevealPhase(){
-    return phase === 'turn_reveal' || phase === 'auto_award_reveal';
+    return state.phase === 'turn_reveal' || state.phase === 'auto_award_reveal';
   }
 
   // 直前の公開処理（このターン中に宣言・決着したプレイヤー）のID一覧を返す。
   // auto: 最後の1人だけが対象。normal / all_dup: activeSnapshot が対象。
   function getResolvedPlayerIds(){
-    if (!lastReveal) return [];
-    if (lastReveal.type === 'auto') return [lastReveal.winner.id];
-    return lastReveal.activeSnapshot || [];
+    if (!state.lastReveal) return [];
+    if (state.lastReveal.type === 'auto') return [state.lastReveal.winner.id];
+    return state.lastReveal.activeSnapshot || [];
   }
 
   // プレイヤーの今回の公開結果ステータスを返す: 'win' | 'drop' | 'safe' | null
   function getRevealStatus(p){
-    if (!lastReveal || !isRevealPhase()) return null;
-    if (lastReveal.type === 'auto'){
-      return lastReveal.winner.id === p.id ? 'win' : null;
+    if (!state.lastReveal || !isRevealPhase()) return null;
+    if (state.lastReveal.type === 'auto'){
+      return state.lastReveal.winner.id === p.id ? 'win' : null;
     }
-    if (!lastReveal.activeSnapshot.includes(p.id)) return null;
-    if (lastReveal.type === 'all_dup') return 'drop';
-    if (p.id === lastReveal.winner.id) return 'win';
-    if (lastReveal.droppedIds.includes(p.id)) return 'drop';
+    if (!state.lastReveal.activeSnapshot.includes(p.id)) return null;
+    if (state.lastReveal.type === 'all_dup') return 'drop';
+    if (p.id === state.lastReveal.winner.id) return 'win';
+    if (state.lastReveal.droppedIds.includes(p.id)) return 'drop';
     return 'safe';
   }
 
@@ -800,7 +842,7 @@
   // 脱落は一時表示が終わった後も p.active === false である限り恒常的に表示され続ける。
   function getStatusBadgeHtml(p){
     const status = getRevealStatus(p);
-    if (status === 'win') return `<div class="corner-badge corner-badge-right badge-win">${lastReveal.type === 'auto' ? '自動獲得' : '獲得'}</div>`;
+    if (status === 'win') return `<div class="corner-badge corner-badge-right badge-win">${state.lastReveal.type === 'auto' ? '自動獲得' : '獲得'}</div>`;
     if (status === 'drop') return '<div class="corner-badge corner-badge-right badge-drop">脱落</div>';
     if (!p.active) return '<div class="corner-badge corner-badge-right badge-drop">脱落</div>';
     return '';
@@ -809,7 +851,7 @@
   // カード左上に固定表示するAIの戦略バッジ（人間プレイヤーには表示しない）。
   function getStrategyBadgeHtml(p){
     if (p.isHuman) return '';
-    if (hideStrategy) return ''; // 非公開モードでは、バッジ自体を出さない（有無で人間/AIが分からないように）
+    if (state.hideStrategy) return ''; // 非公開モードでは、バッジ自体を出さない（有無で人間/AIが分からないように）
     return `<div class="corner-badge corner-badge-bottom-center pstrategy">${strategyLabel(p.strategy)}</div>`;
   }
 
@@ -824,19 +866,19 @@
   // 加算前の枚数を表示しておく。そうしないと、コインがまだ画面上を移動していないのに
   // 枚数表示だけ先に加算後の値になってしまう（アニメーション開始前の見た目の不整合）。
   function getDisplayTotal(p){
-    if (isRevealPhase() && lastReveal && lastReveal.winner && lastReveal.winner.id === p.id){
-      return p.total - getWinAmount(lastReveal);
+    if (isRevealPhase() && state.lastReveal && state.lastReveal.winner && state.lastReveal.winner.id === p.id){
+      return p.total - getWinAmount(state.lastReveal);
     }
     return p.total;
   }
 
   function renderPlayers(){
-    const grid = document.getElementById('players-grid');
+    const grid = dom.playersGrid;
     grid.innerHTML = '';
     const reveal = isRevealPhase();
     const resolvedIds = reveal ? getResolvedPlayerIds() : [];
 
-    players.forEach((p, idx) => {
+    state.players.forEach((p, idx) => {
       // 今回のターンで決着したプレイヤー（獲得者・脱落者）は、いったん通常表示のまま描画し、
       // 少し間を置いてから .dropped クラスを付与する。カード自体を非表示にはせず、
       // .player-card の transition（border-color / box-shadow）によって枠の強調表示が
@@ -849,12 +891,21 @@
       card.className = 'player-card'
         + (showAsActiveForNow ? ' active' : ' dropped')
         + (p.isHuman ? ' human' : '')
-        + (p.isHuman && phase === 'turn_input' ? ' human-turn' : '')
+        + (p.isHuman && state.phase === 'turn_input' ? ' human-turn' : '')
         + (status === 'win' ? ' win-glow' : status === 'drop' ? ' drop-glow' : status === 'safe' ? ' safe-glow' : '');
 
-      const revealNumberHtml = (reveal && p.lastDeclare !== null && resolvedIds.includes(p.id))
-        ? `<div class="reveal-number ${status || 'safe'}" style="animation-delay:${idx * 70}ms"><span class="rlabel">宣言</span>${p.lastDeclare}</div>`
-        : '';
+      // 自動獲得（残り1人）の場合、そのプレイヤーは最後のターンで宣言をしていないため
+      // p.lastDeclare には1つ前のターンの古い数字が残ったままになっている。
+      // これをそのまま表示すると「宣言していない数字」が出てしまい紛らわしいので、
+      // 自動獲得時は宣言数字ではなく実際に獲得した枚数を表示する。
+      let revealNumberHtml = '';
+      if (reveal && resolvedIds.includes(p.id)){
+        if (state.lastReveal.type === 'auto'){
+          revealNumberHtml = `<div class="reveal-number ${status || 'safe'}" style="animation-delay:${idx * 70}ms"><span class="rlabel">獲得</span>${state.lastReveal.amount}</div>`;
+        } else if (p.lastDeclare !== null){
+          revealNumberHtml = `<div class="reveal-number ${status || 'safe'}" style="animation-delay:${idx * 70}ms"><span class="rlabel">宣言</span>${p.lastDeclare}</div>`;
+        }
+      }
 
       card.innerHTML = `
         ${getStrategyBadgeHtml(p)}
@@ -893,8 +944,8 @@
   }
 
   function animatePoolDisplay(fromVal, toVal, duration){
-    const numEl = document.getElementById('pool-num');
-    const ring = document.getElementById('pool-ring');
+    const numEl = dom.poolNum;
+    const ring = dom.poolRing;
     if (!numEl || !ring) return;
     animateValue(fromVal, toVal, duration, (val) => {
       numEl.textContent = val;
@@ -904,7 +955,7 @@
 
   // ラウンド開始時の軽い演出：場のコインが弾みながら0→99枚へカウントアップする。
   function playRoundStartAnimation(){
-    const poolEl = document.querySelector('.pool-circle');
+    const poolEl = dom.poolCircle;
     if (poolEl){
       poolEl.classList.remove('round-start-pop'); // 連続実行時に備えて一旦リセット
       void poolEl.offsetWidth; // reflow を挟んでアニメーションを再トリガーできるようにする
@@ -918,8 +969,8 @@
   const MAX_FLYING_COINS = 30;
 
   function animateCoinFlight(winnerId, amount){
-    const poolEl = document.querySelector('.pool-circle');
-    const winnerCard = document.querySelector(`.player-card[data-player-id="${winnerId}"]`);
+    const poolEl = dom.poolCircle;
+    const winnerCard = dom.playersGrid.querySelector(`[data-player-id="${winnerId}"]`);
     if (!poolEl || !winnerCard) return;
     const targetEl = winnerCard.querySelector('.total-coin-circle') || winnerCard;
 
@@ -976,20 +1027,20 @@
   // ・一拍間を置いてから、コインがプールから獲得者へ飛んでいく演出＋数値のカウントアップ
   // ・コインが到着し終えた頃、獲得者／脱落者のカードを dropped 状態に切り替える（枠の強調表示のみ変化）
   function playRevealAnimations(){
-    if (!lastReveal || !isRevealPhase()) return;
-    const grid = document.getElementById('players-grid');
+    if (!state.lastReveal || !isRevealPhase()) return;
+    const grid = dom.playersGrid;
     if (!grid) return;
 
-    const winner = lastReveal.type !== 'all_dup' ? lastReveal.winner : null;
+    const winner = state.lastReveal.type !== 'all_dup' ? state.lastReveal.winner : null;
 
     if (winner){
-      const amount = getWinAmount(lastReveal);
+      const amount = getWinAmount(state.lastReveal);
       const winnerTotalBefore = getDisplayTotal(winner);
 
       setTimeout(() => {
-        if (!isRevealPhase() || lastReveal.winner !== winner) return;
+        if (!isRevealPhase() || state.lastReveal.winner !== winner) return;
         animateCoinFlight(winner.id, amount);
-        animatePoolDisplay(lastReveal.poolBefore, pool, 650);
+        animatePoolDisplay(state.lastReveal.poolBefore, state.pool, 650);
         const totalEl = grid.querySelector(`[data-player-id="${winner.id}"] [data-role="total"]`);
         animateNumber(totalEl, winnerTotalBefore, winner.total, 650);
       }, COIN_START_DELAY_MS);
@@ -1003,7 +1054,7 @@
       setTimeout(() => {
         if (!isRevealPhase()) return;
         resolvedIds.forEach(id => {
-          const p = players.find(pl => pl.id === id);
+          const p = state.players.find(pl => pl.id === id);
           if (p && !p.active){
             const card = grid.querySelector(`[data-player-id="${id}"]`);
             if (card){
@@ -1017,9 +1068,9 @@
   }
 
   function renderStrategyChangeNotice(){
-    if (lastStrategyChanges.length === 0) return '';
-    const items = lastStrategyChanges.map(c => {
-      if (hideStrategy){
+    if (state.lastStrategyChanges.length === 0) return '';
+    const items = state.lastStrategyChanges.map(c => {
+      if (state.hideStrategy){
         return `<div>・<b>${c.name}</b> の戦略が変更されました（非公開モード）。</div>`;
       }
       return `<div>・<b>${c.name}</b>：「${strategyLabel(c.from)}」 → 「${strategyLabel(c.to)}」</div>`;
@@ -1029,72 +1080,96 @@
 
   // turn_reveal / auto_award_reveal 共通の「結果キャプション＋次へボタン」画面を描画する。
   function renderRevealScreen(titleText, captionHtml, btnLabel){
-    document.getElementById('phase-title').textContent = titleText;
-    const area = document.getElementById('action-area');
+    dom.phaseTitle.textContent = titleText;
+    const area = dom.actionArea;
     area.innerHTML = `
       <div class="reveal-caption">${captionHtml}</div>
       <div class="center-btns"><button class="primary-btn" id="continue-btn">${btnLabel}</button></div>
     `;
-    document.getElementById('continue-btn').addEventListener('click', continueFromReveal);
+    area.querySelector('#continue-btn').addEventListener('click', continueFromReveal);
   }
 
   function renderAction(){
-    const area = document.getElementById('action-area');
-    const title = document.getElementById('phase-title');
+    const area = dom.actionArea;
+    const title = dom.phaseTitle;
 
-    if (phase === 'turn_input'){
+    if (state.phase === 'turn_input'){
       title.textContent = '宣言';
       area.innerHTML = `
-        <div class="action-title">1 〜 ${pool} の整数を1つ宣言してください</div>
+        <div class="action-title">1 〜 ${state.pool} の整数を1つ宣言してください</div>
         <div class="input-row">
-          <input type="number" id="human-input" class="num-input" min="1" max="${pool}" value="1">
+          <div class="stepper">
+            <input type="number" id="human-input" class="num-input" min="1" max="${state.pool}" value="" placeholder="1〜${state.pool}">
+            <button type="button" class="step-btn" id="step-minus" aria-label="-1">−1</button>
+            <button type="button" class="step-btn" id="step-plus" aria-label="+1">+1</button>
+          </div>
           <div class="quick-btns">
             <div class="quick-btn" data-v="1">1</div>
-            <div class="quick-btn" data-v="${Math.max(1, Math.floor(pool/3))}">1/3 (${Math.max(1, Math.floor(pool/3))})</div>
-            <div class="quick-btn" data-v="${Math.max(1, Math.floor(pool/2))}">中間 (${Math.max(1, Math.floor(pool/2))})</div>
-            <div class="quick-btn" data-v="${pool}">最大 (${pool})</div>
+            <div class="quick-btn" data-v="${Math.max(1, Math.floor(state.pool/3))}">1/3 (${Math.max(1, Math.floor(state.pool/3))})</div>
+            <div class="quick-btn" data-v="${Math.max(1, Math.floor(state.pool/2))}">中間 (${Math.max(1, Math.floor(state.pool/2))})</div>
+            <div class="quick-btn" data-v="${state.pool}">最大 (${state.pool})</div>
           </div>
-          <button class="primary-btn" id="declare-btn">宣言する</button>
+          <button class="primary-btn" id="declare-btn" disabled>宣言する</button>
         </div>
         <div class="hint">他の誰とも被らない最小の数字を宣言できればその数字分のコインを獲得できます。獲得者、および他者と被った人は脱落します。</div>
       `;
-      const input = document.getElementById('human-input');
+      const input = area.querySelector('#human-input');
+      const declareBtn = area.querySelector('#declare-btn');
+
+      // 入力欄が空欄の間は宣言ボタンを押せないようにする（誤って空欄のまま送信するのを防ぐ）。
+      const updateDeclareBtnState = () => {
+        declareBtn.disabled = input.value.trim() === '';
+      };
+      input.addEventListener('input', updateDeclareBtnState);
+
+      // 入力欄にフォーカスが当たったら、既存の数字を全選択状態にする。
+      // こうすることで、値が入っている状態から再入力する際にわざわざ手動で選択し直さなくて済む。
+      input.addEventListener('focus', () => { input.select(); });
+
+      const stepInput = (delta) => {
+        let v = parseInt(input.value, 10);
+        if (isNaN(v)) v = 0;
+        input.value = clamp(v + delta, 1, state.pool);
+        updateDeclareBtnState();
+      };
+      area.querySelector('#step-minus').addEventListener('click', () => stepInput(-1));
+      area.querySelector('#step-plus').addEventListener('click', () => stepInput(1));
       area.querySelectorAll('.quick-btn').forEach(btn => {
-        btn.addEventListener('click', () => { input.value = btn.dataset.v; });
+        btn.addEventListener('click', () => { input.value = btn.dataset.v; updateDeclareBtnState(); });
       });
-      document.getElementById('declare-btn').addEventListener('click', () => {
+      declareBtn.addEventListener('click', () => {
         let v = parseInt(input.value, 10);
         if (isNaN(v) || v < 1) v = 1;
-        if (v > pool) v = pool;
+        if (v > state.pool) v = state.pool;
         resolveTurn(v);
       });
       return;
     }
 
-    if (phase === 'turn_reveal'){
-      const caption = lastReveal.type === 'all_dup'
+    if (state.phase === 'turn_reveal'){
+      const caption = state.lastReveal.type === 'all_dup'
         ? '全員の数字が被り、<b>獲得者はいません</b>でした。参加者は全員脱落し、ラウンドが終了します。'
-        : `最小ユニーク数字は <b>${lastReveal.minUnique}</b>。<b>${lastReveal.winner.name}</b> が ${lastReveal.minUnique} 枚を獲得しました。`;
+        : `最小ユニーク数字は <b>${state.lastReveal.minUnique}</b>。<b>${state.lastReveal.winner.name}</b> が ${state.lastReveal.minUnique} 枚を獲得しました。`;
       renderRevealScreen('ターン結果', caption, '次へ');
       return;
     }
 
-    if (phase === 'auto_award_reveal'){
-      const caption = `残り参加者が1人になったため、<b>${lastReveal.winner.name}</b> が場に残っていた <b>${lastReveal.amount}</b> 枚を自動的に獲得しました。`;
+    if (state.phase === 'auto_award_reveal'){
+      const caption = `残り参加者が1人になったため、<b>${state.lastReveal.winner.name}</b> が場に残っていた <b>${state.lastReveal.amount}</b> 枚を自動的に獲得しました。`;
       renderRevealScreen('自動獲得', caption, 'ラウンド結果へ');
       return;
     }
 
-    if (phase === 'round_summary'){
-      title.textContent = `ラウンド ${round} 結果`;
-      const sorted = [...players].sort((a,b) => b.roundTotal - a.roundTotal);
+    if (state.phase === 'round_summary'){
+      title.textContent = `ラウンド ${state.round} 結果`;
+      const sorted = [...state.players].sort((a,b) => b.roundTotal - a.roundTotal);
       let rows = sorted.map(p => `
         <tr>
           <td>${p.name}</td>
           <td class="num">+${p.roundTotal}</td>
           <td class="num">${p.total}</td>
         </tr>`).join('');
-      const isLast = round >= numRounds;
+      const isLast = state.round >= state.numRounds;
       area.innerHTML = `
         <div class="action-title">このラウンドの獲得コインと総合コイン</div>
         <table class="round-summary-table">
@@ -1104,8 +1179,8 @@
         ${renderStrategyChangeNotice()}
         <div class="center-btns"><button class="primary-btn" id="next-round-btn">${isLast ? '最終結果を見る' : '次のラウンドへ'}</button></div>
       `;
-      document.getElementById('next-round-btn').addEventListener('click', () => {
-        const goingToNextRound = round < numRounds;
+      area.querySelector('#next-round-btn').addEventListener('click', () => {
+        const goingToNextRound = state.round < state.numRounds;
         nextRoundOrEnd();
         if (goingToNextRound){
           window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1114,9 +1189,9 @@
       return;
     }
 
-    if (phase === 'game_summary'){
+    if (state.phase === 'game_summary'){
       title.textContent = 'ゲーム終了';
-      const sorted = [...players].sort((a,b) => b.total - a.total);
+      const sorted = [...state.players].sort((a,b) => b.total - a.total);
       let rows = sorted.map((p, i) => `
         <div class="podium-row ${i===0 ? 'first' : ''}">
           <div class="podium-rank">${i+1}</div>
@@ -1125,13 +1200,13 @@
         </div>`).join('');
       const championText = sorted[0].isHuman ? 'あなたの勝利です！おめでとうございます。' : `${sorted[0].name} の勝利です。`;
       area.innerHTML = `
-        <div class="result-msg" style="text-align:center; font-size:16px;">全 ${numRounds} ラウンドが終了しました。<br><b>${championText}</b></div>
+        <div class="result-msg" style="text-align:center; font-size:16px;">全 ${state.numRounds} ラウンドが終了しました。<br><b>${championText}</b></div>
         <div class="final-podium">${rows}</div>
         <div class="center-btns"><button class="primary-btn" id="restart-btn">もう一度プレイする</button></div>
       `;
-      document.getElementById('restart-btn').addEventListener('click', () => {
-        document.getElementById('setup-screen').style.display = 'block';
-        document.getElementById('game-screen').style.display = 'none';
+      area.querySelector('#restart-btn').addEventListener('click', () => {
+        dom.setupScreen.style.display = 'block';
+        dom.gameScreen.style.display = 'none';
         window.scrollTo({ top: 0, behavior: 'smooth' });
       });
       return;
@@ -1139,15 +1214,14 @@
   }
 
   function renderLog(){
-    const box = document.getElementById('log-entries');
+    const box = dom.logEntries;
     if (!box) return;
-    box.innerHTML = logLines.map(l => `<div class="lr">${l}</div>`).join('');
+    box.innerHTML = state.logLines.map(l => `<div class="lr">${l}</div>`).join('');
     box.scrollTop = box.scrollHeight;
   }
 
   // ================= セットアップ画面のイベント =================
-  function setupExclusiveToggle(containerId, onSelect){
-    const container = document.getElementById(containerId);
+  function setupExclusiveToggle(container, onSelect){
     container.querySelectorAll('.round-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         container.querySelectorAll('.round-btn').forEach(b => b.classList.remove('active'));
@@ -1157,16 +1231,16 @@
     });
   }
 
-  setupExclusiveToggle('round-select', (btn) => {
-    numRounds = parseInt(btn.dataset.rounds, 10);
+  setupExclusiveToggle(dom.roundSelect, (btn) => {
+    state.numRounds = parseInt(btn.dataset.rounds, 10);
   });
 
-  setupExclusiveToggle('visibility-select', (btn) => {
-    hideStrategy = btn.dataset.hide === 'true';
+  setupExclusiveToggle(dom.visibilitySelect, (btn) => {
+    state.hideStrategy = btn.dataset.hide === 'true';
   });
 
-  document.getElementById('start-btn').addEventListener('click', () => {
-    startGame(numRounds);
+  dom.startBtn.addEventListener('click', () => {
+    startGame(state.numRounds);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   });
 
