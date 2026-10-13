@@ -17,7 +17,7 @@
     "eslint-config-prettier": "^10.1.8",
     "globals": "^16.4.0",
     "prettier": "3.6.2",
-    "source-map-js": "^1.2.1",
+    "source-map-js": "^1.2.2",
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.44.1",
     "vite": "^8.0.16"
