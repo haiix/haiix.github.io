@@ -230,7 +230,13 @@ function applyIdBindings(
 
     const element = elements[index]!;
 
-    (instance as any)[id] = element;
+    // declare忘れによる undefined での暗黙の上書きを、TypeError にして早期検出する
+    Object.defineProperty(instance, id, {
+      value: element,
+      enumerable: true,
+      writable: false,
+      configurable: false,
+    });
 
     if (referenced) {
       const uid = generateDOMId();
