@@ -303,7 +303,7 @@ function applyEventBindings(
 
 const componentMap = new WeakMap<Element, TComponent>();
 
-type ConstructorArgs<Parent> = null extends Parent
+export type ConstructorArgs<Parent> = null extends Parent
   ? [params?: { parent?: Parent }]
   : [params: { parent: Parent }];
 
